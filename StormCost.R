@@ -7,7 +7,7 @@ library(knitr)
 
 # PROGRAM CONSTANTS-------------------------------------------------------------
 VERBOSE         = FALSE     # TRUE  FALSE
-DEBUG           = FALSE
+DEBUG           = TRUE
 TEST            = TRUE
 
 NATIONAL_SOURCE_INDEX    = 1
@@ -101,7 +101,9 @@ DownloadDataFile <- function(url, destfile)
 # ##############################################################################  
 LoadDisasterData <- function(dataFile)
 {
-  print(paste0("loadRawData: Reading raw storm data from ", dataFile))
+  if (VERBOSE) {
+    print(paste0("loadRawData: Reading raw storm data from ", dataFile))
+  }
   
   ## set up table from the input file ------------------------------------------
   rawData <- read.table(dataFile, stringsAsFactors = FALSE, sep = ",",
@@ -126,9 +128,19 @@ LoadDisasterData <- function(dataFile)
 # ##############################################################################  
 CleanRawData <- function(rawData)
 {
+  if (VERBOSE) {
+    print("CleanRawData: Set headers, transform data to numeric ")
+  }
+  
+  # TODO: Explain this
   names(rawData) <- rawData[1,]
   rawData <- rawData[-1,]
   rownames(rawData) <- 1:nrow(rawData)
+  
+  if (DEBUG) {
+    print("CleanRawData: check raw data")
+    print(head(rawData))
+  }
   
   ## convert data used for computation from string to numeric ------------------
   rawData <- rawData %>%
@@ -138,7 +150,7 @@ CleanRawData <- function(rawData)
 }  ## End of CleanRawData function
 
 # ##############################################################################  
-transformRawData <- function(rawData) 
+TransformRawToSource <- function(rawData) 
 {
   print("transformRawData: add aggregate casualties and damage data")
   
@@ -337,4 +349,25 @@ test_LoadDisasterData <- function() {
   
   rawData <- LoadDisasterData(DATAFILE)
   
-  print("Display disaster data ###############################################")
+  print("Display disaster data #############################################")
+  print(head(rawData))
+  
+  return (rawData)
+}
+
+test_CleanRawData <- function(rawData) {
+    cleanData <- CleanRawData(rawData)
+
+  print("Display clean disaster data #######################################")
+  print(head(cleanData))
+  
+  
+  return (cleanData)
+  
+}
+
+if (TEST) {
+  rawData   <- test_LoadDisasterData()
+  cleanData <- test_CleanRawData(rawData)
+}
+
