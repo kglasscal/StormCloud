@@ -1,3 +1,11 @@
+# ##############################################################################
+# ##############################################################################
+# 
+# Setup Phase
+# 
+# ##############################################################################
+# ##############################################################################
+
 # Required Libraries -----------------------------------------------------------
 library(ggplot2)
 library(dplyr)
@@ -7,8 +15,9 @@ library(knitr)
 
 # PROGRAM CONSTANTS-------------------------------------------------------------
 VERBOSE         = FALSE     # TRUE  FALSE
-DEBUG           = TRUE
-TEST            = TRUE
+DEBUG           = FALSE
+TEST            = FALSE
+SYSTEM          = TRUE
 
 COUNTY_SOURCE_INDEX      = 1
 STATE_SOURCE_INDEX       = 2
@@ -45,8 +54,13 @@ STATE_    <- "CA"
 COUNTY_   <- "SAN BERNARDINO"
 
 # ##############################################################################
-# Program Control Phase
 # ##############################################################################
+# 
+# Program Control Phase
+# 
+# ##############################################################################
+# ##############################################################################
+
 Main <- function() {
   govtTableList <- GenerateDisasterTables(URL, DATAFILE)
   resultList   <- GenerateDisasterData(govtTableList)
@@ -55,7 +69,11 @@ Main <- function() {
 }
 
 # ##############################################################################
-# Generate Analysis Data for Each Government Level
+# ##############################################################################
+# 
+# Generate Analysis Data Phase
+# 
+# ##############################################################################
 # ##############################################################################
 
 # GenerateDisasterTables #######################################################
@@ -74,12 +92,12 @@ GenerateDisasterTables <- function(url, dataFile)  {
     }
   }
 
-  rawData <- LoadDisasterData(url, dataFile)
+  rawData <- LoadDisasterData(dataFile)
   ## Set up the aggregated financial and casualty data  ------------------------
   sourceData <- TransformRawToSource(rawData)
   
   sourceTableList <- GenerateSourceTables(sourceData)
-  govtTableList <- groupGovtTable(sourceTableList)
+  govtTableList <- GenerateGovtEventsTable(sourceTableList)
   
   return (govtTableList)
 }  ## End of GenerateDisasterTables function
@@ -97,7 +115,7 @@ DownloadDataFile <- function(url, destfile)
   }
 }  ## End of DownloadDataFile function
 
-# ##############################################################################  
+# LoadDisasterData #############################################################
 LoadDisasterData <- function(dataFile)
 {
   if (VERBOSE) {
@@ -125,7 +143,7 @@ LoadDisasterData <- function(dataFile)
   return (rawData)
 }  ## End of LoadDisasterData function
 
-# ##############################################################################  
+# CleanRawData #################################################################
 CleanRawData <- function(rawData)
 {
   if (VERBOSE) {
@@ -144,7 +162,7 @@ CleanRawData <- function(rawData)
   return (rawData)
 }  ## End of CleanRawData function
 
-# ##############################################################################  
+# TransformRawToSource #########################################################
 TransformRawToSource <- function(rawData) 
 {
   if (VERBOSE) {
@@ -176,7 +194,7 @@ TransformRawToSource <- function(rawData)
   return (sourceData)
 }
 
-# ##############################################################################  
+# GenerateSourceTablesList #####################################################
 GenerateSourceTablesList <- function(sourceData) {
   if (VERBOSE) {
     print("GenerateSourceTables: convert raw data to tables with the containing")
@@ -207,46 +225,60 @@ GenerateSourceTablesList <- function(sourceData) {
   return(sourceTableList)
 }
 
-# ##############################################################################  
-GovtEventsTable <- function(govtTableList)  {
-  if (VERBOSE) {
-    print("GovtEventsTable: group the rawTables to govt tables grouped ")
-    print("by event type")
-  }
+# GenerateSourceTablesList #####################################################
 
+getHumanCost <- function(govtEventsTable){
+  # summarize Govt Events Table by human cost and sort by event
+  humanCost <- govtEventsTable %>% 
+    summarise(EVENT_HUMAN_COST = sum(HUMAN_COST), .groups = 'drop')
+  humanCost <- humanCost %>% arrange(desc(.$EVTYPE), 
+                                     .by_group = TRUE)
+  if (DEBUG) {
+    print("GovtEventsTable: humanCost")
+    print(head(humanCost))
+  }
+  
+  return(humanCost)
+}
+
+getEconomicCost <- function(govtEventsTable){
+  # summarize Govt Events Table by economic cost and sort by event
+  econCost <- govtEventsTable %>% 
+    summarise(EVENT_ECON_COST  = sum(ECON_COST), .groups = 'drop')
+  econCost <- econCost %>% arrange(desc(.$EVTYPE), .by_group = TRUE)
+  if (DEBUG) {
+    print("GovtEventsTable: econCost")
+    print(head(econCost))
+  }
+  return(econCost)
+}
+
+mergedEventList <- function(govtTableList){
   mergeTableList = list()
+  
   for (govt in COUNTY_SOURCE_INDEX : NATIONAL_SOURCE_INDEX) {
     govtEventsTable <- govtTableList[[govt]] %>% group_by(EVTYPE)
-
-    # summarize Govt Events Table by human cost and sort by event
-    humanCost <- govtEventsTable %>% 
-      summarise(EVENT_HUMAN_COST = sum(HUMAN_COST), .groups = 'drop')
-    humanCost <- humanCost %>% arrange(desc(.$EVTYPE), 
-                                       .by_group = TRUE)
-    if (DEBUG) {
-      print("GovtEventsTable: humanCost")
-      print(head(humanCost))
-    }
-
-    # summarize Govt Events Table by economic cost and sort by event
-    econCost <- govtEventsTable %>% 
-      summarise(EVENT_ECON_COST  = sum(ECON_COST), .groups = 'drop')
-    econCost <- econCost %>% arrange(desc(.$EVTYPE), .by_group = TRUE)
-    if (DEBUG) {
-      print("GovtEventsTable: econCost")
-      print(head(econCost))
-    }
     
+    humanCost <- getHumanCost(govtEventsTable)
+    econCost  <- getEconomicCost(govtEventsTable)
     # merge human and economic cost summaries
     mergeCost <- merge(humanCost, econCost, 
                        by.x = c('EVTYPE'), by.y = c('EVTYPE'))
 
     mergeTableList[[length(mergeTableList)+1]] <- mergeCost
   }
+  
+  return (mergeTableList)  
+}
 
+GenerateGovtEventsTable <- function(govtTableList)  {
+  if (VERBOSE) {
+    print("GovtEventsTable: group the rawTables to govt tables grouped ")
+    print("by event type")
+  }
+
+  mergeTableList <- mergedEventList(govtTableList)
   for (govt in COUNTY_SOURCE_INDEX : NATIONAL_SOURCE_INDEX) {
-    # govtEventsTable <-  %>% group_by(EVTYPE)
-
     humanOrder <- mergeTableList[[govt]] %>% arrange(desc(.$EVENT_HUMAN_COST), 
                                          .by_group = TRUE)
     govtTableList[[length(govtTableList)+1]] <- humanOrder
@@ -262,16 +294,6 @@ GovtEventsTable <- function(govtTableList)  {
 
   return (govtTableList)
 }  ## End of finalDataTransform function
-
-# COUNTY_SOURCE_INDEX      = 1
-# STATE_SOURCE_INDEX       = 2
-# NATIONAL_SOURCE_INDEX    = 3
-# COUNTY_COST_INDEX        = 4
-# STATE_COST_INDEX         = 5
-# NATIONAL_COST_INDEX      = 6
-# COUNTY_CASUALTY_INDEX    = 7
-# STATE_CASUALTY_INDEX     = 8
-# NATIONAL_CASUALTY_INDEX  = 9
 
 
 print("That's all folks")
@@ -328,10 +350,10 @@ test_GenerateSourceTables <- function(sourceData) {
   return (sourceTableList)
 }
 
-test_GovtEventsTable <- function(sourceTableList) {
-  govtTableList <- GovtEventsTable(sourceTableList)
+test_GenerateGovtEventsTable <- function(sourceTableList) {
+  govtTableList <- GenerateGovtEventsTable(sourceTableList)
   
-  print("test_GovtEventsTable govt disaster list #############################")
+  print("test_GenerateGovtEventsTable govt disaster list #####################")
   i = 1
   for (govtTable in govtTableList) {
     print(paste0("List[", i, "]"))
@@ -348,6 +370,22 @@ if (TEST) {
   govtTableList   <- test_GovtEventsTable(sourceTableList)
 }
 
+
+test_GenerateDisasterTables <- function(url, datafile) {
+  govtTableList <- GenerateDisasterTables(url, datafile)
+  
+  print("test_GenerateGovtEventsTable govt disaster list #####################")
+  i = 1
+  for (govtTable in govtTableList) {
+    print(paste0("List[", i, "]"))
+    print(head(govtTable))
+    i = i + 1
+  }
+}
+
+if (SYSTEM) {
+  test_GenerateDisasterTables(URL, DATAFILE)
+}
 
 
 # ##############################################################################
