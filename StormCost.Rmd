@@ -452,7 +452,14 @@ GenerateTop10EconomicTable <- function(agencyTableList) {
   return(economicCostList)
 }
 
-# GenerateCvC #######################################################
+```
+
+
+
+### Generate Images
+
+
+```{r image phase}
 GenerateCvC <- function(cvcTable) {
   if ((VERBOSE | DEBUG) & GENERATE_CVC_IMAGE) {
     print("GenerateCvC: starting processing")
@@ -460,27 +467,18 @@ GenerateCvC <- function(cvcTable) {
 
   cvcImageList <- list()
 
-  # for (agency in COUNTY_SOURCE_INDEX : FEDERAL_SOURCE_INDEX) {
   i <- 1
   for (cvcImage in cvcTable) {
-    print("IN PLOT LOOP")
     if (i %% 2 == 0) {
       df <- data.frame(cvcImage) 
-      print(head(df))
-
       sp <- ggplot(df, aes(x = EVENT_HUMAN_COST, y = EVENT_ECON_COST)) + geom_point()
 
-      print(paste0("class sp ", class(sp)))
-
-      cvcImageList[length(cvcImageList) + 1] = sp
+      cvcImageList[[length(cvcImageList) + 1]] = sp
     } else {
       print(cvcImage)
     }
-    print(paste0("cvcImageList length = ", length(cvcImageList)))
     i <- i + 1
   }
-  print(paste0("cvcImageList length = ", length(cvcImageList)))
-
 
   return(cvcImageList)
 }
@@ -632,6 +630,8 @@ test_GenerateCvC <- function(agencyTableList) {
   print(paste0("number of images = ", length(cvcImages)))
 
   i = 1
+  # plot(cvcImages[[1]])
+
   for (cvcImage in cvcImages) {
     print(class(cvcImage))
 
