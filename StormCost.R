@@ -35,6 +35,7 @@ GENERATE_AGENCY_MERGED_TABLE = FALSE
 GENERATE_DISASTER_ANALYSIS = FALSE
 GENERATE_TOP10_HUMAN_TABLE = FALSE
 GENERATE_TOP10_ECONOMCIC_TABLE = FALSE
+GENERATE_CVC_IMAGE = TRUE
 
 PHASE_SETUP         = FALSE
 PHASE_GENERATE_DATA = FALSE
@@ -183,13 +184,20 @@ CleanRawData <- function(rawData)
   rawData <- rawData %>%
     mutate_at(c('FATALITIES', 'INJURIES', 'PROPDMG', 'CROPDMG'), as.numeric)
 
+  rawData <- CleanEventTypes(rawData)
+  
+  
   if (VERBOSE & CLEAN_RAW_DATA) {
     print("CleanRawData: check raw data")
     print(head(rawData))
   }
-
   return (rawData)
 }  ## End of CleanRawData function
+
+# CleanRawData #################################################################
+ConsolidateEventTypes <- function(rawData) {
+  return (rawData)
+}
 
 # TransformRawToSource #########################################################
 TransformRawToSource <- function(rawData) 
@@ -198,7 +206,7 @@ TransformRawToSource <- function(rawData)
     print("TransformRawToSource: add aggregate casualties and damage data")
   }
 
-  sourceData <- rawData %>% # ungroup(.) %>%
+  sourceData <- rawData %>% ungroup(.) %>%
     mutate (PROPDMGEXP = ifelse(PROPDMGEXP == 'K', 1000.,
                                 ifelse(PROPDMGEXP == 'M', 1000000., 1.) ),
             CROPDMGEXP = ifelse(CROPDMGEXP == 'K', 1000.,
@@ -280,7 +288,7 @@ GetHumanCost <- function(agencyEventsTable){
 # GetEconomicCost #####################################################
 GetEconomicCost <- function(agencyEventsTable) {
   if (VERBOSE & GET_ECONOMIC_COST) {
-    print("GetEconomicCost: generate an ordered list of economic cost by agency")
+    print("GetEconomicCost: generate ordered list of economic cost by agency")
   }
   # summarize Agency Events Table by economic cost and sort by event
   econCost <- agencyEventsTable %>% 
@@ -360,7 +368,7 @@ GenerateDisasterAnalysis <- function(agencyTableList) {
   economicCostList <- GenerateTop10EconomicTable(agencyTableList)
   
   ## Generate Human v. Economic Cost Plots
-  
+  cvcPlots <- GenerateCvC(humanCostList)
   
 }
 
@@ -382,7 +390,7 @@ GenerateTop10HumanTable <- function(agencyTableList) {
     )
     humanCostList[length(humanCostList) + 1] = humanCostTitle
     humanCostList[length(humanCostList) + 1] = 
-      head(agencyTableList[agency + HUMAN_COSTS], 10)
+      head(agencyTableList[agency + HUMAN_COSTS])
   }
 
   return(humanCostList)
@@ -394,7 +402,7 @@ GenerateTop10EconomicTable <- function(agencyTableList) {
     print("GenerateTop10HumanTable: starting data")
     print(head(agencyTableList))
   }
-  
+
   economicCostList = list()
   for (agency in COUNTY_SOURCE_INDEX : FEDERAL_SOURCE_INDEX) {
     economicCostTitle <- switch (agency, 
@@ -408,31 +416,29 @@ GenerateTop10EconomicTable <- function(agencyTableList) {
     economicCostList[length(economicCostList) + 1] = 
       head(agencyTableList[agency + ECONOMIC_COSTS], 10)
   }
+
   return(economicCostList)
 }
 
+# GenerateCvC #####################################################
+GenerateCvC <- function(cvcTable) {
+  if ((VERBOSE | DEBUG) & GENERATE_CVC_IMAGE) {
+    print("GenerateCvC: starting processing")
+  }
 
-# GenerateTop10EconomicTable #####################################################
-GenerateCvC <- function(agencyTableList) {
-  if ((VERBOSE | DEBUG) & GENERATE_TOP10_ECONOMCIC_TABLE) {
-    print("GenerateTop10HumanTable: starting data")
-    print(head(agencyTableList))
-  }
-  
-  economicCostList = list()
+  cvcImageList <- list()
+
+  # print(paste0("agency list ", agencyTableList[1]))
   for (agency in COUNTY_SOURCE_INDEX : FEDERAL_SOURCE_INDEX) {
-    economicCostTitle <- switch (agency, 
-                                 paste0("Top 10 Weather Disasters, (Human Costs)\n", 
-                                        COUNTY_, " ", STATE_),
-                                 paste0("Top 10 Weather Disasters, (Human Costs)\n",
-                                        state.name[grep(STATE_, state.abb)]),
-                                 "Top 10 Weather Disasters, (Human Costs\n)"
-    )
-    economicCostList[length(economicCostList) + 1] = economicCostTitle
-    economicCostList[length(economicCostList) + 1] = 
-      head(agencyTableList[agency + ECONOMIC_COSTS], 10)
+    print(head(cvcTable[agency + 2]))
+    sp <- switch (cvcTable[agency + 2],
+                  ggplot(cvcTable, aes(x = EVENT_HUMAN_COST,
+                                          y = EVENT_ECON_COST))
+                  )
+    cvcImageList[length(cvcImageList) + 1] <- sp
   }
-  return(economicCostList)
+
+  return(cvcImageList)
 }
 
 
@@ -569,8 +575,15 @@ test_GenerateTop10EconomicTable <- function(agencyTableList) {
   }
 }
 
+test_GenerateCvC <- function(agencyTableList) {
+  cvcImages <- GenerateCvC(agencyTableList)
+  png("countyCvC.png")
+  print(cvcImages[1])
+  dev.off()
+}
+
 if (SYSTEM & PHASE_ANALYSIS) {
-  agencyTableList <- GenerateDisasterTables(URL, DATAFILE)
+  # agencyTableList <- GenerateDisasterTables(URL, DATAFILE)
   resultList      <- GenerateDisasterAnalysis(agencyTableList)
   i = 1
   for (agencyTable in resultList) {
@@ -582,12 +595,17 @@ if (SYSTEM & PHASE_ANALYSIS) {
 
 if (TEST & PHASE_ANALYSIS) {
   agencyTableList <- GenerateDisasterTables(URL, DATAFILE)
-  humanList       <- test_GenerateTop10HumanTable(agencyTableList)
-  cleanData       <- test_GenerateTop10EconomicTable(agencyTableList)
+  if (GENERATE_TOP10_HUMAN_TABLE) {
+    humanList       <- test_GenerateTop10HumanTable(agencyTableList)
+  }
+  if (GENERATE_TOP10_ECONOMCIC_TABLE) {
+    econList       <- test_GenerateTop10EconomicTable(agencyTableList)
+  }
+  if (GENERATE_CVC_IMAGE) {
+    cvcImages       <- test_GenerateCvC(resultList)
+  }
+
 }
-
-# PHASE_CONTROL
-
 # ##############################################################################
 # 
 # ##############################################################################
