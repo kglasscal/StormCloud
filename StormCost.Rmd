@@ -53,7 +53,7 @@ MERGED_EVENT_LIST            = FALSE
 GENERATE_AGENCY_MERGED_TABLE = FALSE
 
 GENERATE_DISASTER_ANALYSIS     = FALSE
-GENERATE_TOP10_HUMAN_TABLE     = FALSE
+GENERATE_TOP10_HUMAN_TABLE     = TRUE
 GENERATE_TOP10_ECONOMCIC_TABLE = FALSE
 GENERATE_CVC_IMAGE             = TRUE
 
@@ -217,8 +217,7 @@ CleanRawData <- function(rawData)
               as.numeric)
 
   rawData <- CleanEventTypes(rawData)
-  
-  
+
   if (VERBOSE & CLEAN_RAW_DATA) {
     print("CleanRawData: check raw data")
     print(head(rawData))
@@ -422,7 +421,7 @@ GenerateTop10HumanTable <- function(agencyTableList) {
     )
     humanCostList[length(humanCostList) + 1] = humanCostTitle
     humanCostList[length(humanCostList) + 1] = 
-      head(agencyTableList[agency + HUMAN_COSTS])
+      agencyTableList[agency + HUMAN_COSTS]
   }
 
   return(humanCostList)
@@ -437,16 +436,17 @@ GenerateTop10EconomicTable <- function(agencyTableList) {
 
   economicCostList = list()
   for (agency in COUNTY_SOURCE_INDEX : FEDERAL_SOURCE_INDEX) {
-    economicCostTitle <- switch (agency, 
-                              paste0("Top 10 Weather Disasters, (Human Costs)\n", 
-                                     COUNTY_, " ", STATE_),
-                              paste0("Top 10 Weather Disasters, (Human Costs)\n",
-                                     state.name[grep(STATE_, state.abb)]),
-                              "Top 10 Weather Disasters, (Human Costs\n)"
+    economicCostTitle <- 
+      switch (agency,
+              paste0("Top 10 Weather Disasters, (Human Costs)\n", 
+                     COUNTY_, " ", STATE_),
+              paste0("Top 10 Weather Disasters, (Human Costs)\n",
+                     state.name[grep(STATE_, state.abb)]),
+              "Top 10 Weather Disasters, (Human Costs\n)"
     )
     economicCostList[length(economicCostList) + 1] = economicCostTitle
     economicCostList[length(economicCostList) + 1] = 
-      head(agencyTableList[agency + ECONOMIC_COSTS], 10)
+      agencyTableList[agency + ECONOMIC_COSTS]
   }
 
   return(economicCostList)
@@ -460,26 +460,41 @@ GenerateCvC <- function(cvcTable) {
 
   cvcImageList <- list()
 
-  # print(paste0("agency list ", agencyTableList[1]))
-  for (agency in COUNTY_SOURCE_INDEX : FEDERAL_SOURCE_INDEX) {
-    print(head(cvcTable[agency + 2]))
-    sp <- switch (cvcTable[agency + 2],
-                  ggplot(cvcTable, aes(x = EVENT_HUMAN_COST,
-                                          y = EVENT_ECON_COST))
-                  )
-    cvcImageList[length(cvcImageList) + 1] <- sp
+  # for (agency in COUNTY_SOURCE_INDEX : FEDERAL_SOURCE_INDEX) {
+  i <- 1
+  for (cvcImage in cvcTable) {
+    print("IN PLOT LOOP")
+    if (i %% 2 == 0) {
+      df <- data.frame(cvcImage) 
+      print(head(df))
+
+      sp <- ggplot(df, aes(x = EVENT_HUMAN_COST, y = EVENT_ECON_COST)) + geom_point()
+
+      print(paste0("class sp ", class(sp)))
+
+      cvcImageList[length(cvcImageList) + 1] = sp
+    } else {
+      print(cvcImage)
+    }
+    print(paste0("cvcImageList length = ", length(cvcImageList)))
+    i <- i + 1
   }
+  print(paste0("cvcImageList length = ", length(cvcImageList)))
+
 
   return(cvcImageList)
 }
-
-
 
 ```
 
 
 
-### Appendix 1: Testing Phase
+
+# Appendix 1: Testing Phase
+
+
+
+
 ```{r testing phase}
 
 # ###################################################################
@@ -531,18 +546,28 @@ test_GenerateAgencyMergedTable <- function(sourceTableList) {
   i = 1
   for (agencyTable in agencyTableList) {
     print(paste0("List[", i, "]"))
-    print(head(agencyTable))
+    print(head(agencyTable[[agency]]))
     i = i + 1
   }
 }
 
-if (TEST & PHASE_GENERATE_DATA) {
+if (SYSTEM & PHASE_GENERATE_DATA) {
   rawData         <- test_LoadDisasterData()
   cleanData       <- test_CleanRawData(rawData)
   sourceData      <- test_TransformRawToSource(cleanData)
   sourceTableList <- test_GenerateSourceTables(sourceData)
   agencyTableList <- test_AgencyEventsTable(sourceTableList)
 }
+
+```
+
+
+
+# visualization tests
+
+
+
+```{r visualization test}
 
 test_GenerateDisasterTables <- function(url, datafile) {
   agencyTableList <- GenerateDisasterTables(url, datafile)
@@ -570,9 +595,16 @@ if (SYSTEM & PHASE_GENERATE_DATA) {
 test_GenerateTop10HumanTable <- function(agencyTableList) {
   humanCostsTable <- GenerateTop10HumanTable(agencyTableList)
   i = 1
-  for (humanCostTable in humanCostsTable) {
+  for (humanTable in humanCostsTable) {
     print(paste0("List[", i, "]"))
-    print(head(humanCostTable))
+    if (i %% 2 == 0) {
+      tbl <- data.frame(humanTable)
+      print(class(tbl))
+      print(head(tbl))
+    } else {
+      print(humanTable)
+    }
+    
     i = i + 1
   }
 }
@@ -580,9 +612,15 @@ test_GenerateTop10HumanTable <- function(agencyTableList) {
 test_GenerateTop10EconomicTable <- function(agencyTableList) {
   economicCostsTable <- GenerateTop10EconomicTable(agencyTableList)
   i = 1
-  for (economicCostTable in economicCostsTable) {
+  for (economicTable in economicCostsTable) {
     print(paste0("List[", i, "]"))
-    print(head(economicCostsTable))
+    if (i %% 2 == 0) {
+      tbl <- data.frame(economicTable)
+      print(class(tbl))
+      print(head(tbl))
+    } else {
+      print(economicTable)
+    }
     i = i + 1
   }
 }
@@ -590,9 +628,19 @@ test_GenerateTop10EconomicTable <- function(agencyTableList) {
 test_GenerateCvC <- function(agencyTableList) {
   humanList <- GenerateTop10HumanTable(agencyTableList)
   cvcImages <- GenerateCvC(humanList)
-  png("countyCvC.png")
-  print(cvcImages[1])
-  dev.off()
+
+  print(paste0("number of images = ", length(cvcImages)))
+
+  i = 1
+  for (cvcImage in cvcImages) {
+    print(class(cvcImage))
+
+    print(paste0("image[", i, "]"))
+    # png(paste0("countyCvC_", i, ".png"))
+    plot(cvcImage)
+    # dev.off()
+    i = i + 1
+  }
 }
 
 if (SYSTEM & PHASE_ANALYSIS) {
@@ -617,16 +665,14 @@ if (TEST & PHASE_ANALYSIS) {
   if (GENERATE_CVC_IMAGE) {
     cvcImages      <- test_GenerateCvC(agencyTableList)
   }
-
 }
 
 ```
 
----
-
 <hr style="background: DarkOrchid; height: 3px"/>
 <!-- https://www.dofactory.com/html/hr/style#:~:text=The%20style%20attribute%20specifies%20the,or%20an%20external%20CSS%20file -->
 
+# Junk
 ## R Markdown
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
