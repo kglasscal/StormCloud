@@ -21,9 +21,9 @@ SYSTEM          = FALSE
 
 ALL_FUNCTIONS                = FALSE
 MAIN                         = FALSE
-GENERATE_DISASTER_TABLES     = TRUE
+GENERATE_STORM_COST_TABLES     = TRUE
 DOWNLOAD_DATA_FILE           = FALSE
-LOAD_DISASTER_DATA           = FALSE
+LOAD_STORM_COST_DATA           = FALSE
 CLEAN_RAW_DATA               = FALSE
 TRANSFORM_RAW_TO_SOURCE      = FALSE
 GENERATE_SOURCE_TABLE_LIST   = FALSE
@@ -32,7 +32,7 @@ GET_ECONOMIC_COST            = FALSE
 MERGED_EVENT_LIST            = FALSE
 GENERATE_AGENCY_MERGED_TABLE = FALSE
 
-GENERATE_DISASTER_ANALYSIS = FALSE
+GENERATE_STORM_COST_ANALYSIS = FALSE
 GENERATE_TOP10_HUMAN_TABLE = FALSE
 GENERATE_TOP10_ECONOMCIC_TABLE = FALSE
 GENERATE_CVC_IMAGE = TRUE
@@ -88,8 +88,8 @@ COUNTY_   <- "SAN BERNARDINO"
 # ##############################################################################
 
 Main <- function() {
-  agencyTableList <- GenerateDisasterTables(URL, DATAFILE)
-  resultList   <- GenerateDisasterAnalysis(agencyTableList)
+  agencyTableList <- GenerateStormCostTables(URL, DATAFILE)
+  resultList   <- GenerateStormCostAnalysis(agencyTableList)
   
   if (VERBOSE) {
     print("That's all folks")
@@ -106,10 +106,10 @@ Main <- function() {
 # ##############################################################################
 # ##############################################################################
 
-# GenerateDisasterTables #######################################################
-GenerateDisasterTables <- function(url, dataFile)  {
-  if (VERBOSE & GENERATE_DISASTER_TABLES) {
-    print("GenerateDisasterTables(): coordinate the generation of the ")
+# GenerateStormCostTables #######################################################
+GenerateStormCostTables <- function(url, dataFile)  {
+  if (VERBOSE & GENERATE_STORM_COST_TABLES) {
+    print("GenerateStormCostTables(): coordinate the generation of the ")
     print("agencyTableList from the origional source file")
   }
   
@@ -117,12 +117,12 @@ GenerateDisasterTables <- function(url, dataFile)  {
   if (!file.exists(dataFile)) {
     DownloadDataFile(url, destfile)
   } else {
-    if (VERBOSE & GENERATE_DISASTER_TABLES) {
+    if (VERBOSE & GENERATE_STORM_COST_TABLES) {
       print(paste0(dataFile, " Contents already loaded "))
     }
   }
 
-  rawData <- LoadDisasterData(dataFile)
+  rawData <- LoadStormCostData(dataFile)
   ## Set up the aggregated financial and casualty data  ------------------------
   sourceData <- TransformRawToSource(rawData)
   
@@ -130,7 +130,7 @@ GenerateDisasterTables <- function(url, dataFile)  {
   agencyTableList <- GenerateAgencyMergedTable(sourceTableList)
   
   return (agencyTableList)
-}  ## End of GenerateDisasterTables function
+}  ## End of GenerateStormCostTables function
 
 # DownloadDataFile #############################################################
 DownloadDataFile <- function(url, destfile)
@@ -145,10 +145,10 @@ DownloadDataFile <- function(url, destfile)
     stop()
   }
 }  ## End of DownloadDataFile function
-# LoadDisasterData #############################################################
-LoadDisasterData <- function(dataFile)
+# LoadStormCostData #############################################################
+LoadStormCostData <- function(dataFile)
 {
-  if (VERBOSE & LOAD_DISASTER_DATA) {
+  if (VERBOSE & LOAD_STORM_COST_DATA) {
     print(paste0("loadRawData: Reading raw storm data from ", dataFile))
   }
 
@@ -163,7 +163,7 @@ LoadDisasterData <- function(dataFile)
     stop()
   }
   
-  if (VERBOSE & LOAD_DISASTER_DATA) {
+  if (VERBOSE & LOAD_STORM_COST_DATA) {
     print("Display raw data ")
     print(head(rawData))
   }
@@ -171,7 +171,7 @@ LoadDisasterData <- function(dataFile)
   rawData <- CleanRawData(rawData)
   
   return (rawData)
-}  ## End of LoadDisasterData function
+}  ## End of LoadStormCostData function
 
 # CleanRawData #################################################################
 CleanRawData <- function(rawData)
@@ -184,7 +184,7 @@ CleanRawData <- function(rawData)
   rawData <- rawData %>%
     mutate_at(c('FATALITIES', 'INJURIES', 'PROPDMG', 'CROPDMG'), as.numeric)
 
-  rawData <- CleanEventTypes(rawData)
+  rawData <- NormalizeEventTypes(rawData)
   
   
   if (VERBOSE & CLEAN_RAW_DATA) {
@@ -195,7 +195,7 @@ CleanRawData <- function(rawData)
 }  ## End of CleanRawData function
 
 # CleanRawData #################################################################
-ConsolidateEventTypes <- function(rawData) {
+NormalizeEventTypes <- function(rawData) {
   return (rawData)
 }
 
@@ -356,19 +356,19 @@ GenerateAgencyMergedTable <- function(agencyTableList)  {
 # ##############################################################################
 # ##############################################################################
 
-# GenerateDisasterAnalysis #####################################################
-GenerateDisasterAnalysis <- function(agencyTableList) {
-  if (VERBOSE & GENERATE_DISASTER_ANALYSIS) {
-    print("GenerateDisasterAnalysis: group the rawTables to agency ")
+# GenerateStormCostAnalysis #####################################################
+GenerateStormCostAnalysis <- function(agencyTableList) {
+  if (VERBOSE & GENERATE_STORM_COST_ANALYSIS) {
+    print("GenerateStormCostAnalysis: group the rawTables to agency ")
     print("tables grouped by event type")
   }
 
-  ## Generate Disaster Tables (Top 10)
+  ## Generate StormCost Tables (Top 10)
   humanCostList    <- GenerateTop10HumanTable(agencyTableList)
   economicCostList <- GenerateTop10EconomicTable(agencyTableList)
   
   ## Generate Human v. Economic Cost Plots
-  cvcPlots <- GenerateCvC(humanCostList)
+  # cvcPlots <- GenerateCvC(humanCostList)
   
 }
 
@@ -382,11 +382,11 @@ GenerateTop10HumanTable <- function(agencyTableList) {
   humanCostList = list()
   for (agency in COUNTY_SOURCE_INDEX : FEDERAL_SOURCE_INDEX) {
     humanCostTitle <- switch (agency, 
-            paste0("Top 10 Weather Disasters, (Human Costs)\n", 
+            paste0("Top 10 Weather StormCosts, (Human Costs)\n", 
                    COUNTY_, " ", STATE_),
-            paste0("Top 10 Weather Disasters, (Human Costs)\n",
+            paste0("Top 10 Weather StormCosts, (Human Costs)\n",
                    state.name[grep(STATE_, state.abb)]),
-            "Top 10 Weather Disasters, (Human Costs\n)"
+            "Top 10 Weather StormCosts, (Human Costs\n)"
     )
     humanCostList[length(humanCostList) + 1] = humanCostTitle
     humanCostList[length(humanCostList) + 1] = 
@@ -406,11 +406,11 @@ GenerateTop10EconomicTable <- function(agencyTableList) {
   economicCostList = list()
   for (agency in COUNTY_SOURCE_INDEX : FEDERAL_SOURCE_INDEX) {
     economicCostTitle <- switch (agency, 
-                              paste0("Top 10 Weather Disasters, (Human Costs)\n", 
+                              paste0("Top 10 Weather StormCosts, (Human Costs)\n", 
                                      COUNTY_, " ", STATE_),
-                              paste0("Top 10 Weather Disasters, (Human Costs)\n",
+                              paste0("Top 10 Weather StormCosts, (Human Costs)\n",
                                      state.name[grep(STATE_, state.abb)]),
-                              "Top 10 Weather Disasters, (Human Costs\n)"
+                              "Top 10 Weather StormCosts, (Human Costs\n)"
     )
     economicCostList[length(economicCostList) + 1] = economicCostTitle
     economicCostList[length(economicCostList) + 1] = 
@@ -420,28 +420,28 @@ GenerateTop10EconomicTable <- function(agencyTableList) {
   return(economicCostList)
 }
 
-# GenerateCvC #####################################################
-GenerateCvC <- function(cvcTable) {
-  if ((VERBOSE | DEBUG) & GENERATE_CVC_IMAGE) {
-    print("GenerateCvC: starting processing")
-  }
-
-  cvcImageList <- list()
-
-  # print(paste0("agency list ", agencyTableList[1]))
-  for (agency in COUNTY_SOURCE_INDEX : FEDERAL_SOURCE_INDEX) {
-    print(head(cvcTable[agency + 2]))
-    sp <- switch (cvcTable[agency + 2],
-                  ggplot(cvcTable, aes(x = EVENT_HUMAN_COST,
-                                          y = EVENT_ECON_COST))
-                  )
-    cvcImageList[length(cvcImageList) + 1] <- sp
-  }
-
-  return(cvcImageList)
-}
-
-
+# # GenerateCvC #####################################################
+# GenerateCvC <- function(cvcTable) {
+#   if ((VERBOSE | DEBUG) & GENERATE_CVC_IMAGE) {
+#     print("GenerateCvC: starting processing")
+#   }
+# 
+#   cvcImageList <- list()
+# 
+#   # print(paste0("agency list ", agencyTableList[1]))
+#   for (agency in COUNTY_SOURCE_INDEX : FEDERAL_SOURCE_INDEX) {
+#     print(head(cvcTable[agency + 2]))
+#     sp <- switch (cvcTable[agency + 2],
+#                   ggplot(cvcTable, aes(x = EVENT_HUMAN_COST,
+#                                           y = EVENT_ECON_COST))
+#                   )
+#     cvcImageList[length(cvcImageList) + 1] <- sp
+#   }
+# 
+#   return(cvcImageList)
+# }
+# 
+# 
 
 #   if (countyName != "") {
 #     print(paste0("Raw financial and casualty data ordered by financial impact ",
@@ -469,13 +469,13 @@ GenerateCvC <- function(cvcTable) {
 
 
 # ##############################################################################  
-test_LoadDisasterData <- function() {
+test_LoadStormCostData <- function() {
   print("TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST")
-  print("test_LoadDisasterData")
+  print("test_LoadStormCostData")
   
-  rawData <- LoadDisasterData(DATAFILE)
+  rawData <- LoadStormCostData(DATAFILE)
   
-  print("test_LoadDisasterData raw data ######################################")
+  print("test_LoadStormCostData raw data ######################################")
   print(head(rawData))
   
   return (rawData)
@@ -504,7 +504,7 @@ test_TransformRawToSource <- function(cleanData) {
 test_GenerateSourceTables <- function(sourceData) {
   sourceTableList <- GenerateSourceTableList(sourceData)
   
-  print("test_GenerateSourceTables source disaster list ######################")
+  print("test_GenerateSourceTables source storm cost list ######################")
   for (sourceTable in sourceTableList) {
     print(head(sourceTable))
   }
@@ -515,7 +515,7 @@ test_GenerateSourceTables <- function(sourceData) {
 test_GenerateAgencyMergedTable <- function(sourceTableList) {
   agencyTableList <- GenerateAgencyMergedTable(sourceTableList)
   
-  print("test_GenerateAgencyMergedTable agency disaster list #################")
+  print("test_GenerateAgencyMergedTable agency storm cost list #################")
   i = 1
   for (agencyTable in agencyTableList) {
     print(paste0("List[", i, "]"))
@@ -525,17 +525,17 @@ test_GenerateAgencyMergedTable <- function(sourceTableList) {
 }
 
 if (TEST & PHASE_GENERATE_DATA) {
-  rawData         <- test_LoadDisasterData()
+  rawData         <- test_LoadStormCostData()
   cleanData       <- test_CleanRawData(rawData)
   sourceData      <- test_TransformRawToSource(cleanData)
   sourceTableList <- test_GenerateSourceTables(sourceData)
   agencyTableList <- test_AgencyEventsTable(sourceTableList)
 }
 
-test_GenerateDisasterTables <- function(url, datafile) {
-  agencyTableList <- GenerateDisasterTables(url, datafile)
+test_GenerateStormCostTables <- function(url, datafile) {
+  agencyTableList <- GenerateStormCostTables(url, datafile)
 
-  print("test_GenerateAgencyMergedTable agency disaster list #####################")
+  print("test_GenerateAgencyMergedTable agency storm cost list #####################")
   i = 1
   for (agencyTable in agencyTableList) {
     print(paste0("List[", i, "]"))
@@ -545,7 +545,7 @@ test_GenerateDisasterTables <- function(url, datafile) {
 }
 
 if (SYSTEM & PHASE_GENERATE_DATA) {
-  agencyTableList <- GenerateDisasterTables(URL, DATAFILE)
+  agencyTableList <- GenerateStormCostTables(URL, DATAFILE)
   i = 1
   for (agencyTable in agencyTableList) {
     print(paste0("List[", i, "]"))
@@ -583,8 +583,8 @@ test_GenerateCvC <- function(agencyTableList) {
 }
 
 if (SYSTEM & PHASE_ANALYSIS) {
-  # agencyTableList <- GenerateDisasterTables(URL, DATAFILE)
-  resultList      <- GenerateDisasterAnalysis(agencyTableList)
+  # agencyTableList <- GenerateStormCostTables(URL, DATAFILE)
+  resultList      <- GenerateStormCostAnalysis(agencyTableList)
   i = 1
   for (agencyTable in resultList) {
     print(paste0("List[", i, "]"))
@@ -594,7 +594,7 @@ if (SYSTEM & PHASE_ANALYSIS) {
 }
 
 if (TEST & PHASE_ANALYSIS) {
-  agencyTableList <- GenerateDisasterTables(URL, DATAFILE)
+  agencyTableList <- GenerateStormCostTables(URL, DATAFILE)
   if (GENERATE_TOP10_HUMAN_TABLE) {
     humanList       <- test_GenerateTop10HumanTable(agencyTableList)
   }
@@ -609,7 +609,7 @@ if (TEST & PHASE_ANALYSIS) {
 # ##############################################################################
 # 
 # ##############################################################################
-# GenerateDisasterData <- function(agencyTableList) {
+# GenerateStormCostData <- function(agencyTableList) {
 
 #   png(file="plot4.png", width=480, height=480)
 #   
