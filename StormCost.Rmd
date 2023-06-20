@@ -56,8 +56,8 @@ COUNTY_   <- "SAN BERNARDINO"
 
 ```{r test constants}
 VERBOSE         = FALSE     # TRUE  FALSE
-DEBUG           = FALSE
-TEST            = FALSE
+DEBUG           = TRUE
+TEST            = TRUE
 SYSTEM          = FALSE
 
 ALL_FUNCTIONS                = FALSE
@@ -67,7 +67,7 @@ DOWNLOAD_DATA_FILE           = FALSE
 LOAD_STORM_COST_DATA           = FALSE
 CLEAN_RAW_DATA               = FALSE
 TRANSFORM_RAW_TO_SOURCE      = FALSE
-GENERATE_SOURCE_TABLE_LIST   = FALSE
+GENERATE_SOURCE_TABLE_LIST   = TRUE
 GET_HUMAN_COST               = FALSE
 GET_ECONOMIC_COST            = FALSE
 MERGED_EVENT_LIST            = FALSE
@@ -295,6 +295,10 @@ GenerateSourceTableList <- function(sourceData) {
     if (!is.null(AGENCY_FILTER[[i]])) {
       sourceTable <- sourceTable %>% 
         filter(eval(parse(text = AGENCY_FILTER[[i]])))
+    }
+    if (DEBUG & GENERATE_SOURCE_TABLE_LIST) {
+      print("GenerateSourceTableList: source table after filter select")
+      print(head(sourceTable))
     }
 
     # this is agencyFieldTables 2-4

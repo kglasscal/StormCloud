@@ -62,7 +62,7 @@ The following set of constants are used for debugging, testing, and notifying th
 ```{r test constants}
 VERBOSE                    = FALSE     # TRUE  FALSE
 DEBUG                      = TRUE
-TEST                       = TRUE
+UNIT                       = TRUE
 SYSTEM                     = FALSE
 
 ALL_FUNCTIONS              = FALSE
@@ -72,15 +72,14 @@ DOWNLOAD_DATA_FILE         = FALSE
 LOAD_STORM_COST_DATA       = FALSE
 CLEAN_RAW_DATA             = FALSE
 TRANSFORM_RAW_TO_BASE      = FALSE
-MAKE_BASE_TABLE_LIST       = FALSE
-GET_HUMAN_COST             = TRUE
-GET_ECONOMIC_COST          = FALSE
-MERGE_STORM_LIST           = FALSE
-MAKE_JURIS_MERGE_LIST      = FALSE
-MAKE_JURIS_MERGED_TABLE    = FALSE
+MAKE_JURIS_STORM_LIST      = FALSE
+GROUP_JURIS_COSTS          = FALSE
+
+MAKE_RESULT_LIST           = TRUE
+MAKE_STORM_COST_ANALYSIS   = TRUE
 
 MAKE_STORM_COST_ANALYSIS   = FALSE
-MAKE_TOP10_HUMAN_TABLE     = FALSE
+MAKE_TOP10_HUMAN_TABLE     = TRUE
 MAKE_TOP10_ECONOMCIC_TABLE = FALSE
 MAKE_CVC_IMAGE             = FALSE
 
@@ -93,7 +92,7 @@ DISPLAY_OUTPUT             = FALSE
 ```
 
 ### Program Constants
-The program constants are used to make the code less cryptic. Rather than using numbers to define array indices, loop ranges, and other invariant values, StormCloud uses named constants. For example, the function MakeBaseTableList, uses a for loop with the range CNTY_BASE_IDX through US_BASE_IDX rather than 1 through 3. When the programmer knows the names of the constants, he or she does not need to remember which number represents which thing.
+The program constants are used to make the code less cryptic. Rather than using numbers to define array indices, loop ranges, and other invariant values, StormCloud uses named constants. For example, the function MakeJurisStormList, uses a for loop with the range CNTY_BASE_IDX through US_BASE_IDX rather than 1 through 3. When the programmer knows the names of the constants, he or she does not need to remember which number represents which thing.
 
 ```{r program constants}
 
@@ -104,15 +103,9 @@ EXECUTE           = 0
 CNTY_BASE_IDX     = 1
 ST_BASE_IDX       = 2
 US_BASE_IDX       = 3
-CNTY_HUMAN_IDX    = 4
-ST_HUMAN_IDX      = 5
-US_HUMAN_IDX      = 6
-CTNY_ECON_IDX     = 7
-ST_ECON_IDX       = 8
-US_ECON_IDX       = 9
 
-HUMAN_OFF         = 3        
-ECON_OFF          = 6        
+HUMAN_COST        = 1        
+ECON_COST         = 2        
 
 REGION_NAME = c('COUNTY', 'STATE', 'US',   
                 'COUNTY_HUMAN_COST', 'STATE_HUMAN_COST', 
@@ -121,7 +114,8 @@ REGION_NAME = c('COUNTY', 'STATE', 'US',
 
 # These constants are the column names for the final data frames
 COUNTY_FIELD   <- 
-  "c('EVTYPE', 'STATE', 'COUNTY', 'HUMAN_COST', 'ECON_COST')"
+  "c('EVTYPE', 'COUNTY', 'STATE', 'HUMAN_COST', 'ECON_COST')"
+
 STATE_FIELD    <- 
   "c('EVTYPE', 'STATE', 'HUMAN_COST', 'ECON_COST')"
 US_FIELD  <- 
@@ -147,8 +141,8 @@ JURIS_FILTER    <-  list(
 
 ```{r program control phase}
 Main <- function(url, datafile) {
-  jurisTableList  <- MakeStormCostTables(url, datafile)
-  resultList      <- MakeStormCostAnalysis(jurisTableList)
+  jurisCostList   <- MakeStormCostTables(url, datafile)
+  resultList      <- MakeResultList(jurisTableList)
   
   if (VERBOSE) {
     print("That's all folks")
@@ -160,12 +154,29 @@ Main <- function(url, datafile) {
 ```
 
 ## Make Data Frames Phase
+<pre>
+MakeStormCostTables
+      |
+      DownloadDataFile stores destfile in current directory
+      |
+      LoadStormCostData creates rawData from destfile and returns
+      |                 a formatted variant
+      |      
+      ConsolidateStormTypes modifies and returns rawData
+      |
+      CleanRawData modifies and returns rawData
+      |
+      TransformRawToBase creates and returns baseData
+      |
+      MakeJurisStormList creates and returns jurisStormList
+      |
+      GroupJurisCost creates and returns jurisCostList
+</pre>
+
 
 ### Make Storm Cost Tables
 
 ```{r make analysis phase}
-## 456789112345678921234567893123456789412345678951234567896123456789
-# MakeStormCostTables ############################################
 MakeStormCostTables <- function(url, dataFile)  {
   if (VERBOSE & MAKE_STORM_COST_TABLES) {
     print("MakeStormCostTables(): coordinate the generation of ")
@@ -180,15 +191,20 @@ MakeStormCostTables <- function(url, dataFile)  {
       print(paste0(dataFile, " Contents already loaded "))
     }
   }
+  if (DEBUG & MAKE_STORM_COST_TABLES) {
+    print("Load")
+  }
 
   rawData <- LoadStormCostData(dataFile)
+  rawData <- ConsolidateStormTypes(rawData)
+  rawData <- CleanRawData(rawData)
   ## Set up the aggregated financial and casualty data  -------------
   baseData <- TransformRawToBase(rawData)
   
-  baseTableList   <- MakeBaseTableList(baseData)
-  jurisTableList  <- MakeJurisMergedTable(baseTableList)
+  jurisStormList   <- MakeJurisStormList(baseData)
+  jurisCostList    <- GroupJurisCost(jurisStormList)
   
-  return (jurisTableList)
+  return (jurisCostList)
 }  ## End of MakeStormCostTables function
 
 ```
@@ -212,6 +228,8 @@ DownloadDataFile <- function(url, destfile)
 }  ## End of DownloadDataFile function
 
 ```
+
+### Load Storm Cost Data
 
 ```{r}
 
@@ -240,13 +258,13 @@ LoadStormCostData <- function(dataFile)
     print("LoadStormCostData: Display raw data ")
     print(head(rawData))
   }
-  
-  rawData <- ConsolidateStormTypes(rawData)
-  
+
   return (rawData)
 }  ## End of LoadStormCostData function
 
 ```
+
+### Clean Raw Data
 
 ```{r}
 
@@ -263,7 +281,6 @@ CleanRawData <- function(rawData)
     mutate_at(c('FATALITIES', 'INJURIES', 'PROPDMG', 'CROPDMG'), 
               as.numeric)
 
-  rawData <- ConsolidateStormTypes(rawData)
 
   if ((VERBOSE | DEBUG) & CLEAN_RAW_DATA) {
     print("CleanRawData: check raw data")
@@ -274,6 +291,8 @@ CleanRawData <- function(rawData)
 
 ```
 
+### Load Storm Cost Data
+
 ```{r}
 
 # CleanRawData ######################################################
@@ -283,7 +302,9 @@ ConsolidateStormTypes <- function(rawData) {
 }
 
 ```
+
 ### Transform Raw to Base
+
 ```{r}
 
 # TransformRawToBase ##############################################
@@ -291,6 +312,7 @@ TransformRawToBase <- function(rawData)
 {
   if (VERBOSE & TRANSFORM_RAW_TO_BASE) {
     print("TransformRawToBase: aggregate economic and human costs")
+    print(head(rawData))
   }
 
   baseData <- rawData %>% ungroup(.) %>%
@@ -308,18 +330,11 @@ TransformRawToBase <- function(rawData)
             ECON_COST     = PROPDMG + CROPDMG
             ) %>% 
     select(EVTYPE, COUNTYNAME, STATE, HUMAN_COST, ECON_COST)
-  
-  if (DEBUG & TRANSFORM_RAW_TO_BASE) {
-    print("TransformRawToBase: check data before rename")
-    print(paste0("column names = ", colnames(baseData)))
-    print(head(baseData))
-  }
 
   colnames(baseData) <- eval(parse(text = COUNTY_FIELD))
 
   if ((VERBOSE | DEBUG) & TRANSFORM_RAW_TO_BASE) {
     print("TransformRawToBase: check data after rename")
-    print(paste0("column names = ", colnames(baseData)))
     print(head(baseData))
   }
 
@@ -327,229 +342,150 @@ TransformRawToBase <- function(rawData)
 }  ## End of TransformRawToBase function
 
 ```
-### Make Base Table List
-```{r}
 
-# MakeBaseTableList ###########################################
-MakeBaseTableList <- function(baseData) {
-  if (VERBOSE & MAKE_BASE_TABLE_LIST) {
-    print("MakeBaseTableList: make base data tables for each jursidiction")
+### Make Jurisdiction Storm List
+
+```{r}
+# MakeJurisStormList ###########################################
+MakeJurisStormList <- function(baseData) {
+  if (VERBOSE & MAKE_JURIS_STORM_LIST) {
+    print("MakeJurisStormList: make base data tables for each jursidiction")
   }
 
-  baseTableList = list()
+  jurisStormList = list()
   for (i in CNTY_BASE_IDX : US_BASE_IDX) {
-    baseTable <- baseData %>%
+    jurisStormData <- baseData %>%
       select(eval(parse(text = JURIS_FIELD[i])))
-    
-    if (DEBUG & MAKE_BASE_TABLE_LIST) {
-      print(paste0("MakeBaseTableList: prior to filterbaseData[", i, "]"))
-      print(paste0("column names = ", colnames(baseTable)))
-      print(paste0("juris field = ", JURIS_FIELD[[i]]))
-      print(paste0("juris filter = ", JURIS_FILTER[[i]]))
-      print(head(baseTable, n =2))
-    }
 
-    print("PREFILTER ------------------")
-    print(head(baseTable, n =2))
- 
-     if (!is.null(JURIS_FILTER[[i]])) {
-      baseTable <- baseTable %>%
+    if (!is.null(JURIS_FILTER[[i]])) {
+      jurisStormData <- jurisStormData %>%
         filter(eval(parse(text = JURIS_FILTER[[i]])))
     }
-   
-    print("POSTFILTER ------------------")
-    print(head(baseTable, n =2))
- 
-    if (DEBUG & MAKE_BASE_TABLE_LIST) {
-      print(paste0("MakeBaseTableList: after to filterbaseData[", i, "]"))
-      print(paste0("column names = ", colnames(baseTable)))
-      print(paste0("juris field = ", JURIS_FIELD[[i]]))
-      print(paste0("juris filter = ", JURIS_FILTER[[i]]))
-      print(head(baseTable, n =2))
-    }
 
-    # this is jurisFieldTables 2-4
-    baseTableList[[length(baseTableList)+1]] <- baseTable
+    jurisStormList[[length(jurisStormList)+1]] <- jurisStormData
   }
 
-  if (VERBOSE & MAKE_BASE_TABLE_LIST) {
-    print("MakeBaseTableList: check source data frames")
-    print(paste0("len of base table list = ", length(baseTableList)))
-
-    for (baseTable in baseTableList) {
-      print(head(baseTable))
+  if (VERBOSE & MAKE_JURIS_STORM_LIST) {
+    print("MakeJurisStormList: check source data frames")
+    for (baseTable in jurisStormList) {
+      print(head(jurisStormData))
     }
   }
 
-  return(baseTableList)
-}  ## End of MakeBaseTableList function
+  return(jurisStormList)
+}  ## End of MakeJurisStormList function
 
 ```
-### Get Human Cost
+
+### Group Juris Cost
+
 ```{r}
 
-# GetHumanCost ######################################################
-GetHumanCost <- function(baseStorm)
+# GroupJurisCost ######################################################
+GroupJurisCost <- function(jurisStormList)
 {
-  if (VERBOSE & GET_HUMAN_COST) {
-    print("GetHumanCost: make an ordered list of human cost by ")
+  if (VERBOSE & GROUP_JURIS_COSTS) {
+    print("GroupJurisCost: make an ordered list of human cost by ")
     print("jurisdiction")
   }
-  # summarize Jurisdiction Storm Table by human cost and sort by eather
-  humanCost <- baseStorm
-  # stormdf <- ldply (baseStorm, data.frame)
-# 
-  if (DEBUG & GET_HUMAN_COST) {
-    print(paste0("GetHumanCost: baseStorm type = ", class(baseStorm)))
-    print(baseStorm)
-  }
-
-  # humanCost <- stormdf %>%
-  #   summarise(STORM_HUMAN_COST = sum(costDF), .groups = 'drop')
-  # 
-  # humanCost <- humanCost %>% arrange(desc(.$EVTYPE), 
-  #                                    .by_group = TRUE)
-  # if (DEBUG & GET_HUMAN_COST) {
-  #   
-  #   print("jurisStormTable: humanCost")
-  #   print(head(humanCost))
-  # }
   
-  return(humanCost)
-} ## End of GetHumanCost function
+  jurisCostList = list()
+  for (juris in jurisStormList)
+  {
+    if (DEBUG & GROUP_JURIS_COSTS) {
+      print("GroupJurisCost: jurisCost type = pregrouping")
+      print(paste0("GroupJurisCost: jurisCost type = ", class(juris)))
+      print(head(juris, n = 10))
+    }
+    # jurisCost <- data.frame (juris)
+    jurisStorm <- juris %>% group_by(EVTYPE)
 
-```
+    jurisCost <- jurisStorm %>%
+    summarise_at(c("HUMAN_COST", "ECON_COST"), sum)
 
-```{r}
+    jurisCost <- jurisCost %>% arrange(.$EVTYPE,
+                                       .by_group = TRUE)
 
-# GetEconomicCost ###################################################
-GetEconomicCost <- function(baseTableList) {
-  if (VERBOSE & GET_ECONOMIC_COST) {
-    print("GetEconomicCost: make ordered list of economic cost by jurisdiction")
+    if (DEBUG & GROUP_JURIS_COSTS) {
+      print("GroupJurisCost: jurisCost type = postgrouping")
+      print(head(jurisCost, n = 10))
+    }
+    jurisCostList[[length(jurisCostList)+1]] <- jurisCost
+
   }
-  # summarize Jurisdiction Storm Table by economic cost and sort by storm
-  econCost <- baseTableList %>% 
-    summarise(STORM_ECON_COST  = sum(ECON_COST), .groups = 'drop')
-  econCost <- econCost %>% arrange(desc(.$EVTYPE), .by_group = TRUE)
-  if (DEBUG & GET_ECONOMIC_COST) {
-    print("jurisStormTable: econCost")
-    print(head(econCost))
-  }
-  return(econCost)
-} ## End of GetEconomicCost function
 
-```
+  if (DEBUG & GROUP_JURIS_COSTS) {
 
-```{r}
-
-# MergedStormList ###################################################
-MergeStormLists <- function(baseTableList){
-  if (VERBOSE & MERGE_STORM_LIST) {
-    print("MergedStormList: make an ordered list of economic cost by jurisdiction")
-  }
-  mergeStormList = list()
-  # for (baseIdx in CNTY_BASE_IDX : US_BASE_IDX) {
-  
-  for (baseTbl in baseTableList) {
-  #   print(head(cost))
-  # }
-    baseStorm <- baseTbl %>% group_by(EVTYPE)
-    
-    humanCost <- GetHumanCost(baseStorm)
-    econCost  <- GetEconomicCost(baseStorm)
-    # merge human and economic cost summaries
-    storm <- merge(humanCost, econCost, 
-                       by.x = c('EVTYPE'), by.y = c('EVTYPE'))
-
-    mergeStormList[[length(mergeStormList)+1]] <- storm
+    print("jurisStormTable: JurisCost")
+    print(head(jurisCost))
   }
   
-  return (mergeStormList)  
-} ## End of MergedStormList function
-
-```
-
-```{r}
-
-# MakeJurisMergedTable #########################################
-MakeJurisMergedTable <- function(jurisTableList)  {
-  if (VERBOSE & MAKE_JURIS_MERGED_TABLE) {
-    print("MakeJurisMergedTable: group the rawTables to grouped ")
-    print("jurisdiction tables by storm type")
-  }
-
-  mergeTableList <- MergedStormList(jurisTableList)
-  # for (juris in CNTY_BASE_IDX : US_BASE_IDX) {
-  #   humanOrder <- mergeTableList[[juris]] %>%
-  #     arrange(desc(.$STORM_HUMAN_COST),
-  #             .by_group = TRUE)
-  #   jurisTableList[[length(jurisTableList)+1]] <- humanOrder
-  # }
-  # 
-  # for (juris in CNTY_BASE_IDX : US_BASE_IDX) {
-  #   costOrder  <- mergeTableList[[juris]] %>%
-  #     arrange(desc(.$STORM_ECON_COST),
-  #             .by_group = TRUE)
-  #   jurisTableList[[length(jurisTableList)+1]] <- costOrder
-  # }
-  # 
-  # rm (mergeTableList)
-
-  return (mergeTableList)
-}  ## End of MakeJurisMergedTable function
+  return(jurisCostList)
+} ## End of GroupJurisCost function
 
 ```
 
 ## Analysis Phase
+<pre>
+MakeResultsList
+      |
+</pre>
 
 ```{r analysis phase}
-# MakeStormCostAnalysis ##########################################
-MakeStormCostAnalysis <- function(jurisTableList) {
+
+```
+
+### Make Result List
+
+```{r}
+
+# GenerateResultsList ##########################################
+MakeResultList <- function(jurisCostList) {
   if (VERBOSE & MAKE_STORM_COST_ANALYSIS) {
-    print("MakeStormCostAnalysis: group the rawTables to jurisdiction ")
+    print("MakeResultList: group the rawTables to jurisdiction ")
     print("tables grouped by storm type")
   }
   resultList <- list()
   ## Make StormCost Tables (Top 10)
-  humanCost <- MakeTop10HumanTable(jurisTableList)
-  econCost  <- MakeTop10EconomicTable(jurisTableList)
   
-  ## Make Human v. Economic Cost Plots
-  cvcList <- MakeCvC(humanCost)
-  
-  resultList[[length(resultList) + 1]] <- humanCost
-  resultList[[length(resultList) + 1]] <- econCost
-  resultList[[length(resultList) + 1]] <- cvcList
-  
+  humanCost <- MakeTop10Tables(jurisCostList)
+
+  # econCost  <- MakeTop10EconomicTable(jurisCostList)
+  # 
+  # ## Make Human v. Economic Cost Plots
+  # cvcList <- MakeCvC(humanCost)
+  # 
+  # resultList[[length(resultList) + 1]] <- humanCost
+  # resultList[[length(resultList) + 1]] <- econCost
+  # resultList[[length(resultList) + 1]] <- cvcList
+  # 
   return (resultList)
 }
 
 ```
 
+### Make Top 10 Tables
+
 ```{r}
 
 # MakeTop10HumanTable ###########################################
-MakeTop10HumanTable <- function(jurisTableList) {
+MakeTop10Tables <- function(jurisTableList, type) {
   if ((VERBOSE | DEBUG) & MAKE_TOP10_HUMAN_TABLE) {
     print("MakeTop10HumanTable: starting data")
-    print(head(jurisTableList))
   }
 
-  humanCostList = list()
+  costList = list()
   for (juris in CNTY_BASE_IDX : US_BASE_IDX) {
-    humanCostTitle <- switch (juris, 
-            paste0("Top 10 Storm Costs, (Human Costs)\n", 
-                   COUNTY_, " ", STATE_),
-            paste0("Top 10 Storm Costs, (Human Costs)\n",
-                   state.name[grep(STATE_, state.abb)]),
-            "Top 10 Storm Costs, (Human Costs\n)"
+    switch(type,
+           cost <- jurisTableList[[juris]] %>% 
+             arrange(desc(.$HUMAN_COST), .by_group = TRUE),
+           cost <- jurisTableList[[juris]] %>% 
+             arrange(desc(.$ECON_COST), .by_group = TRUE)
     )
-    humanCostList[length(humanCostList) + 1] = humanCostTitle
-    humanCostList[length(humanCostList) + 1] = 
-      jurisTableList[juris + HUMAN_OFF]
+    costList[[length(costList)+1]] <- cost
   }
 
-  return(humanCostList)
+  return(costList)
 }
 
 # MakeTop10EconomicTable ########################################
@@ -583,6 +519,14 @@ MakeTop10EconomicTable <- function(jurisTableList) {
 
 makeOutputTables <- function(dataTables)
 {
+      humanCostTitle <- switch (juris, 
+            paste0("Top 10 Storm Costs, (Human Costs)\n", 
+                   COUNTY_, " ", STATE_),
+            paste0("Top 10 Storm Costs, (Human Costs)\n",
+                   state.name[grep(STATE_, state.abb)]),
+            "Top 10 Storm Costs, (Human Costs\n)"
+    )
+
   tableFmt <- kbl(head(dataTable[[2]], 10)) %>%
     kable_styling(bootstrap_options = c("striped", "hover"), 
                   full_width = F, position = "left", 
@@ -621,7 +565,7 @@ MakeCvC <- function(cvcTable) {
 }
 
 ```
-
+## Execute
 ```{r execute phase}
 if (EXECUTE) {
   results <- Main(URL, DATAFILE)
@@ -649,12 +593,12 @@ if (EXECUTE) {
 ```{r testing phase}
 
 # ###################################################################
-test_LoadStormCostData <- function(url, datafile) {
-  print("test_LoadStormCostData")
+unit_LoadStormCostData <- function(url, datafile) {
+  print("unit_LoadStormCostData")
   
   rawData <- LoadStormCostData(datafile)
   
-  print("test_LoadStormCostData raw data ###########################")
+  print("unit_LoadStormCostData raw data ###########################")
 
   print(head(rawData))
   
@@ -667,11 +611,11 @@ test_LoadStormCostData <- function(url, datafile) {
 
 ```{r}
 
-test_CleanRawData <- function(url, datafile) {
+unit_CleanRawData <- function(url, datafile) {
   rawData <- LoadStormCostData(datafile)
   cleanData <- CleanRawData(rawData)
   
-  print("test_CleanRawData cleaned data ###########################")
+  print("unit_CleanRawData cleaned data ###########################")
   print(head(cleanData))
 
   print("###########################################################")
@@ -683,12 +627,12 @@ test_CleanRawData <- function(url, datafile) {
 
 ```{r}
 
-test_TransformRawToBase <- function(url, datafile) {
+unit_TransformRawToBase <- function(url, datafile) {
   rawData   <- LoadStormCostData(datafile)
   cleanData <- CleanRawData(rawData)
   baseData  <- TransformRawToBase(cleanData)
   
-  print("test_TransformRawToBase transformed data ###############")
+  print("unit_TransformRawToBase transformed data ###############")
   print(head(baseData))
   print("###########################################################")
 
@@ -699,13 +643,13 @@ test_TransformRawToBase <- function(url, datafile) {
 
 ```{r}
 
-test_MakeBaseTables <- function(url, datafile) {
+unit_MakeBaseTables <- function(url, datafile) {
   rawData <- LoadStormCostData(datafile)
   cleanData <- CleanRawData(rawData)
   baseData <- TransformRawToBase(cleanData)
-  baseTableList <- MakeBaseTableList(baseData)
+  baseTableList <- MakeJurisStormList(baseData)
   
-  print("test_MakeBaseTables source disaster list ###########")
+  print("unit_MakeBaseTables source disaster list ###########")
   for (baseTable in baseTableList) {
     print(head(baseTable))
   }
@@ -714,24 +658,24 @@ test_MakeBaseTables <- function(url, datafile) {
 }
 
 ```
-#### TEST Get Human Cost
+#### UNIT Get Human Cost
 ```{r}
-test_GetHumanCost <- function(url, datafile) {
+unit_GroupJurisCost <- function(url, datafile) {
   rawData <- LoadStormCostData(datafile)
   cleanData <- CleanRawData(rawData)
   baseData <- TransformRawToBase(cleanData)
-  baseTableList <- MakeBaseTableList(baseData)
-  humanCost <- GetHumanCost(baseTableList)
+  baseTableList <- MakeJurisStormList(baseData)
+  humanCost <- GroupJurisCost(baseTableList)
   
-  print("test_GetHumanCost ###########")
-  print("test_GetHumanCost: base data ---------")
+  print("unit_GroupJurisCost ###########")
+  print("unit_GroupJurisCost: base data ---------")
   print(head(baseData, n = 3))
   
-  print("test_GetHumanCost: base table ---------")
+  print("unit_GroupJurisCost: base table ---------")
   for (baseTable in baseTableList) {
     print(head(baseTable, n = 3))
   }
-  print("test_GetHumanCost: cost table ---------")
+  print("unit_GroupJurisCost: cost table ---------")
   for (cost in humanCost) {
     print(head(cost, n = 3))
   }
@@ -739,51 +683,14 @@ test_GetHumanCost <- function(url, datafile) {
 }
 ```
 
-```{r}
-
-test_MergeStormLists <- function(url, datafile) {
-  rawData <- LoadStormCostData(datafile)
-  cleanData <- CleanRawData(rawData)
-  baseData <- TransformRawToBase(cleanData)
-  baseTableList <- MakeBaseTableList(baseData)
-  mergedTableList <- MergeStormLists(baseTableList)
-  
-  print("test_MakeMergedTable jurisdiction disaster list ######")
-  i = 1
-  for (mergedTable in mergedTableList) {
-    print(paste0("List[", i, "]"))
-    print(head(mergedTable))
-    i = i + 1
-  }
-}
-
-```
+#### SYSTEM Make Storm Cost Tables
 
 ```{r}
 
-test_makeJurisStormList <- function(url, datafile) {
-  rawData        <- LoadStormCostData(url, datafile)
-  cleanData      <- CleanRawData(rawData)
-  baseData       <- TransformRawToBase(cleanData)
-  baseTableList  <- MakeBaseTableList(baseData)
-  jurisTableList <- MakeJurisMergedTable(baseTableList)
-
-    i = 1
-  for (jurisTable in jurisTableList) {
-    print(paste0("List[", i, "]"))
-    print(head(jurisTable[[juris]]))
-    i = i + 1
-  }
-}
-
-```
-
-```{r}
-
-test_MakeStormCostTables <- function(url, datafile) {
+system_MakeStormCostTables <- function(url, datafile) {
   jurisTableList <- MakeStormCostTables(url, datafile)
 
-    i = 1
+  i = 1
   for (jurisTable in jurisTableList) {
     print(paste0("List[", i, "]"))
     print(head(jurisTable))
@@ -793,119 +700,97 @@ test_MakeStormCostTables <- function(url, datafile) {
 
 ```
 
-```{r}
-# 
-# runDataTest <- function()
-# {
-#   rawData         <- test_LoadStormCostData()
-#   cleanData       <- test_CleanRawData(rawData)
-#   baseData        <- test_TransformRawToBase(cleanData)
-#   baseTableList   <- test_MakeBaseTables(baseData)
-#   jurisTableList  <- test_jurisStormTable(baseTableList)
-# }
-
-```
-
-```{r}
-# 
-# if (SYSTEM & PHASE_MAKE_DATA) {
-#   jurisTableList <- MakeStormCostTables(URL, DATAFILE)
-#   i = 1
-#   for (jurisTable in jurisTableList) {
-#     print(paste0("List[", i, "]"))
-#     print(head(jurisTable))
-#     i = i + 1
-#   }
-# }
-
-```
+#### UNIT Make Top 10 Tables
 
 ```{r}
 # ###################################################################
-# test_MakeTop10HumanTable <- function(jurisTableList) {
-#   humanCostsTable <- MakeTop10HumanTable(jurisTableList)
-#   i = 1
-#   for (humanTable in humanCostsTable) {
-#     print(paste0("List[", i, "]"))
-#     if (i %% 2 == 0) {
-#       tbl <- data.frame(humanTable)
-#       print(class(tbl))
-#       print(head(tbl))
-#     } else {
-#       print(humanTable)
-#     }
-#     
-#     i = i + 1
-#   }
-# }
+unit_MakeTop10Tables <- function(jurisTableList) {
+  humanCostsTable <- MakeTop10Tables(jurisTableList, HUMAN_COST)
+
+  i = 1
+  for (humanCost in humanCostsTable) {
+    print(paste0("unit_MakeTop10Tables: JurisList[", i, "]"))
+    print(head(humanCost))
+    i = i + 1
+  }
+  econCostsTable <- MakeTop10Tables(jurisTableList, ECON_COST)
+
+  i = 1
+  for (econCost in econCostsTable) {
+    print(paste0("unit_MakeTop10Tables: JurisList[", i, "]"))
+    print(head(econCost))
+    i = i + 1
+  }
+
+}
 
 ```
 
 ```{r}
 
-# test_MakeTop10EconomicTable <- function(jurisTableList) {
-#   economicCostsTable <- MakeTop10EconomicTable(jurisTableList)
-#   i = 1
-#   for (economicTable in economicCostsTable) {
-#     print(paste0("List[", i, "]"))
-#     if (i %% 2 == 0) {
-#       tbl <- data.frame(economicTable)
-#       print(class(tbl))
-#       print(head(tbl))
-#     } else {
-#       print(economicTable)
-#     }
-#     i = i + 1
-#   }
-# }
+unit_MakeTop10EconomicTable <- function(jurisTableList) {
+  economicCostsTable <- MakeTop10EconomicTable(jurisTableList)
+  i = 1
+  for (economicTable in economicCostsTable) {
+    print(paste0("List[", i, "]"))
+    if (i %% 2 == 0) {
+      tbl <- data.frame(economicTable)
+      print(head(tbl))
+    } else {
+      print(economicTable)
+    }
+    i = i + 1
+  }
+}
 
 ```
 
 ```{r}
 
-if (TEST & MAKE_STORM_COST_TABLES){
-  test_MakeStormCostTables(URL, DATAFILE)
-}
-
-if (TEST & LOAD_STORM_COST_DATA){
-  test_LoadStormCostData(URL, DATAFILE)
-}
-
-if (TEST & CLEAN_RAW_DATA){
-  test_CleanRawData(URL, DATAFILE)
-}
-
-if (TEST & TRANSFORM_RAW_TO_BASE){
-  test_TransformRawToBase(URL, DATAFILE)
-}
-
-if (TEST & MAKE_BASE_TABLE_LIST){
-  test_MakeBaseTables(URL, DATAFILE)
-}
-
-if (TEST & MAKE_JURIS_MERGED_TABLE){
-  # test_MakeBaseTables(URL, DATAFILE)
-}
-
-if (TEST & GET_HUMAN_COST){
-  test_GetHumanCost(URL, DATAFILE)
-}
-
-  
-  
-if (TEST & MERGE_STORM_LIST){
-  test_MergeStormLists(URL, DATAFILE)
+if (SYSTEM & MAKE_STORM_COST_TABLES){
+  print("MAKING Storm cost tables")
+  system_MakeStormCostTables(URL, DATAFILE)
 }
 # 
-# if (TEST & GET_HUMAN_COST){
-#   jurisTableList  <- test_jurisStormTable(URL, DATAFILE)
+# if (UNIT & LOAD_STORM_COST_DATA){
+#   unit_LoadStormCostData(URL, DATAFILE)
 # }
+# 
+# if (UNIT & CLEAN_RAW_DATA){
+#   unit_CleanRawData(URL, DATAFILE)
+# }
+# 
+# if (UNIT & TRANSFORM_RAW_TO_BASE){
+#   unit_TransformRawToBase(URL, DATAFILE)
+# }
+# 
+# if (UNIT & MAKE_JURIS_STORM_LIST){
+#   unit_MakeBaseTables(URL, DATAFILE)
+# }
+
+
+if (UNIT & GROUP_JURIS_COSTS){
+  unit_GroupJurisCost(URL, DATAFILE)
+}
+# 
+#   
+#   
+# if (UNIT & MERGE_STORM_LIST){
+#   unit_MergeStormLists(URL, DATAFILE)
+# }
+# 
+# if (UNIT & GROUP_JURIS_COSTS){
+#   unit_jurisStormTable(URL, DATAFILE)
+# }
+
+
+if (UNIT & MAKE_TOP10_HUMAN_TABLE){
+  jurisCostList <- MakeStormCostTables(URL, DATAFILE)
+  unit_MakeTop10Tables(jurisCostList)
+}
 
 ```
 
-<!-- GET_ECONOMIC_COST              = FALSE -->
-<!-- MERGE_STORM_LIST              = FALSE -->
-<!-- MAKE_JURIS_MERGED_TABLE    = FALSE -->
 
 <!-- MAKE_STORM_COST_ANALYSIS   = FALSE -->
 <!-- MAKE_TOP10_HUMAN_TABLE     = FALSE -->
@@ -917,11 +802,11 @@ if (TEST & MERGE_STORM_LIST){
 # 
 # 
 # if (SYSTEM & PHASE_MAKE_DATA) {
-#   rawData         <- test_LoadStormCostData()
-#   cleanData       <- test_CleanRawData(rawData)
-#   baseData        <- test_TransformRawToBase(cleanData)
-#   baseTableList   <- test_MakeBaseTables(baseData)
-#   jurisTableList  <- test_jurisStormTable(baseTableList)
+#   rawData         <- unit_LoadStormCostData()
+#   cleanData       <- unit_CleanRawData(rawData)
+#   baseData        <- unit_TransformRawToBase(cleanData)
+#   baseTableList   <- unit_MakeBaseTables(baseData)
+#   jurisTableList  <- unit_jurisStormTable(baseTableList)
 # }
 
 ```
@@ -930,7 +815,7 @@ if (TEST & MERGE_STORM_LIST){
 
 ```{r visualization test}
 # 
-# test_MakeCvC <- function(jurisTableList) {
+# unit_MakeCvC <- function(jurisTableList) {
 #   humanList <- MakeTop10HumanTable(jurisTableList)
 #   cvcImages <- MakeCvC(humanList)
 # 
@@ -955,7 +840,7 @@ if (TEST & MERGE_STORM_LIST){
 # 
 # if (SYSTEM & PHASE_ANALYSIS) {
 #   jurisTableList <- MakeStormCostTables(URL, DATAFILE)
-#   resultList      <- MakeStormCostAnalysis(jurisTableList)
+#   resultList      <- GenerateResultsList(jurisTableList)
 #   i = 1
 #   for (jurisTable in resultList) {
 #     print(paste0("List[", i, "]"))
@@ -968,16 +853,16 @@ if (TEST & MERGE_STORM_LIST){
 # 
 # ```{r}
 # 
-# if (TEST & PHASE_ANALYSIS) {
+# if (UNIT & PHASE_ANALYSIS) {
 #   jurisTableList <- MakeStormCostTables(URL, DATAFILE)
 #   if (MAKE_TOP10_HUMAN_TABLE) {
-#     humanList       <- test_MakeTop10HumanTable(jurisTableList)
+#     humanList       <- unit_MakeTop10HumanTable(jurisTableList)
 #   }
 #   if (MAKE_TOP10_ECONOMCIC_TABLE) {
-#     econList       <- test_MakeTop10EconomicTable(jurisTableList)
+#     econList       <- unit_MakeTop10EconomicTable(jurisTableList)
 #   }
 #   if (MAKE_CVC_IMAGE) {
-#     cvcImages      <- test_MakeCvC(jurisTableList)
+#     cvcImages      <- unit_MakeCvC(jurisTableList)
 #   }
 # }
 
