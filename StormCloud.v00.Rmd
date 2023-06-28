@@ -1,5 +1,5 @@
 ---
-title: "StormCloud: The Human and Economic Toll from U.S. Storms"
+title: "StormCloud: The Human and Economic Toll of U.S. Storms"
 author: "Kevin Glass"
 date: "`r Sys.Date()`"
 output:
