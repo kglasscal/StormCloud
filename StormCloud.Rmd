@@ -20,19 +20,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Code
 
-## Introduction
+## Introduction COMMENT
 
-The StormCloud code is complex and long; the uncommented base code is around 400 lines and the testing code (shown in the Appendix 1) is another 200 lines. Some of the techniques used to produce the code have not been discussed in class as are some of the libraries. As a result, the code will include extensive 
+The StormCloud code is complex and long; the uncommented base code is around 400 lines and the testing code (shown in the Appendix 1) is another 200 lines. Some of the techniques used to produce the code have not been discussed in class as are some of the libraries. As a result, the code will include extensive
 
 The
 
+## Setup Phase COMMENT
 
-## Setup Phase
-The Setup Phase is partitioned into four sections. The 
-
+The Setup Phase is partitioned into four sections. The
 
 ### StormCloud Libraries COMMENT
-
 
 ```{r setup phase, message=FALSE}
 
@@ -41,9 +39,13 @@ library(dplyr)
 library(cowplot)
 library(knitr)
 library(kableExtra)
+library(stringr)
+
+
 ```
 
 ### User Defined Constants
+
 StormCloud gives the user control over the location and name of the required resource file. It also allows the user to select to select a state and county for more detailed analysis of the storm data.
 
 ```{r user defined constants}
@@ -57,17 +59,18 @@ COUNTY_   <- "SAN BERNARDINO"
 ```
 
 ### Testing Constants
+
 The following set of constants are used for debugging, testing, and notifying the user about the status of the programs execution. When running the code to produce useful output, all of these constants are set to FALSE.
 
 ```{r test constants}
 VERBOSE                    = FALSE     # TRUE  FALSE
 DEBUG                      = TRUE
-UNIT                       = TRUE
-SYSTEM                     = FALSE
+UNIT                       = FALSE
+SYSTEM                     = TRUE
 
 ALL_FUNCTIONS              = FALSE
 MAIN                       = FALSE
-MAKE_STORM_COST_TABLES     = FALSE
+MAKE_STORM_COST_TABLES     = TRUE
 DOWNLOAD_DATA_FILE         = FALSE
 LOAD_STORM_COST_DATA       = FALSE
 CLEAN_RAW_DATA             = FALSE
@@ -79,7 +82,7 @@ MAKE_RESULT_LIST           = TRUE
 MAKE_STORM_COST_ANALYSIS   = TRUE
 
 MAKE_STORM_COST_ANALYSIS   = FALSE
-MAKE_TOP10_HUMAN_TABLE     = TRUE
+MAKE_TOP10_HUMAN_TABLE     = FALSE
 MAKE_TOP10_ECONOMCIC_TABLE = FALSE
 MAKE_CVC_IMAGE             = FALSE
 
@@ -89,9 +92,13 @@ PHASE_ANALYSIS             = FALSE
 PHASE_CONTROL              = FALSE
 
 DISPLAY_OUTPUT             = FALSE
+
+
+refilter                   <- "NONE"
 ```
 
 ### Program Constants
+
 The program constants are used to make the code less cryptic. Rather than using numbers to define array indices, loop ranges, and other invariant values, StormCloud uses named constants. For example, the function MakeJurisStormList, uses a for loop with the range CNTY_BASE_IDX through US_BASE_IDX rather than 1 through 3. When the programmer knows the names of the constants, he or she does not need to remember which number represents which thing.
 
 ```{r program constants}
@@ -107,10 +114,10 @@ US_BASE_IDX       = 3
 HUMAN_COST        = 1        
 ECON_COST         = 2        
 
-REGION_NAME = c('COUNTY', 'STATE', 'US',   
-                'COUNTY_HUMAN_COST', 'STATE_HUMAN_COST', 
-                'US_HUMAN_COST', 'COUNTY_ECON_COST', 
-                'STATE_ECON_COST', 'US_ECON_COST')
+# REGION_NAME = c('COUNTY', 'STATE', 'US',   
+#                 'COUNTY_HUMAN_COST', 'STATE_HUMAN_COST', 
+#                 'US_HUMAN_COST', 'COUNTY_ECON_COST', 
+#                 'STATE_ECON_COST', 'US_ECON_COST')
 
 # These constants are the column names for the final data frames
 COUNTY_FIELD   <- 
@@ -131,13 +138,14 @@ JURIS_FILTER    <-  list(
 
 ```
 
-
 <!-- 6789112345678921234567893123456789412345678951234567896123456789 -->
+
+```{=html}
 <!-- 
 ## 456789112345678921234567893123456789412345678951234567896123456789
  -->
-
-## Program Control Phase
+```
+## Program Control Phase COMMENT
 
 ```{r program control phase}
 Main <- function(url, datafile) {
@@ -153,7 +161,9 @@ Main <- function(url, datafile) {
 
 ```
 
-## Make Data Frames Phase
+## Make Data Frames Phase COMMENT
+
+```{=html}
 <pre>
 MakeStormCostTables
       |
@@ -162,7 +172,7 @@ MakeStormCostTables
       LoadStormCostData creates rawData from destfile and returns
       |                 a formatted variant
       |      
-      ConsolidateStormTypes modifies and returns rawData
+      RemoveSynonymTypes modifies and returns rawData
       |
       CleanRawData modifies and returns rawData
       |
@@ -172,8 +182,7 @@ MakeStormCostTables
       |
       GroupJurisCost creates and returns jurisCostList
 </pre>
-
-
+```
 ### Make Storm Cost Tables
 
 ```{r make analysis phase}
@@ -191,16 +200,13 @@ MakeStormCostTables <- function(url, dataFile)  {
       print(paste0(dataFile, " Contents already loaded "))
     }
   }
-  if (DEBUG & MAKE_STORM_COST_TABLES) {
-    print("Load")
-  }
 
   rawData <- LoadStormCostData(dataFile)
-  rawData <- ConsolidateStormTypes(rawData)
   rawData <- CleanRawData(rawData)
   ## Set up the aggregated financial and casualty data  -------------
   baseData <- TransformRawToBase(rawData)
   
+  rm(rawData)
   jurisStormList   <- MakeJurisStormList(baseData)
   jurisCostList    <- GroupJurisCost(jurisStormList)
   
@@ -237,8 +243,8 @@ DownloadDataFile <- function(url, destfile)
 # COUNTYNAME STATE  EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG
 LoadStormCostData <- function(dataFile)
 {
-  if ((VERBOSE | DEBUG) & LOAD_STORM_COST_DATA) {
-    print(paste0("loadRawData: Reading raw storm data from ", 
+  if (VERBOSE & LOAD_STORM_COST_DATA) {
+    print(paste0("loadRawData: Reading raw storm data from ",
                  dataFile))
   }
 
@@ -249,13 +255,31 @@ LoadStormCostData <- function(dataFile)
                                        rep("NULL",14), rep(NA, 6), 
                                        rep("NULL",9)),
                         header = TRUE)
+  
   if(is.null(rawData)) {
-    print(paste0("ERROR: could not read ", dataFile))
+    print(paste0("ERROR: could not read ", dataFile, 
+                 " in current directory"))
     stop()
   }
+
   
-  if ((VERBOSE | DEBUG) & LOAD_STORM_COST_DATA) {
-    print("LoadStormCostData: Display raw data ")
+  # remove rows with 
+  rawData <- rawData[rawData$FATALITIES != 0 | 
+            rawData$INJURIES != 0 |
+            rawData$PROPDMG != 0 |
+            rawData$CROPDMG != 0, ] 
+  
+  rawData$EVTYPE     <- trimws(rawData$EVTYPE, which = c("both"))
+  rawData$EVTYPE     <- tolower(rawData$EVTYPE)
+  rawData$PROPDMGEXP <- tolower(rawData$PROPDMGEXP)
+  rawData$CROPDMGEXP <- tolower(rawData$CROPDMGEXP)
+
+  rawData <- RemoveInvalidTypes(rawData)
+  rawData <- FuseSynonymTypes(rawData)
+
+  if (DEBUG & LOAD_STORM_COST_DATA) {
+    print("LoadStormCostData: coalesce synonym data ")
+    print(paste0("LoadStormCostData: dim =  ", dim(rawData)))
     print(head(rawData))
   }
 
@@ -276,11 +300,10 @@ CleanRawData <- function(rawData)
     print(head(rawData))
   }
 
- ## convert data used for computation from string to numeric --------
-  rawData <- rawData %>%
-    mutate_at(c('FATALITIES', 'INJURIES', 'PROPDMG', 'CROPDMG'), 
-              as.numeric)
-
+  ## convert data used for computation from string to numeric --------
+  # rawData <- rawData %>%
+  #   mutate_at(c('FATALITIES', 'INJURIES', 'PROPDMG', 'CROPDMG'), 
+  #             as.numeric)
 
   if ((VERBOSE | DEBUG) & CLEAN_RAW_DATA) {
     print("CleanRawData: check raw data")
@@ -288,18 +311,6 @@ CleanRawData <- function(rawData)
   }
   return (rawData)
 }  ## End of CleanRawData function
-
-```
-
-### Load Storm Cost Data
-
-```{r}
-
-# CleanRawData ######################################################
-ConsolidateStormTypes <- function(rawData) {
-  # this will be used to create a uniform name convention
-  return (rawData)
-}
 
 ```
 
@@ -316,11 +327,11 @@ TransformRawToBase <- function(rawData)
   }
 
   baseData <- rawData %>% ungroup(.) %>%
-    mutate (PROPDMGEXP = ifelse(PROPDMGEXP == 'K', 1000.,
-                                ifelse(PROPDMGEXP == 'M', 
+    mutate (PROPDMGEXP = ifelse(PROPDMGEXP == 'k', 1000.,
+                                ifelse(PROPDMGEXP == 'm', 
                                        1000000., 1.) ),
-            CROPDMGEXP = ifelse(CROPDMGEXP == 'K', 1000.,
-                                ifelse(CROPDMGEXP == 'M', 
+            CROPDMGEXP = ifelse(CROPDMGEXP == 'k', 1000.,
+                                ifelse(CROPDMGEXP == 'm', 
                                        1000000., 1.) ),
             PROPDMG       = PROPDMG * PROPDMGEXP,
             CROPDMG       = CROPDMG * CROPDMGEXP,
@@ -414,6 +425,7 @@ GroupJurisCost <- function(jurisStormList)
 
   }
 
+
   if (DEBUG & GROUP_JURIS_COSTS) {
 
     print("jurisStormTable: JurisCost")
@@ -425,12 +437,272 @@ GroupJurisCost <- function(jurisStormList)
 
 ```
 
+### Remove Invalid Types
+
+```{r}
+
+# removeSynonymTypes ######################################################
+RemoveInvalidTypes <- function(rawData) {
+  # print(head(rawData))
+    # rawData <- rawData[rawData$FATALITIES != 0 | 
+    #         rawData$INJURIES != 0 |
+    #         rawData$PROPDMG != 0 |
+    #         rawData$CROPDMG != 0, ] 
+
+  rawData <- rawData[
+    rawData$EVTYPE != '?' &
+    rawData$EVTYPE != 'high' &
+    rawData$EVTYPE != 'marine accident' &
+    rawData$EVTYPE != 'marine mishap' &
+    rawData$EVTYPE != 'other'&
+    rawData$EVTYPE != 'apache county' &
+    rawData$EVTYPE != 'drowning'
+    ,]
+
+  return (rawData)
+}
+
+```
+
+### Fuse Synonym Types
+
+```{r FuseSynonymTypes}
+
+# removeSynonymTypes ######################################################
+FuseSynonymTypes <- function(rawData) {
+
+  print("IN FUSE TYPES")
+  refilter                   = "marine"
+  rawData$EVTYPE <-
+    gsub("^marine hail$", "Marine Hail",
+    gsub("^marine high wind$", "Marine High Wind",
+    gsub("^marine strong wind$", "Marine Strong Wind",
+    gsub("^marine thunderstorm wind$", "Marine Thunderstorm Wind",
+    gsub("^marine tstm wind$", "Marine Thunderstorm Wind",
+    gsub("^storm force winds$", "Marine Strong Wind",
+    gsub("^(high|heavy|rough).+seas.*$", "Marine Strong Wind",
+    gsub("^(high|heavy).+swells.*$", "Marine High Wind",
+    gsub("^(typhoon|hurricane.*)$", "Hurricane/Typhoon",
+    gsub("^tsunami$", "Tsunami",
+    gsub("^tropical depression$", "Tropical Depression",
+    gsub("^tropical storm.*$", "Tropical Storm",
+    rawData$EVTYPE))))))))))))
+
+  rawData$EVTYPE <-
+    gsub("^.*coastal.*$", "Coastal Flood",
+    gsub("^.*erosion.*$", "Coastal Flood",
+    gsub("^.*tidal.*$", "Coastal Flood",
+    gsub("^astronomical high tide$", "Coastal Flood",
+    gsub("^storm surge.*$", "Coastal Flood",
+    gsub("^high.+(tides|waves).*$", "Coastal Flood",
+    gsub("^rogue.+$", "Storm Tide",
+    rawData$EVTYPE)))))))
+
+  rawData$EVTYPE <-
+    gsub("^lake.*snow$", "Lake-Effect Snow",
+    gsub("^lake.*$", "Lakeshore Flood",
+    rawData$EVTYPE))
+    
+  rawData$EVTYPE <-
+    gsub("^(dam break|ice floes|ice jam( flood.+|))$", "Flash Flood",
+    gsub("^.+small stream urban$", "Flash Flood",
+    gsub("^urban.+(small|stream).*$", "Flash Flood",
+    gsub("^(small|minor).+flood.*$", "Flash Flood",
+    gsub("^flood.+flash.*$", "Flash Flood",
+    gsub("^flash.*$", "Flash Flood",
+    rawData$EVTYPE))))))
+
+  rawData$EVTYPE <-
+    gsub("^fog and cold temperatures$", "Freezing Fog",
+    gsub("^freezing fog$", "Freezing Fog",
+    gsub("^.*freezing (drizzle|rain|spray).*$", "Winter Weather",
+    rawData$EVTYPE)))
+
+  # # must come after marine
+  rawData$EVTYPE <-
+    gsub("^hail.*$", "Hail",
+    gsub("^small hail$", "Hail",
+    gsub("^thunderstorm.+hail$", "Hail",
+    gsub("^.*tstm.+hail$", "Hail",
+    gsub("^(wind|gusty).+hail$", "Hail",
+    rawData$EVTYPE)))))
+
+  rawData$EVTYPE <-
+    gsub("^(wind|non|gusty).+wind.*$", "High Wind",
+    gsub("^(strong|gusty).*$", "Strong Wind",
+    gsub("^(rain.+wind|wind.+rain)$", "High Wind",
+    gsub("^wind.*$", "High Wind",
+    gsub("^gradient wind$", "Rip Current",
+    gsub("^rip current.*$", "Rip Current",
+    rawData$EVTYPE))))))
+
+  rawData$EVTYPE <-
+    gsub("^(wind|gusty).+rain$", "Heavy Rain",
+    gsub("^(unseasonal|hvy|high.+heavy).+rain.*$", "Heavy Rain",
+    # gsub("^(record|torrential|excessive) rainfall$", "Heavy Rain",
+    gsub("^rain(.*|fall)$", "Heavy Rain",
+    gsub("^heavy (shower|precipitation)$", "Heavy Rain",
+    gsub("^heavy.(rain|rains)$", "Heavy Rain",
+    gsub("^heavy rain/severe weather$", "Heavy Rain",
+    gsub("^(torrential|record|excessive) rainfall$", "Heavy Rain",
+    rawData$EVTYPE)))))))
+
+  rawData$EVTYPE <-
+    gsub("^heavy rain/lightning", "Lightning",
+    gsub("^thunderstorm.+lightning", "Lightning",
+    gsub("^tstm.+lightning", "Lightning",
+    gsub("^ligntning$", "Lightning",
+    gsub("^lighting$", "Lightning",
+    gsub("^ligntning+rain$", "Heavy Rain",
+    gsub("^lightning.*$", "Lightning",
+    rawData$EVTYPE)))))))
+
+  rawData$EVTYPE <-
+    gsub("^thunderstorm.+flood($|ing$)", "Flood",
+    gsub("^high.+water$", "Flood",
+    gsub("^(flood|river|rural|major|break).+$", "Flood",
+    gsub("^urban.+flood.*$", "Flood",
+    gsub("^ice jam flooding$", "Flood",
+    gsub("^rapidly rising water$", "Flood",
+    gsub("^flood$", "Flood",
+    gsub("^heavy rain(s/flooding| and flood)$", "Flood",
+    gsub("^heavy snow/high winds & flood$", "Flood",
+    rawData$EVTYPE)))))))))
+
+  rawData$EVTYPE <-
+    gsub("^thunder.+$", "Thunderstorm Wind",
+    gsub("^tstm.+$", "Thunderstorm Wind",
+    gsub("^.+burst.*$", "Thunderstorm Wind",
+    gsub("^severe thunder.+$", "Thunderstorm Wind",
+    gsub("^severe turb.+$", "Thunderstorm Wind",
+    gsub("^whirlwind$", "Thunderstorm Wind",
+    gsub("^(thude|thune|tund|thundeer).+$", "Thunderstorm Wind",
+    rawData$EVTYPE)))))))
+
+  rawData$EVTYPE <-
+    gsub("^(cold air torn|torn).+$", "Tornado",
+    gsub("^(gustnado|landspout)$", "Tornado",
+    rawData$EVTYPE))
+
+  rawData$EVTYPE <-
+    gsub("^.*heavy snow$", "Heavy Snow",
+    gsub("^(excessive|high|heavy).+snow$", "Heavy Snow",
+    gsub("^record snow$", "Winter Weather",
+    rawData$EVTYPE)))
+
+  rawData$EVTYPE <-
+    gsub("^extreme.+chill$|^(extended|extreme|record) cold$", "Extreme Cold/Wind Chill",
+    gsub("^hypo.+$", "Extreme Cold/Wind Chill",
+    rawData$EVTYPE))
+
+  rawData$EVTYPE <-
+    gsub("^high.+blizzard.*$", "Blizzard",
+    gsub("^.*blowing snow$", "Blizzard",
+    gsub("^.*blizzard.*$", "Blizzard",
+    gsub("^high.+wind.*$", "High Wind",
+    gsub("^snow/high winds$", "Blizzard",
+    rawData$EVTYPE)))))
+
+  rawData$EVTYPE <-
+    gsub("^heavy.+ice$", "Winter Storm",
+    gsub("^heavy.+storm$", "Winter Storm",
+    gsub("^heavy.+winds$", "Winter Storm",
+    gsub("^heavy.+snow.*$", "Winter Storm",
+    gsub("^winter.+storm$", "Winter Storm",
+    gsub("^.*winter storm.+$", "Winter Storm",
+    rawData$EVTYPE))))))
+
+  rawData$EVTYPE <-
+    gsub("^.*sl(ide|ump).*$", "Debris Flow",
+    gsub("^(snow|sleet|glaze).+ice storm$", "Winter Weather",
+    gsub("^glaze.*$", "Winter Weather",
+    rawData$EVTYPE)))
+
+
+  rawData$EVTYPE <-
+    gsub("^cool and wet$", "Winter Weather",
+    gsub("^(late|light).+snow.*$", "Winter Weather",
+    gsub("^.*winter storm.+$", "Winter Storm",
+    gsub("^(rain.snow|snow.rain)$", "Winter Weather",
+    gsub("^falling snow/ice$", "Winter Weather",
+    gsub("^wint.+$", "Winter Weather",
+    rawData$EVTYPE))))))
+
+  rawData$EVTYPE <-
+    gsub("^.*drought.*$", "Drought",
+    gsub("^.*heat.*$", "Excessive Heat",
+    gsub("^hyper.+$", "Excessive Heat",
+    gsub("^.*warm.*$", "Heat",
+    rawData$EVTYPE))))
+
+  rawData$EVTYPE <-
+    gsub("^dust storm.*$", "Dust Storm",
+    gsub("^blowing dust$", "Dust Storm",
+    gsub("^.*waterspout.*$", "Waterspout",
+    gsub("^.*dust devil.*$", "Dust Devil",
+    rawData$EVTYPE))))
+
+  rawData$EVTYPE <-
+    gsub("^.*(frost|freeze).*$", "Frost/Freeze",
+    rawData$EVTYPE)
+
+  rawData$EVTYPE <-
+    gsub("^ice storm$", "Ice Storm",
+    gsub("^ic(e|y).*$", "Winter Weather",
+    gsub("^.*mix.*$", "Winter Weather",
+    rawData$EVTYPE)))
+
+rawData$EVTYPE <-
+  gsub("^snow.*$", "Winter Weather",
+  gsub("^sleet$", "Winter Weather",
+  gsub("^.*cold.*$", "Cold/Wind Chill",
+  gsub("^low.*$", "Cold/Wind Chill",
+  rawData$EVTYPE))))
+
+rawData$EVTYPE <-
+  gsub("^cold.*(.*|temperature|wave|winds|wind chill)$", "Cold/Wind Chill",
+  gsub("^high.+cold$", "Cold/Wind Chill",
+  gsub("^.*cold.*$", "Cold/Wind Chill",
+  gsub("^low.*$", "Cold/Wind Chill",
+  rawData$EVTYPE))))
+
+  rawData$EVTYPE <-
+    gsub("^(high|heavy|rough|hazardous).+surf.*$", "High Surf",
+    gsub("^avalanc.*$", "Avalanche",
+    gsub("^seiche$", "Seiche",
+    gsub("^volcanic ash$", "Volcanic Ash",
+    gsub("^astronomical low tide$", "Astronomical Low Tide",
+    gsub("^black ice$", "Winter Weather",
+    gsub("^excessive wetness$", "Winter Weather",
+    gsub("^rainstorm$", "Heavy Rain",
+    gsub("^heavy precipitation$", "Heavy Rain",
+    gsub("^(dense|.*)fog$", "Dense Fog",
+    gsub("^falling snow/ice$", "Winter Weather",
+    rawData$EVTYPE)))))))))))
+
+  rawData$EVTYPE <-
+    gsub("^.*fire.*$", "Wildfire",
+    gsub("^.*funnel.*$", "Funnel Cloud",
+    gsub("^.*smoke$", "Dense Smoke",
+    rawData$EVTYPE)))
+  
+    # gsub("^.*fire.*$", "Wildfire",
+    # gsub("^.*funnel.*$", "Funnel Cloud",
+    # gsub("^.*smoke$", "Dense Smoke",
+
+  return (rawData)
+}
+
+```
+
 ## Analysis Phase
+
+```{=html}
 <pre>
 MakeResultsList
       |
 </pre>
-
+```
 ```{r analysis phase}
 
 ```
@@ -448,7 +720,7 @@ MakeResultList <- function(jurisCostList) {
   resultList <- list()
   ## Make StormCost Tables (Top 10)
   
-  humanCost <- MakeTop10Tables(jurisCostList)
+  costList <- MakeTop10Tables(jurisCostList, HUMAN_COST)
 
   # econCost  <- MakeTop10EconomicTable(jurisCostList)
   # 
@@ -459,7 +731,7 @@ MakeResultList <- function(jurisCostList) {
   # resultList[[length(resultList) + 1]] <- econCost
   # resultList[[length(resultList) + 1]] <- cvcList
   # 
-  return (resultList)
+  return (costList)
 }
 
 ```
@@ -489,31 +761,31 @@ MakeTop10Tables <- function(jurisTableList, type) {
 }
 
 # MakeTop10EconomicTable ########################################
-MakeTop10EconomicTable <- function(jurisTableList) {
-  if ((VERBOSE | DEBUG) & MAKE_TOP10_ECONOMCIC_TABLE) {
-    print("MakeTop10HumanTable: starting data")
-    print(head(jurisTableList))
-  }
+# MakeTop10EconomicTable <- function(jurisTableList) {
+#   if ((VERBOSE | DEBUG) & MAKE_TOP10_ECONOMCIC_TABLE) {
+#     print("MakeTop10HumanTable: starting data")
+#     print(head(jurisTableList))
+#   }
+# 
+#   economicCostList = list()
+#   for (juris in CNTY_BASE_IDX : US_BASE_IDX) {
+#     economicCostTitle <- 
+#       switch (juris,
+#               paste0("Top 10 Storm Costs, (Human Costs)\n", 
+#                      COUNTY_, " ", STATE_),
+#               paste0("Top 10 Storm Costs, (Human Costs)\n",
+#                      state.name[grep(STATE_, state.abb)]),
+#               "Top 10 Storm Costs, (Human Costs\n)"
+#     )
+#     economicCostList[length(economicCostList) + 1] = economicCostTitle
+#     economicCostList[length(economicCostList) + 1] = 
+#       jurisTableList[juris + ECON_OFF]
+#   }
+# 
+#   return(economicCostList)
+# }
 
-  economicCostList = list()
-  for (juris in CNTY_BASE_IDX : US_BASE_IDX) {
-    economicCostTitle <- 
-      switch (juris,
-              paste0("Top 10 Storm Costs, (Human Costs)\n", 
-                     COUNTY_, " ", STATE_),
-              paste0("Top 10 Storm Costs, (Human Costs)\n",
-                     state.name[grep(STATE_, state.abb)]),
-              "Top 10 Storm Costs, (Human Costs\n)"
-    )
-    economicCostList[length(economicCostList) + 1] = economicCostTitle
-    economicCostList[length(economicCostList) + 1] = 
-      jurisTableList[juris + ECON_OFF]
-  }
-
-  return(economicCostList)
-}
 ```
-
 
 ```{r}
 
@@ -539,33 +811,35 @@ makeOutputTables <- function(dataTables)
 ### Make Images
 
 ```{r image phase}
-MakeCvC <- function(cvcTable) {
-  if ((VERBOSE | DEBUG) & MAKE_CVC_IMAGE) {
-    print("MakeCvC: starting processing")
-  }
-
-  cvcImageList <- list()
-
-  i <- 1
-  for (cvcImage in cvcTable) {
-    if (i %% 2 == 0) {
-      df <- data.frame(cvcImage)
-      # print(head(df))
-      # collect plot attributes (i/2)
-      sp <- ggplot(df, aes(x = STORM_HUMAN_COST, y = STORM_ECON_COST)) + geom_point()
-
-      cvcImageList[[length(cvcImageList) + 1]] = sp
-    } else {
-      print(cvcImage)
-    }
-    i <- i + 1
-  }
-
-  return(cvcImageList)
-}
+# MakeCvC <- function(cvcTable) {
+#   if ((VERBOSE | DEBUG) & MAKE_CVC_IMAGE) {
+#     print("MakeCvC: starting processing")
+#   }
+# 
+#   cvcImageList <- list()
+# 
+#   i <- 1
+#   for (cvcImage in cvcTable) {
+#     if (i %% 2 == 0) {
+#       df <- data.frame(cvcImage)
+#       # print(head(df))
+#       # collect plot attributes (i/2)
+#       sp <- ggplot(df, aes(x = STORM_HUMAN_COST, y = STORM_ECON_COST)) + geom_point()
+# 
+#       cvcImageList[[length(cvcImageList) + 1]] = sp
+#     } else {
+#       print(cvcImage)
+#     }
+#     i <- i + 1
+#   }
+# 
+#   return(cvcImageList)
+# }
 
 ```
+
 ## Execute
+
 ```{r execute phase}
 if (EXECUTE) {
   results <- Main(URL, DATAFILE)
@@ -586,11 +860,18 @@ if (EXECUTE) {
 ```{r}
 
 ```
+
 # Bibliography
 
 # Appendix 1: Testing Phase
 
 ```{r testing phase}
+
+```
+
+#### UNIT LoadStormCostData
+
+```{r testing LoadStormCostData}
 
 # ###################################################################
 unit_LoadStormCostData <- function(url, datafile) {
@@ -601,7 +882,6 @@ unit_LoadStormCostData <- function(url, datafile) {
   print("unit_LoadStormCostData raw data ###########################")
 
   print(head(rawData))
-  
   print("###########################################################")
 
   return (rawData)
@@ -658,7 +938,9 @@ unit_MakeBaseTables <- function(url, datafile) {
 }
 
 ```
+
 #### UNIT Get Human Cost
+
 ```{r}
 unit_GroupJurisCost <- function(url, datafile) {
   rawData <- LoadStormCostData(datafile)
@@ -694,9 +976,13 @@ system_MakeStormCostTables <- function(url, datafile) {
   for (jurisTable in jurisTableList) {
     print(paste0("List[", i, "]"))
     print(head(jurisTable))
+    if (i == US_BASE_IDX) {
+      write.csv(jurisTable, paste0("./filtered", refilter,".csv"))
+    }
     i = i + 1
   }
 }
+
 
 ```
 
@@ -751,11 +1037,11 @@ if (SYSTEM & MAKE_STORM_COST_TABLES){
   print("MAKING Storm cost tables")
   system_MakeStormCostTables(URL, DATAFILE)
 }
-# 
-# if (UNIT & LOAD_STORM_COST_DATA){
-#   unit_LoadStormCostData(URL, DATAFILE)
-# }
-# 
+
+if (UNIT & LOAD_STORM_COST_DATA){
+  unit_LoadStormCostData(URL, DATAFILE)
+}
+
 # if (UNIT & CLEAN_RAW_DATA){
 #   unit_CleanRawData(URL, DATAFILE)
 # }
@@ -791,12 +1077,13 @@ if (UNIT & MAKE_TOP10_HUMAN_TABLE){
 
 ```
 
-
 <!-- MAKE_STORM_COST_ANALYSIS   = FALSE -->
-<!-- MAKE_TOP10_HUMAN_TABLE     = FALSE -->
-<!-- MAKE_TOP10_ECONOMCIC_TABLE = FALSE -->
-<!-- MAKE_CVC_IMAGE             = FALSE -->
 
+<!-- MAKE_TOP10_HUMAN_TABLE     = FALSE -->
+
+<!-- MAKE_TOP10_ECONOMCIC_TABLE = FALSE -->
+
+<!-- MAKE_CVC_IMAGE             = FALSE -->
 
 ```{r}
 # 
