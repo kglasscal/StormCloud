@@ -38,12 +38,54 @@ library(cowplot)
 library(knitr)
 library(kableExtra)
 library(stringr)
+library(rlist)
 
 ```
 
 ```{r setup}
 
 knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+### Testing Constants
+
+The following set of constants are used for debugging, testing, and notifying the user about the status of the programs execution. When running the code to produce useful output, all of these constants are set to FALSE.
+ 
+
+```{r test constants}
+VERBOSE                     = FALSE     # TRUE  FALSE
+DEBUG                       = FALSE
+UNIT                        = FALSE
+INTEGRATION                 = FALSE
+SYSTEM                      = FALSE
+EXECUTE                     = TRUE
+
+ALL_FUNCTIONS               = FALSE
+
+MAIN                        = FALSE  # System test
+DOWNLOAD_DATA_FILE          = FALSE
+
+MAKE_ANALYSIS_DATA          = FALSE  # Integration test
+READ_STORM_FILE             = FALSE
+CLEAN_DATA                  = FALSE
+REMOVE_ZERO_DATA            = FALSE
+REMOVE_INVALID_DATA         = FALSE
+UNIFY_TYPES                 = FALSE
+FINISH_ANALYSIS_DATASET     = FALSE
+
+MAKE_ANALYSIS_TABLES        = FALSE  # Integration test
+MAKE_JURIS_ANALYSIS_SET     = TRUE
+GROUP_JURIS_TABLES          = FALSE
+
+MAKE_RESULT_LIST            = FALSE
+MAKE_TOP10_TABLES           = FALSE
+MAKE_HvE_IMAGE              = FALSE
+
+PHASE_SETUP                 = FALSE
+PHASE_MAKE_DATA             = FALSE
+PHASE_ANALYSIS              = FALSE
+PHASE_CONTROL               = FALSE
 
 ```
 
@@ -71,8 +113,8 @@ COUNTY_PRINT <- str_to_title(COUNTY_)
 # 1, 10, 11, 100, 101, 110, 111.
 
 SELECT_NATIONAL_DATA  = TRUE
-SELECT_STATE_DATA     = FALSE
-SELECT_COUNTY_DATA    = FALSE
+SELECT_STATE_DATA     = TRUE
+SELECT_COUNTY_DATA    = TRUE
 
 
 ```
@@ -113,27 +155,44 @@ STATE_JURISDICTION    <-
 NATIONAL_JURISDICTION  <- 
   "c('EVTYPE', 'HUMAN_COST', 'ECON_COST')"
 
+JURISDICTION_LABELS <- c(
+    paste0(COUNTY_PRINT, ", ", STATE_),
+    paste0(state.name[grep(STATE_, state.abb)]),
+    paste0("United States"))
+
+COST_LABELS <- list(
+    c("EVENT", "CASUALTIES"),
+    c("EVENT", "LOSSES\r(in millions)"))
+
+
 DATA_INDICIES <- list()
 DATA_FIELDS   <- list()
 DATA_FILTERS  <- list()
 
 if (bitwAnd(JURISDICTION, 1)) {
+  # print("Include county")
   DATA_INDICIES[[length(DATA_INDICIES) + 1]] <- 1
   DATA_FIELDS[[length(DATA_FIELDS) + 1]]     <- COUNTY_JURISDICTION
-  DATA_FILTERS[[length(DATA_FILTERS) + 1]]     <- ".$'COUNTY' == COUNTY_ & .$'STATE' == STATE_"
+  DATA_FILTERS[[length(DATA_FILTERS) + 1]]   <- ".$'COUNTY' == COUNTY_ & .$'STATE' == STATE_"
 } 
 
 if (bitwAnd(JURISDICTION, 10)) {
+  # print("Include state")
   DATA_INDICIES[length(DATA_INDICIES) + 1] <- 2
   DATA_FIELDS[length(DATA_FIELDS) + 1]     <- STATE_JURISDICTION
   DATA_FILTERS[length(DATA_FILTERS) + 1]     <- ".$'STATE' == STATE_"
 } 
 
 if (bitwAnd(JURISDICTION, 100)) {
+  # print("Include nation")
   DATA_INDICIES[length(DATA_INDICIES) + 1] <- 3
   DATA_FIELDS[length(DATA_FIELDS) + 1]     <- NATIONAL_JURISDICTION
   DATA_FILTERS[length(DATA_FILTERS) + 1]   <- "NATIONAL"
 }
+
+print(DATA_INDICIES)
+print(DATA_FIELDS)
+print(DATA_FILTERS)
 
 ```
 
@@ -143,6 +202,9 @@ if (bitwAnd(JURISDICTION, 100)) {
 
 ```{r program control phase}
 Main <- function(url, datafile) {
+  if (VERBOSE & MAIN) {
+    print("MAIN: resultList")
+  }
 
   if (!file.exists(datafile)) {
     DownloadDataFile(url, datafile)
@@ -151,6 +213,13 @@ Main <- function(url, datafile) {
   analysisData   <- MakeAnalysisData(datafile)
   analysisTables <- MakeAnalysisTables(analysisData)
   reportList     <- MakeResultList(analysisTables)
+
+  if (DEBUG & MAIN) {
+    for (reportTable in reportList) {
+        print(paste0("reportTable class is ", class(reportTable)))
+        print(head(reportTable))
+      }
+  }
 
   return (reportList)
 }
@@ -165,6 +234,9 @@ Main <- function(url, datafile) {
 # DownloadDataFile ##################################################
 DownloadDataFile <- function(url, destfile)
 {
+  if (VERBOSE & DOWNLOAD_DATA_FILE) {
+    print(paste0("downloadDataFile: Download ", destfile, " from\n", url))
+  }
 
   retrieve = download.file(url, destfile, mode = "wb")
 
@@ -213,13 +285,23 @@ DownloadDataFile                                    MakeAnalysisData
 ```{r MakeAnalysisData}
 
 MakeAnalysisData <- function(datafile)  {
-
+  if (VERBOSE & MAKE_ANALYSIS_DATA) {
+    print("MakeAnalysisData(): coordinate the generation of ")
+    print("the jurisTableList from the origional source file")
+  }
+  
   sourceData   <- ReadStormFile(datafile)
   cleanData    <- CleanData(sourceData)
   clearData    <- RemoveZeroData(cleanData)
   validData    <- RemoveInvalidEvents(clearData)
   stormData    <- UnifyTypes(validData)
   analysisData <- FinishAnalysisDataset(stormData)
+
+  if (DEBUG & READ_STORM_FILE) {
+    print("readStormFile: coalesce synonymous data ")
+    print(paste0("readStormFile: dim =  ", dim(analysisData)))
+    print(head(analysisData))
+  }
 
   return (analysisData)
 }  ## End of MakeAnalysisData function
@@ -232,6 +314,10 @@ MakeAnalysisData <- function(datafile)  {
 
 ReadStormFile <- function(filename)
 {
+  if (VERBOSE & READ_STORM_FILE) {
+    print(paste0("readStormFile: Reading raw storm data from ",
+                 filename))
+  }
 
   ## set up table from the input file -------------------------------
   sourceData <- read.table(filename, stringsAsFactors = FALSE, 
@@ -253,12 +339,20 @@ ReadStormFile <- function(filename)
 # CleanRawData ######################################################
 CleanData <- function(sourceData)
 {
+  if ((VERBOSE | DEBUG) & CLEAN_DATA) {
+    print("CleanRawData: Set headers, transform data to numeric ")
+    print(head(sourceData))
+  }
 
   sourceData$EVTYPE     <- trimws(sourceData$EVTYPE, which = c("both"))
   sourceData$EVTYPE     <- tolower(sourceData$EVTYPE)
   sourceData$PROPDMGEXP <- tolower(sourceData$PROPDMGEXP)
   sourceData$CROPDMGEXP <- tolower(sourceData$CROPDMGEXP)
 
+  if ((VERBOSE | DEBUG) & CLEAN_DATA) {
+    print("CleanRawData: check raw data")
+    print(head(sourceData))
+  }
   return (sourceData)
 }  ## End of CleanRawData function
 
@@ -271,6 +365,9 @@ CleanData <- function(sourceData)
 
 RemoveZeroData <- function(cleanData)
 {
+  if (VERBOSE & REMOVE_ZERO_DATA) {
+    print("RemoveZeroData: start")
+  }
 
   # remove rows with 
   clearData <- 
@@ -279,6 +376,12 @@ RemoveZeroData <- function(cleanData)
       cleanData$INJURIES != 0 |
       cleanData$PROPDMG != 0 |
       cleanData$CROPDMG != 0, ] 
+
+  if (DEBUG & REMOVE_ZERO_DATA) {
+    print("RemoveZeroData: drop zero data")
+    print(paste0("RemoveZeroData: dim =  ", dim(clearData)))
+    print(head(clearData))
+  }
 
   return (clearData)
 }  ## End of LoadStormCostData function
@@ -301,6 +404,12 @@ RemoveInvalidEvents <- function(clearData) {
     clearData$EVTYPE != 'apache county' &
     clearData$EVTYPE != 'drowning'
     ,]
+
+  if (DEBUG & REMOVE_INVALID_DATA) {
+    print("RemoveInvalidEvents: drop invalid event types")
+    print(paste0("RemoveZeroData: dim =  ", dim(validData)))
+    print(head(validData))
+  }
 
   return (validData)
 }
@@ -568,9 +677,24 @@ FinishAnalysisDataset <- function(analysisData) {
 # MakeAnalysisTables ##############################################
 MakeAnalysisTables <- function(analysisData) 
 {
+  if (VERBOSE & MAKE_ANALYSIS_TABLES) {
+    print("MakeAnalysisTables: start")
+  }
+  if (DEBUG & MAKE_ANALYSIS_TABLES) {
+    print("MakeAnalysisTables: check data after final data set")
+    print(head(analysisData))
+  }
 
   jurisAnalysisSet <- MakeJurisAnalysisSet(analysisData)
   groupedTables    <- GroupJurisTables(jurisAnalysisSet)
+
+  if ((VERBOSE | DEBUG) & MAKE_ANALYSIS_TABLES) {
+    print("TransformStormToAnalysis: check data after rename")
+    for (i in DATA_INDICIES) {
+      print(paste0("Analysis Set ", i))
+      print(head(groupedTables[[i]]))
+    }
+  }
 
   return (groupedTables)
 }  ## End of TransformStormToAnalysis function
@@ -582,18 +706,34 @@ MakeAnalysisTables <- function(analysisData)
 ```{r}
 # MakeJurisAnalysisSets ###########################################
 MakeJurisAnalysisSet <- function(analysisData) {
+  if (VERBOSE & MAKE_JURIS_ANALYSIS_SET) {
+    print("MakeJurisAnalysisSet: start")
+  }
 
   jurisAnalysisSet = list()
-  for (i in DATA_INDICIES) {
-    jurisAnalysisData <- analysisData %>%
+  for (i in 1:length(DATA_INDICIES)) {
+       # print(paste0("USE FIELDS", DATA_FIELDS[[i]]))
+       # print(paste0("USE INDICIES", DATA_INDICIES[[i]]))
+    
+   jurisAnalysisData <- analysisData %>%
       select(eval(parse(text = DATA_FIELDS[[i]])))
 
     if (DATA_FILTERS[[i]] != "NATIONAL") {
+      # print(paste0("USE FILTER", DATA_FILTERS[[i]]))
       jurisAnalysisData <- jurisAnalysisData %>%
         filter(eval(parse(text = DATA_FILTERS[[i]])))
     }
 
     jurisAnalysisSet[[length(jurisAnalysisSet)+1]] <- jurisAnalysisData
+  }
+
+  if (VERBOSE & MAKE_ANALYSIS_TABLES) {
+    print("MakeJurisAnalysisSet: check source data frames")
+
+    for (i in DATA_INDICIES) {
+      print(paste0("jurisTable[", i,"]"))
+      print(head(jurisAnalysisSet[[i]]))
+    }
   }
 
   return(jurisAnalysisSet)
@@ -608,7 +748,10 @@ MakeJurisAnalysisSet <- function(analysisData) {
 # GroupJurisCostTables ######################################################
 GroupJurisTables <- function(jurisAnalysisSet)
 {
-
+  if (VERBOSE & GROUP_JURIS_TABLES) {
+    print("GroupJurisCost: start")
+  }
+  
   jurisTables = list()
   for (juris in jurisAnalysisSet)
   {
@@ -621,7 +764,15 @@ GroupJurisTables <- function(jurisAnalysisSet)
                                        .by_group = TRUE)
 
     jurisTables[[length(jurisTables)+1]] <- data.frame(juris)
-    
+
+  }
+
+  if (DEBUG & GROUP_JURIS_TABLES) {
+    print("GroupJurisTables: JurisCost")
+    for (juris in jurisTables) {
+      print(paste0("jurisCost class is ", class(juris)))
+      print(head(juris))
+    }
   }
   
   return(jurisTables)
@@ -637,14 +788,17 @@ GroupJurisTables <- function(jurisAnalysisSet)
 
 # GenerateResultsList ##########################################
 MakeResultList <- function(analysisTables) {
+  if (VERBOSE & MAKE_RESULT_LIST) {
+    print("MakeResultList: group the rawTables by jurisdiction.")
+  }
 
   resultList <- list()
-  resultList[[length(resultList)+1]] <- 
-    MakeTop10Tables(analysisTables, HUMAN_COST)
-  resultList[[length(resultList)+1]] <- 
-    MakeTop10Tables(analysisTables, ECON_COST)
+  resultList[[length(resultList)+1]] <- MakeTop10Tables(analysisTables, HUMAN_COST)
+  resultList[[length(resultList)+1]] <- MakeTop10Tables(analysisTables, ECON_COST)
   MakeHvEImages(analysisTables[1:3])
-    
+  MakeBarImages(resultList[[1]], HUMAN_COST)
+  MakeBarImages(resultList[[2]], ECON_COST)
+
   return (resultList)
 }
 
@@ -656,9 +810,12 @@ MakeResultList <- function(analysisTables) {
 
 # MakeTop10HumanTable ###########################################
 MakeTop10Tables <- function(analysisTables, type) {
+  if (VERBOSE  & MAKE_TOP10_TABLES) {
+    print("MakeTop10HumanTable: starting data")
+  }
 
   top10Tables = list()
-  for (i in DATA_INDICIES) {
+  for (i in 1:length(DATA_INDICIES)) {
     switch(type,
            table <- analysisTables[[i]] %>% 
              arrange(desc(.$HUMAN_COST), .by_group = TRUE),
@@ -677,33 +834,28 @@ MakeTop10Tables <- function(analysisTables, type) {
 
 ```{r MakeHvEImages}
 MakeHvEImages <- function(analysisTables) {
+  if ((VERBOSE | DEBUG) & MAKE_HvE_IMAGE) {
+    print("MakeCvC: starting processing")
+  }
 
-  titleSet = c(paste0(COUNTY_PRINT, ", ", STATE_),
-  paste0(state.name[grep(STATE_, state.abb)]),
-  paste0("United States"))
-  
   pltSet = list()
-  i = 0
-  for (analysisPlot in analysisTables) {
-    i = i + 1
-    plt <- ggplot(analysisPlot, aes(x = HUMAN_COST, y = ECON_COST)) +
-      ggtitle(titleSet[i]) +
-      xlab("Caualties") + ylab("Cost ($ millions)") + 
-      theme(plot.title = 
-              element_text(face="plain", color="black", size=18),
-            axis.title.x = 
-              element_text(face="bold", color="black", size=14),
-            axis.title.y = 
-              element_text(face="bold", color="black", size=14),
+
+  for (i in 1:length(DATA_INDICIES)) {
+    plt <- ggplot(analysisTables[[i]], aes(x = HUMAN_COST, y = ECON_COST)) +
+      ggtitle(JURISDICTION_LABELS[DATA_INDICIES[[i]]]) +
+      xlab("Event") + ylab("Cost ($ millions)") + 
+      theme(plot.title = element_text(face="plain", color="black", size=18),
+            axis.title.x = element_text(face="bold", color="black", size=14),
+            axis.title.y = element_text(face="bold", color="black", size=14),
             axis.text = element_text(size = 10, face="bold"))+
       geom_point(shape=16, size=1.5)
 
     pltSet[[length(pltSet)+1]] <- plt 
+
   }
 
-  plot1 <- plot_grid(pltSet[[3]], pltSet[[2]], pltSet[[1]], 
-                        ncol = 2, nrow = 2)
-  
+  plot1 <- plot_grid(plotlist = pltSet)
+
   title <- ggdraw() +
     draw_label("Storm Costs Human vs. Economic Costs",
       fontface = 'bold', size=24)
@@ -714,40 +866,44 @@ MakeHvEImages <- function(analysisTables) {
 
 ```
 
-#### Bar Charts Top 10
+#### Make Bar Images
 
 ```{r MakeBarImages}
-MakeBarImages <- function(analysisTables) {
-
-  titleSet = c(paste0(COUNTY_PRINT, ", ", STATE_),
-  paste0(state.name[grep(STATE_, state.abb)]),
-  paste0("United States"))
-  
-  pltSet = list()
-  i = 0
-  for (analysisPlot in analysisTables) {
-    i = i + 1
-    plt <- ggplot(analysisPlot, aes(x = HUMAN_COST, y = ECON_COST)) +
-      ggtitle(titleSet[i]) +
-      xlab("Caualties") + ylab("Cost ($ millions)") + 
-      theme(plot.title = element_text(face="plain", color="black", size=18),
-            axis.title.x = element_text(face="bold", color="black", size=14),
-            axis.title.y = element_text(face="bold", color="black", size=14),
-            axis.text = element_text(size = 5, face="bold"))+
-      geom_point(shape=16, size=1.5)
-
-    pltSet[[length(pltSet)+1]] <- plt 
+MakeBarImages <- function(top10Tables, type) {
+  if ((VERBOSE | DEBUG) & MAKE_HvE_IMAGE) {
+    print("MakeCvC: starting processing")
   }
 
-  plot1 <- plot_grid(pltSet[[3]], pltSet[[2]], pltSet[[1]], 
-                        ncol = 2, nrow = 2)
+
+  pltSet = list()
+
+  for (i in 1:length(DATA_INDICIES)) {
+    plt <- ggplot(top10Tables[[i]], aes(x = EVTYPE, y = HUMAN_COST)) +
+      ggtitle(JURISDICTION_LABELS[DATA_INDICIES[[i]]]) +
+      xlab("Caualties") + ylab(COST_LABELS[DATA_INDICIES[[type]]]) +
+      # theme(plot.title = element_text(face="plain", color="black", size=18),
+      #       axis.title.x = element_text(face="bold", color="black", size=14),
+      #       axis.title.y = element_text(face="bold", color="black", size=14),
+      #       axis.text = element_text(size = 10, face="bold"))+
+  geom_bar(stat="identity", width=0.7, fill="steelblue")+
+  theme_minimal()
+    # +
+    #   geom_point(shape=16, size=1.5)
+
+    pltSet[[length(pltSet)+1]] <- plt 
+
+  }
+
+  plot1 <- plot_grid(plotlist = pltSet)
+  # plot1 <- plot_grid(pltSet[[3]], pltSet[[2]], pltSet[[1]], 
+  #                       ncol = 2, nrow = 2)
   
   title <- ggdraw() +
     draw_label("Storm Costs Human vs. Economic Costs",
       fontface = 'bold', size=24)
 
   imageSet <- plot_grid(title, plot1, nrow=2, rel_heights=c(0.1, 1))
-  save_plot("imageSet.png", imageSet, ncol = 2, nrow = 2)
+  save_plot(paste0("imageBars", type, ".png"), imageSet, ncol = 2, nrow = 2)
 }
 
 ```
@@ -756,93 +912,42 @@ MakeBarImages <- function(analysisTables) {
 
 ```{r execute phase}
 
-resultList <- Main(URL, DATAFILE)
-
+if (EXECUTE) {
+  resultList <- Main(URL, DATAFILE)
+}
 ```
 
-``` {r}
+```{r}
 
-  label1 <- paste0("<center><strong><font size='1'>", 
-                   COUNTY_PRINT, ", ", STATE_,
-                   "</font><center></strong>")
-  label2 <- paste0("<center><strong><font size='1'>",
-                  state.name[grep(STATE_, state.abb)],
-                  "</font><center></strong>")
-  label3 <- paste0("<center><strong><font size='1'>",
-                  "United States</font><center></strong>")
+if (EXECUTE) {
 
-  result <- data.frame(resultList[[1]][1])
-  result <- result %>% select(EVTYPE, HUMAN_COST)
-  human1 <- knitr::kable(result, "html",
-    caption = label1, digits=2, align = "lrr",
-    col.names = c("Event", "Human Cost")) %>%
-    kable_styling(
-      bootstrap_options = c("striped", "hover"),
-                  full_width = F,
-                  position = "left",
-                  font_size = 8) %>%
-    kable_classic_2()
+  tbl = list()
 
-  result <- data.frame(resultList[[1]][2])
-  result <- result %>% select(EVTYPE, HUMAN_COST)
-  human2 <- knitr::kable(result, "html",
-    caption = label2, digits=2, align = "lrr",
-    col.names = c("Event", "Human Cost")) %>%
-    kable_styling(bootstrap_options = c("striped", "hover"),
-                  full_width = F,
-                  position = "left",
-                  font_size = 8) %>%
-    kable_classic_2()
-
-  result <- data.frame(resultList[[1]][3])
-  result <- result %>% select(EVTYPE, HUMAN_COST)
-  human3 <- knitr::kable(result, "html",
-    caption = label3, digits=2, align = "lrr",
-    col.names = c("Event", "Human Cost")) %>%
-    kable_styling(bootstrap_options = c("striped", "hover"),
-                  full_width = F,
-                  position = "left",
-                  font_size = 8) %>%
-    kable_classic_2()
-  
-```
-
-``` {r}
-
-  result <- data.frame(resultList[[2]][1])
-  result <- result %>% select(EVTYPE, ECON_COST)
-  econ1 <- knitr::kable(result, "html",
-    caption = label1, digits=2, align = "lrr",
-    col.names = c("Event", "Economic Cost ($millions)")) %>%
-    kable_styling(bootstrap_options = c("striped", "hover"),
-                  full_width = F,
-                  position = "left",
-                  font_size = 8) %>%
-    kable_classic_2()
-
-  result <- data.frame(resultList[[2]][2])
-  result <- result %>% select(EVTYPE, ECON_COST)
-  econ2 <- knitr::kable(result, "html",
-    caption = label2, digits=2, align = "lrr",
-    col.names = c("Event", "Economic Cost ($millions)")) %>%
-    kable_styling(bootstrap_options = c("striped", "hover"),
-                  full_width = F,
-                  position = "left",
-                  font_size = 8) %>%
-    kable_classic_2()
-  
-  
-  result <- data.frame(resultList[[2]][3])
-  result <- result %>% select(EVTYPE, ECON_COST)
-  econ3 <- knitr::kable(result, "html",
-    caption = label3, digits=2, align = "lrr",
-    col.names = c("Event", "Economic Cost ($millions)")) %>%
-    kable_styling(bootstrap_options = c("striped", "hover"),
-                  full_width = F,
-                  position = "left",
-                  font_size = 8) %>%
-    kable_classic_2()
-
+  for (j in HUMAN_COST:ECON_COST) {
+    for (i in 1:length(DATA_INDICIES)) {
+      switch(j,
+        result <- data.frame(resultList[[j]][i]) %>% 
+          select(EVTYPE, HUMAN_COST),
+        result <- data.frame(resultList[[j]][i]) %>% 
+          select(EVTYPE, ECON_COST)
+        )
+      restable <- knitr::kable(result, "html",
+        caption = paste0("<center><strong><font size='1'>",
+                         JURISDICTION_LABELS[DATA_INDICIES[[i]]],
+                         "</font><center></strong>"), 
+        digits=2, align = "lrr",
+        col.names = COST_LABELS[[j]]) %>%
+        kable_styling(bootstrap_options = c("striped", "hover"),
+                      full_width = F,
+                      position = "left",
+                      font_size = 8) %>%
+        column_spec(column=1, width="3cm") %>%
+        column_spec(column=2, width="1cm") %>%
+        kable_classic_2()
+      tbl <- list.append(tbl, restable)
+    }
+  }
+}
 
 ```
 
@@ -857,19 +962,19 @@ resultList <- Main(URL, DATAFILE)
 <tr>
   <td width="33%" style="vertical-align: top;">
 ``` {r, message=TRUE, echo=FALSE}
-    human3
+      tbl[[1]]
 ```
 
   </td>
   <td width="33%" style="vertical-align: top;">
 ``` {r, message=TRUE, echo=FALSE}
-    human2
+      tbl[[2]]
 ```
 
   </td>
   <td width="33%" style="vertical-align: top;">
 ``` {r, message=TRUE, echo=FALSE}
-    human1
+      tbl[[3]]
 ```
 
   </td>
@@ -882,21 +987,21 @@ resultList <- Main(URL, DATAFILE)
 
 <table>
 <tr>
-  <td width="31%" style="vertical-align: top;">
+  <td width="33%" style="vertical-align: top;">
 ``` {r, message=TRUE, echo=FALSE}
-    econ3
+      tbl[[4]]
 ```
 
   </td>
-  <td width="35%" style="vertical-align: top;">
+  <td width="33%" style="vertical-align: top;">
 ``` {r, message=TRUE, echo=FALSE}
-    econ2
+      tbl[[5]]
 ```
 
   </td>
-  <td width="29%" style="vertical-align: top;">
+  <td width="33%" style="vertical-align: top;">
 ``` {r, message=TRUE, echo=FALSE}
-    econ1
+      tbl[[6]]
 ```
 
   </td>
@@ -907,6 +1012,14 @@ resultList <- Main(URL, DATAFILE)
 
 ``` {r, message=TRUE, echo=FALSE}
     knitr::include_graphics("imageSet.png")
+```
+
+``` {r, message=TRUE, echo=FALSE}
+    knitr::include_graphics("imageBars1.png")
+```
+
+``` {r, message=TRUE, echo=FALSE}
+    knitr::include_graphics("imageBars2.png")
 ```
 
 
@@ -957,3 +1070,351 @@ resultList <- Main(URL, DATAFILE)
 
 </tr><table>
 
+# Appendix 2: Testing Phase
+
+## INTEGRATION Make Analysis Data
+
+```{r}
+
+integration_MakeAnalysisData <- function(datafile) {
+  analysisData <- MakeAnalysisData(datafile)
+
+  i = 1
+  for (analysis in analysisData) {
+    print(paste0("List[", i, "]"))
+    print(paste0("analysisDate type is ", class(analysisData)))
+    print(head(analysis))
+    # if (i == US_BASE_IDX) {
+    #   write.csv(analysis, paste0("./filtered", i,".csv"))
+    # }
+    i = i + 1
+  }
+}
+
+
+```
+
+### UNIT ReadStormFile
+
+```{r testing ReadStormFile}
+
+# ###################################################################
+unit_ReadStormFile <- function(datafile) {
+  print("unit_ReadStormFile")
+  
+  sourceData <- ReadStormFile(datafile)
+  
+  print("unit_ReadStormFile raw data ###########################")
+  print(paste0("Dimensions of sourceData", dim(sourceData)))
+  print(head(sourceData))
+
+  print("###########################################################")
+}
+
+```
+
+### UNIT CleanData
+
+```{r unit_CleanRawData}
+
+unit_CleanData <- function(datafile) {
+  sourceData <- ReadStormFile(datafile)
+  cleanData  <- CleanData(sourceData)
+  
+  print("unit_CleanRawData cleaned data ###########################")
+  print(paste0("cleanData dimensions ", dim(cleanData)))
+  print(head(cleanData))
+
+  print("###########################################################")
+}
+
+```
+
+### UNIT RemoveZeroData
+
+```{r unit_RemoveZeroData}
+
+unit_RemoveZeroData <- function(datafile) {
+  sourceData  <- ReadStormFile(datafile)
+  cleanData   <- CleanData(sourceData)
+  clearData   <- RemoveZeroData(cleanData)       
+  
+  print("unit_RemoveZeroData reduced data ###########################")
+  print(paste0("clearData dimensions ", dim(clearData)))
+  print(head(clearData))
+
+  print("###########################################################")
+}
+
+```
+
+### UNIT RemoveInvalidEvents
+
+```{r unit_RemoveInvalidEvents}
+
+unit_RemoveInvalidEvents <- function(datafile) {
+  sourceData  <- ReadStormFile(datafile)
+  cleanData   <- CleanData(sourceData)
+  clearData   <- RemoveZeroData(cleanData)
+  validData   <- RemoveInvalidEvents(clearData)
+
+  print("unit_RemoveInvalidEvents reduced data ###########################")
+  print(paste0("validData dimensions ", dim(validData)))
+  print(head(validData))
+
+  print("###########################################################")
+}
+
+```
+
+
+### UNIT UnifyTypes
+
+```{r unit_UnifyTypes}
+
+unit_UnifyTypes <- function(datafile) {
+  sourceData  <- ReadStormFile(datafile)
+  cleanData   <- CleanData(sourceData)
+  clearData   <- RemoveZeroData(cleanData)       
+  validData   <- RemoveInvalidEvents(clearData)
+  stormData   <- UnifyTypes(validData)
+
+  print("unit_UnifyTypes cleaned data ###########################")
+  print(paste0("stormData dimensions ", dim(stormData)))
+  print(unique(stormData$EVTYPE))
+  print(head(stormData))
+
+  print("###########################################################")
+}
+
+```
+
+### UNIT FinishAnalysisDataset
+
+```{r unit_FinishAnalysisDataset}
+
+unit_FinishAnalysisDataset <- function(datafile) {
+  sourceData   <- ReadStormFile(datafile)
+  cleanData    <- CleanData(sourceData)
+  clearData    <- RemoveZeroData(cleanData)       
+  validData    <- RemoveInvalidEvents(clearData)
+  stormData    <- UnifyTypes(validData)
+  analysisData <- FinishAnalysisDataset(stormData)
+
+  print("unit_FinishAnalysisDataset  ###########################")
+  print(paste0("analysisData dimensions ", dim(analysisData)))
+  print(head(analysisData))
+
+  print("###########################################################")
+}
+
+```
+
+## INTEGRATION Make Analysis Tables
+
+```{r}
+
+integration_MakeAnalysisTables <- function(datafile) {
+  analysisData   <- MakeAnalysisData(datafile)  
+  analysisTables <- MakeAnalysisTables(analysisData)
+
+  print("integration_MakeAnalysisTables  ###########")
+  for (analysisTable in analysisTables) {
+    print(head(analysisTable))
+  }
+}
+
+```
+
+### UNIT Make Jurisdiction Analysis Set
+
+```{r}
+unit_MakeJurisAnalysisSet <- function(datafile) {
+  analysisSet      <- MakeAnalysisData(datafile)  
+  jurisAnalysisSet <- MakeJurisAnalysisSet(analysisSet)
+  
+  for (i in 1:length(DATA_INDICIES)) {
+    print(paste0("jurisTable[", i,"]"))
+    print(head(jurisAnalysisSet[[i]]))
+  }
+
+}
+
+```
+
+### UNIT Group Juris Cost
+
+```{r}
+unit_GroupJurisTables <- function(datafile) {
+  analysisSet      <- MakeAnalysisData(datafile)  
+  jurisAnalysisSet <- MakeJurisAnalysisSet(analysisSet)
+  groupTables      <- GroupJurisTables(jurisAnalysisSet)
+
+  print("unit_GroupJurisTables ###########")
+
+  print("unit_GroupJurisTables: base table ---------")
+  for (groupTable in groupTables) {
+    print(head(groupTable, n = 3))
+  }
+
+}
+
+```
+
+## INTEGRATION Make Result List
+
+```{r}
+
+integration_MakeResultList <- function(datafile) {
+  analysisData   <- MakeAnalysisData(datafile)  
+  analysisTables <- MakeAnalysisTables(analysisData)
+  resultList     <- MakeResultList(analysisTables)
+
+  print("integration_MakeResultList  ###########")
+  for (resultSet in resultList[1]) {
+    for (result in resultSet) {
+      print(head(result, n=10))
+    }
+  }
+
+  for (resultSet in resultList[2]) {
+    for (result in resultSet) {
+      print(head(result, n=10))
+    }
+  }
+
+  for (resultSet in resultList[3]) {
+    for (result in resultSet) {
+      print(result)
+    }
+  }
+
+}
+
+```
+
+### UNIT Make Top 10 Tables
+
+```{r}
+
+###################################################################
+unit_MakeTop10Tables <- function(datafile) {
+  analysisData     <- MakeAnalysisData(datafile)  
+  analysisTables   <- MakeAnalysisTables(analysisData)
+  top10HumanCosts  <- MakeTop10Tables(analysisTables, HUMAN_COST)
+  top10EconCosts   <- MakeTop10Tables(analysisTables, ECON_COST)
+  i = 1
+  for (humanCost in top10HumanCosts) {
+    print(paste0("unit_MakeTop10Tables: top10HumanCosts[", i, "]"))
+    print(head(humanCost, n=10))
+    i = i + 1
+  }
+
+  i = 1
+  for (econCost in top10EconCosts) {
+    print(paste0("unit_MakeTop10Tables: top10EconCosts[", i, "]"))
+    print(head(econCost, n=10))
+    i = i + 1
+  }
+
+}
+
+```
+
+### UNIT Make HvE Images
+
+```{r}
+
+###################################################################
+unit_MakeHvEImages <- function(datafile) {
+  analysisData     <- MakeAnalysisData(datafile)  
+  analysisTables   <- MakeAnalysisTables(analysisData)
+  print("unit_MakeHvEImages: ")
+  images           <- MakeHvEImages(analysisTables)
+  for (image in images) {
+      print(image)
+  }
+}
+
+```
+
+## Test Calls
+
+```{r}
+
+if (INTEGRATION & MAKE_ANALYSIS_DATA){
+  print("MAKING Storm cost tables")
+  integration_MakeAnalysisData(DATAFILE)
+}
+
+```
+
+```{r}
+
+if (UNIT & READ_STORM_FILE){
+  unit_ReadStormFile(DATAFILE)
+}
+
+if (UNIT & CLEAN_DATA){
+  unit_CleanData(DATAFILE)
+}
+
+if (UNIT & REMOVE_ZERO_DATA){
+  unit_RemoveZeroData(DATAFILE)
+}
+
+if (UNIT & REMOVE_INVALID_DATA){
+  unit_RemoveInvalidEvents(DATAFILE)
+}
+
+if (UNIT & UNIFY_TYPES){
+  unit_UnifyTypes(DATAFILE)
+}
+
+if (UNIT & FINISH_ANALYSIS_DATASET){
+  unit_FinishAnalysisDataset(DATAFILE)
+}
+
+```
+
+
+```{r}
+
+if (INTEGRATION & MAKE_ANALYSIS_TABLES){
+  print("MAKING Storm cost tables")
+  integration_MakeAnalysisData(DATAFILE)
+}
+
+if (UNIT & MAKE_JURIS_ANALYSIS_SET){
+  unit_MakeJurisAnalysisSet(DATAFILE)
+}
+
+
+if (UNIT & GROUP_JURIS_TABLES){
+  unit_GroupJurisTables(DATAFILE)
+}
+
+
+```
+
+```{r}
+
+if (INTEGRATION & MAKE_RESULT_LIST){
+  print("MAKING Result list")
+  integration_MakeResultList(DATAFILE)
+}
+
+
+if (UNIT & MAKE_TOP10_TABLES){
+  print("MAKING Top 10")
+  unit_MakeTop10Tables(DATAFILE)
+}
+
+if (UNIT & MAKE_HvE_IMAGE){
+  print("MAKING HvE Images")
+  unit_MakeHvEImages(DATAFILE)
+}
+
+
+
+```
