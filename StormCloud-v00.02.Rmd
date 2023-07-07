@@ -113,8 +113,8 @@ COUNTY_PRINT <- str_to_title(COUNTY_)
 # 1, 10, 11, 100, 101, 110, 111.
 
 SELECT_NATIONAL_DATA  = TRUE
-SELECT_STATE_DATA     = TRUE
-SELECT_COUNTY_DATA    = TRUE
+SELECT_STATE_DATA     = FALSE
+SELECT_COUNTY_DATA    = FALSE
 
 
 ```
@@ -160,9 +160,13 @@ JURISDICTION_LABELS <- c(
     paste0(state.name[grep(STATE_, state.abb)]),
     paste0("United States"))
 
-COST_LABELS <- list(
+AXIS_LABELS <- list(
     c("EVENT", "CASUALTIES"),
     c("EVENT", "LOSSES\r(in millions)"))
+
+COST_LABELS <- list(
+  c("EVENT", "HUMAN_COST"), 
+  c("EVENT", "ECON_COST"))
 
 
 DATA_INDICIES <- list()
@@ -847,20 +851,20 @@ MakeHvEImages <- function(analysisTables) {
       theme(plot.title = element_text(face="plain", color="black", size=18),
             axis.title.x = element_text(face="bold", color="black", size=14),
             axis.title.y = element_text(face="bold", color="black", size=14),
-            axis.text = element_text(size = 10, face="bold"))+
+            axis.text = element_text(size = 10, face="bold")) +
       geom_point(shape=16, size=1.5)
 
-    pltSet[[length(pltSet)+1]] <- plt 
+    pltSet <- list.append(pltSet, plt)
 
   }
 
-  plot1 <- plot_grid(plotlist = pltSet)
+  plotGrid <- plot_grid(plotlist = pltSet)
 
   title <- ggdraw() +
     draw_label("Storm Costs Human vs. Economic Costs",
       fontface = 'bold', size=24)
 
-  imageSet <- plot_grid(title, plot1, nrow=2, rel_heights=c(0.1, 1))
+  imageSet <- plot_grid(title, plotGrid, nrow=2, rel_heights=c(0.1, 1))
   save_plot("imageSet.png", imageSet, ncol = 2, nrow = 2)
 }
 
@@ -874,36 +878,38 @@ MakeBarImages <- function(top10Tables, type) {
     print("MakeCvC: starting processing")
   }
 
-
+  print(paste0("top10 type is ",class(top10Tables)))
+  print(paste0("top10 type[1] is ",class(top10Tables[1])))
+  print(paste0("top10[[1]] type is ",class(top10Tables[[1]])))
+  print(top10Tables[[1]])
+  print(top10Tables[[1]]$EVTYPE)
+  
   pltSet = list()
 
   for (i in 1:length(DATA_INDICIES)) {
-    plt <- ggplot(top10Tables[[i]], aes(x = EVTYPE, y = HUMAN_COST)) +
+      table <- top10Tables[[i]] %>% select(EVTYPE, HUMAN_COST)
+      print(table)
+      print(paste0("table type is ",class(table)))
+
+      table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
+      print(table)
+      plt <- ggplot(top10Tables[[i]], aes(x = reorder(EVTYPE, -HUMAN_COST), y = HUMAN_COST )) + #x = EVTYPE, y = HUMAN_COST)) +
       ggtitle(JURISDICTION_LABELS[DATA_INDICIES[[i]]]) +
-      xlab("Caualties") + ylab(COST_LABELS[DATA_INDICIES[[type]]]) +
-      # theme(plot.title = element_text(face="plain", color="black", size=18),
-      #       axis.title.x = element_text(face="bold", color="black", size=14),
-      #       axis.title.y = element_text(face="bold", color="black", size=14),
-      #       axis.text = element_text(size = 10, face="bold"))+
-  geom_bar(stat="identity", width=0.7, fill="steelblue")+
-  theme_minimal()
-    # +
-    #   geom_point(shape=16, size=1.5)
+      xlab("Event Type") + ylab(AXIS_LABELS[[type]]) +
+      geom_bar(stat="identity", width=0.7, fill="steelblue")
 
-    pltSet[[length(pltSet)+1]] <- plt 
-
+    pltSet <- list.append(pltSet, plt)
   }
 
-  plot1 <- plot_grid(plotlist = pltSet)
-  # plot1 <- plot_grid(pltSet[[3]], pltSet[[2]], pltSet[[1]], 
-  #                       ncol = 2, nrow = 2)
-  
+
+  plotGrid <- plot_grid(plotlist = pltSet)
+
   title <- ggdraw() +
     draw_label("Storm Costs Human vs. Economic Costs",
       fontface = 'bold', size=24)
 
-  imageSet <- plot_grid(title, plot1, nrow=2, rel_heights=c(0.1, 1))
-  save_plot(paste0("imageBars", type, ".png"), imageSet, ncol = 2, nrow = 2)
+  imageSet <- plot_grid(title, plotGrid, nrow=2, rel_heights=c(0.1, 1))
+  save_plot(paste0("imageBars", type, ".png"), imageSet)
 }
 
 ```
@@ -926,17 +932,19 @@ if (EXECUTE) {
   for (j in HUMAN_COST:ECON_COST) {
     for (i in 1:length(DATA_INDICIES)) {
       switch(j,
-        result <- data.frame(resultList[[j]][i]) %>% 
+        result <- data.frame(resultList[[j]][1]) %>% 
           select(EVTYPE, HUMAN_COST),
-        result <- data.frame(resultList[[j]][i]) %>% 
+        result <- data.frame(resultList[[j]][1]) %>% 
           select(EVTYPE, ECON_COST)
         )
-      restable <- knitr::kable(result, "html",
+      
+      print(result)
+      resTable <- knitr::kable(result, "html",
         caption = paste0("<center><strong><font size='1'>",
                          JURISDICTION_LABELS[DATA_INDICIES[[i]]],
-                         "</font><center></strong>"), 
+                         "</font><center></strong>"),
         digits=2, align = "lrr",
-        col.names = COST_LABELS[[j]]) %>%
+        col.names = c(COST_LABELS[[1]])) %>%
         kable_styling(bootstrap_options = c("striped", "hover"),
                       full_width = F,
                       position = "left",
@@ -944,7 +952,7 @@ if (EXECUTE) {
         column_spec(column=1, width="3cm") %>%
         column_spec(column=2, width="1cm") %>%
         kable_classic_2()
-      tbl <- list.append(tbl, restable)
+      tbl <- list.append(tbl, resTable)
     }
   }
 }
@@ -968,13 +976,13 @@ if (EXECUTE) {
   </td>
   <td width="33%" style="vertical-align: top;">
 ``` {r, message=TRUE, echo=FALSE}
-      tbl[[2]]
+      # tbl[[2]]
 ```
 
   </td>
   <td width="33%" style="vertical-align: top;">
 ``` {r, message=TRUE, echo=FALSE}
-      tbl[[3]]
+      # tbl[[3]]
 ```
 
   </td>
@@ -984,24 +992,23 @@ if (EXECUTE) {
 
 ## Top 10 Events Economic Losses
 
-
 <table>
 <tr>
   <td width="33%" style="vertical-align: top;">
 ``` {r, message=TRUE, echo=FALSE}
-      tbl[[4]]
+      tbl[[2]]
 ```
 
   </td>
   <td width="33%" style="vertical-align: top;">
 ``` {r, message=TRUE, echo=FALSE}
-      tbl[[5]]
+      # tbl[[5]]
 ```
 
   </td>
   <td width="33%" style="vertical-align: top;">
 ``` {r, message=TRUE, echo=FALSE}
-      tbl[[6]]
+      # tbl[[6]]
 ```
 
   </td>
@@ -1024,11 +1031,6 @@ if (EXECUTE) {
 
 
 <hr style="background:#36013F; height:30px"/>
-
-
-
-
-
 
 
 # Bibliography
