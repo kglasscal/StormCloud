@@ -39,6 +39,7 @@ library(knitr)
 library(kableExtra)
 library(stringr)
 library(rlist)
+library(ggrepel)
 
 ```
 
@@ -161,8 +162,8 @@ JURISDICTION_LABELS <- c(
     paste0("United States"))
 
 AXIS_LABELS <- list(
-    c("EVENT", "CASUALTIES"),
-    c("EVENT", "LOSSES\r(in millions)"))
+    c("Event Type", "Casualties"),
+    c("Event Type", "Losses (in millions)"))
 
 COST_LABELS <- list(
   c("EVENT", "HUMAN_COST"), 
@@ -797,14 +798,40 @@ MakeResultList <- function(analysisTables) {
   }
 
   resultList <- list()
-  resultList[[length(resultList)+1]] <- MakeTop10Tables(analysisTables, HUMAN_COST)
-  resultList[[length(resultList)+1]] <- MakeTop10Tables(analysisTables, ECON_COST)
-  MakeHvEImages(analysisTables[1:3])
-  MakeBarImages(resultList[[1]], HUMAN_COST)
-  MakeBarImages(resultList[[2]], ECON_COST)
+  top10Casualties <- MakeTop10Tables(analysisTables, HUMAN_COST)
+  top10Economic <- MakeTop10Tables(analysisTables, ECON_COST)
+  resultList[[length(resultList)+1]] <- top10Casualties
+  resultList[[length(resultList)+1]] <-top10Economic
+  
+  eventSet <- union(top10Casualties[[1]]$EVTYPE, 
+                     top10Economic[[1]]$EVTYPE)
+
+  MakeHvEImages(analysisTables[1:3], eventSet)
+  MakeBarImages(top10Casualties, HUMAN_COST)
+  MakeBarImages(top10Economic, ECON_COST)
 
   return (resultList)
 }
+
+```
+
+#### Make Set
+
+
+```{r MakeSet, include=FALSE}
+# MakeSet <- function(a, b) {
+#   set <- a
+# 
+#   for (i in 1:length(b)) {
+#     if (!(b[i] %in% set)) {
+#       set <- list.append(set, b[i])
+#     }
+#   }
+#   
+#   # set <- list(set)
+# 
+#   return (set)
+# }
 
 ```
 
@@ -837,22 +864,94 @@ MakeTop10Tables <- function(analysisTables, type) {
 #### Make Human vs. Economic Image
 
 ```{r MakeHvEImages}
-MakeHvEImages <- function(analysisTables) {
+##                      EVTYPE HUMAN_COST   ECON_COST
+## 1     Astronomical Low Tide          0     0.32000
+## 2                 Avalanche        395     3.72180
+## 3                  Blizzard        959   777.08895
+## 4             Coastal Flood         88  1865.30526
+## 5           Cold/Wind Chill        228   100.33650
+## 6               Debris Flow         99   347.41810
+## 7                 Dense Fog       1156    22.82950
+## 8               Dense Smoke          0     0.10000
+## 9                   Drought          4 13518.67200
+## 10               Dust Devil         45     0.71913
+## 11               Dust Storm        462     9.21900
+## 12           Excessive Heat      12363   524.79503
+## 13  Extreme Cold/Wind Chill        574  1463.31340
+## 14              Flash Flood       2944 17518.62319
+## 15                    Flood       7280 28498.14172
+## 16             Freezing Fog          2     2.18200
+## 17             Frost/Freeze          5  1816.26100
+## 18             Funnel Cloud          3     0.19460
+## 19                     Hail       1512 17334.19995
+## 20                     Heat         59     0.01000
+## 21               Heavy Rain        386  1524.55199
+## 22               Heavy Snow       1160  1070.97724
+## 23                High Surf        407   116.47500
+## 24                High Wind       1848  5388.02544
+## 25        Hurricane/Typhoon       1468 14962.52789
+## 26          Lakeshore Flood          0    47.75200
+## 27                Lightning       6049   951.11504
+## 28              Marine Hail          0     0.00400
+## 29         Marine High Wind          3     1.31701
+## 30       Marine Strong Wind         92     1.18383
+## 31 Marine Thunderstorm Wind         53     5.90740
+## 32              Rip Current       1106     0.20000
+## 33                   Seiche          0     0.98000
+## 34               Storm Tide          2     0.00000
+## 35              Strong Wind        429   249.48274
+## 36        Thunderstorm Wind      10153 10938.95889
+## 37                  Tornado      96997 52057.00465
+## 38      Tropical Depression          0     1.73700
+## 39           Tropical Storm        449  3259.28656
+## 40                  Tsunami        162   144.08200
+## 41             Volcanic Ash          0     0.50000
+## 42               Waterspout         78    60.73020
+## 43                 Wildfire       1698  6359.91013
+## 44             Winter Storm       1584  1790.22927
+## 45           Winter Weather       3350  4225.30346
+##  [1] "Tornado"           "Excessive Heat"    "Thunderstorm Wind"
+##  [4] "Flood"             "Lightning"         "Winter Weather"   
+##  [7] "Flash Flood"       "High Wind"         "Wildfire"         
+## [10] "Winter Storm"      "Hail"              "Hurricane/Typhoon"
+## [13] "Drought"          
+MakeHvEImages <- function(analysisTables, eventSet) {
   if ((VERBOSE | DEBUG) & MAKE_HvE_IMAGE) {
     print("MakeCvC: starting processing")
   }
+  eventSet <- c(eventSet)
+  print(paste0("type of eventSet ", class(eventSet)))
+  print(paste0("eventSet ", eventSet))
+  # table <- analysisTables[[1]]
 
   pltSet = list()
 
   for (i in 1:length(DATA_INDICIES)) {
-    plt <- ggplot(analysisTables[[i]], aes(x = HUMAN_COST, y = ECON_COST)) +
+    table <- analysisTables[[i]]
+    labelSet <- table[table$EVTYPE %in% eventSet, ] 
+
+    plt <- ggplot(table, aes(x = HUMAN_COST, y = ECON_COST)) +
       ggtitle(JURISDICTION_LABELS[DATA_INDICIES[[i]]]) +
-      xlab("Event") + ylab("Cost ($ millions)") + 
+      xlab("Event Type") + ylab("Cost ($ millions)") +
       theme(plot.title = element_text(face="plain", color="black", size=18),
             axis.title.x = element_text(face="bold", color="black", size=14),
             axis.title.y = element_text(face="bold", color="black", size=14),
             axis.text = element_text(size = 10, face="bold")) +
-      geom_point(shape=16, size=1.5)
+      geom_point(data = table[table$EVTYPE %in% eventSet,  ], 
+             aes(x = HUMAN_COST, y = ECON_COST, 
+             color = EVTYPE)) +
+      geom_point(data = table[!(table$EVTYPE %in% eventSet),  ], 
+             aes(x = HUMAN_COST, y = ECON_COST, 
+             color = "black") +
+               theme(legend.position="none")) +
+      geom_text_repel(
+        aes(x=HUMAN_COST, y=ECON_COST, label = EVTYPE, color = EVTYPE, fontface = "bold"), 
+        min.segment.length = 0.0, nudge_y = 0, nudge_x = 1,
+        data = table[table$EVTYPE %in% eventSet,  ],
+        check_overlap = TRUE,
+        force = 50.0,
+        force_pull = 0.0
+      )
 
     pltSet <- list.append(pltSet, plt)
 
@@ -873,42 +972,59 @@ MakeHvEImages <- function(analysisTables) {
 #### Make Bar Images
 
 ```{r MakeBarImages}
+
 MakeBarImages <- function(top10Tables, type) {
   if ((VERBOSE | DEBUG) & MAKE_HvE_IMAGE) {
     print("MakeCvC: starting processing")
   }
 
-  print(paste0("top10 type is ",class(top10Tables)))
-  print(paste0("top10 type[1] is ",class(top10Tables[1])))
-  print(paste0("top10[[1]] type is ",class(top10Tables[[1]])))
-  print(top10Tables[[1]])
-  print(top10Tables[[1]]$EVTYPE)
-  
   pltSet = list()
 
   for (i in 1:length(DATA_INDICIES)) {
+    if (type == HUMAN_COST) {
       table <- top10Tables[[i]] %>% select(EVTYPE, HUMAN_COST)
-      print(table)
-      print(paste0("table type is ",class(table)))
+      table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
+      
+      plt <- ggplot(table,
+                    aes(x = reorder(EVTYPE, -HUMAN_COST),
+                        y = HUMAN_COST )) +
+        ggtitle(JURISDICTION_LABELS[DATA_INDICIES[[i]]]) +
+        xlab(AXIS_LABELS[[1]][1]) +
+        ylab(AXIS_LABELS[[1]][2]) +
+        geom_bar(stat="identity", width=0.7, fill="steelblue") +
+        theme(axis.text.x = element_text(angle = 20, vjust = 1, hjust=1))
+      pltSet <- list.append(pltSet, plt)
+    } else  {
+      table <- top10Tables[[i]] %>% select(EVTYPE, ECON_COST)
 
       table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
-      print(table)
-      plt <- ggplot(top10Tables[[i]], aes(x = reorder(EVTYPE, -HUMAN_COST), y = HUMAN_COST )) + #x = EVTYPE, y = HUMAN_COST)) +
-      ggtitle(JURISDICTION_LABELS[DATA_INDICIES[[i]]]) +
-      xlab("Event Type") + ylab(AXIS_LABELS[[type]]) +
-      geom_bar(stat="identity", width=0.7, fill="steelblue")
+      
+      plt <- ggplot(table,
+                    aes(x = reorder(EVTYPE, -ECON_COST),
+                        y = ECON_COST )) +
+        # ggtitle(JURISDICTION_LABELS[DATA_INDICIES[[i]]]) +
+        xlab(AXIS_LABELS[[2]][1]) +
+        ylab(AXIS_LABELS[[2]][2]) +
+        geom_bar(stat="identity", width=0.7, fill="steelblue") +
+        theme(axis.text.x = element_text(angle = 20, vjust = 1, hjust=1))
+      pltSet <- list.append(pltSet, plt)
+    }
 
-    pltSet <- list.append(pltSet, plt)
   }
-
+# 
+#   print(paste0("type pltSet is ", class(pltSet)))
+#   print(paste0("type pltSet[1] is ", class(pltSet[1])))
+#   print(paste0("type pltSet[1][1] is ", class(pltSet[1][1])))
+# 
+#   print(pltSet[1])
 
   plotGrid <- plot_grid(plotlist = pltSet)
 
   title <- ggdraw() +
-    draw_label("Storm Costs Human vs. Economic Costs",
-      fontface = 'bold', size=24)
+    draw_label(paste0("Weather Related ", AXIS_LABELS[[type]][2]),
+      fontface = 'bold', size=12)
 
-  imageSet <- plot_grid(title, plotGrid, nrow=2, rel_heights=c(0.1, 1))
+  imageSet <- plot_grid(title,plotGrid, nrow=2, rel_heights=c(0.1, 1))
   save_plot(paste0("imageBars", type, ".png"), imageSet)
 }
 
@@ -921,12 +1037,12 @@ MakeBarImages <- function(top10Tables, type) {
 if (EXECUTE) {
   resultList <- Main(URL, DATAFILE)
 }
+
 ```
 
 ```{r}
 
 if (EXECUTE) {
-
   tbl = list()
 
   for (j in HUMAN_COST:ECON_COST) {
@@ -944,7 +1060,7 @@ if (EXECUTE) {
                          JURISDICTION_LABELS[DATA_INDICIES[[i]]],
                          "</font><center></strong>"),
         digits=2, align = "lrr",
-        col.names = c(COST_LABELS[[1]])) %>%
+        col.names = c(AXIS_LABELS[[j]])) %>%
         kable_styling(bootstrap_options = c("striped", "hover"),
                       full_width = F,
                       position = "left",
@@ -1015,20 +1131,22 @@ if (EXECUTE) {
 </tr>
 </table>
 
-## Images
+## Graphs
 
-``` {r, message=TRUE, echo=FALSE}
-    knitr::include_graphics("imageSet.png")
-```
-
+### Top 10 Weather Events Causing Casualties
 ``` {r, message=TRUE, echo=FALSE}
     knitr::include_graphics("imageBars1.png")
 ```
 
+### Top 10 Weather Events Causing Economic Losses
 ``` {r, message=TRUE, echo=FALSE}
     knitr::include_graphics("imageBars2.png")
 ```
 
+### Top 10 Comparison of Causalties and Economic Loss
+``` {r, message=TRUE, echo=FALSE}
+    knitr::include_graphics("imageSet.png")
+```
 
 <hr style="background:#36013F; height:30px"/>
 
