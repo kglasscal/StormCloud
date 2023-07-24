@@ -937,13 +937,11 @@ MakeHvEImages <- function(analysisTables, eventSet) {
             axis.title.x = element_text(face="bold", color="black", size=14),
             axis.title.y = element_text(face="bold", color="black", size=14),
             axis.text = element_text(size = 10, face="bold")) +
-      geom_point(data = table[table$EVTYPE %in% eventSet,  ], 
-             aes(x = HUMAN_COST, y = ECON_COST, 
-             color = EVTYPE)) +
       geom_point(data = table[!(table$EVTYPE %in% eventSet),  ], 
-             aes(x = HUMAN_COST, y = ECON_COST, 
-             color = "black") +
+             aes(x = HUMAN_COST, y = ECON_COST) +
                theme(legend.position="none")) +
+      geom_point(data = table[table$EVTYPE %in% eventSet,  ], 
+             aes(x = HUMAN_COST, y = ECON_COST)) +
       geom_text_repel(
         aes(x=HUMAN_COST, y=ECON_COST, label = EVTYPE, color = EVTYPE, fontface = "bold"), 
         min.segment.length = 0.0, nudge_y = 0, nudge_x = 1,
