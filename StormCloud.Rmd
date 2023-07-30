@@ -5,7 +5,7 @@ date: "`r Sys.Date()`"
 output:
   html_document:
     toc: yes
-    toc_depth: 3
+    toc_depth: 5
     number_sections: yes
     toc_float:
       toc_collapsed: yes
@@ -14,21 +14,20 @@ output:
 
 # Synopsis
 
-The United States has a variety of weather events ranging from the extreme cold and extreme heat, extreme precipitation and lack of precipitation, tornadoes, hurricanes, etc. The number of casualties (deaths and injuries) and the economic losses do to these phenomena can significantly vary, making a difficult challenge for the emergency response organizations tasked with allocating response resources. The StormCloud R-Markdown Document was developed to provide public health and economic insight into the nature of these potential disasters to help the responsible agencies to arrange resources. StormCloud uses data from the National Oceanographic and Atmospheric Agency (NOAA) Storm Events Database[a]. After cleaning and processing the data set, StormCloud organized the data using the National Weather Service (NWS) storm type nomenclature [b]. The final data set was then grouped based on the NWS nomeclature, including the total human and economic costs associated with each event type. After ordering the groups according to casualties and economic losses, StormCloud listed the complete data sets in two tables, Table 1 for casualties and Table 2 for economic losses. To visualize some of the more dramatic features of the data, StormCloud produces two bar charts--Figures 1 and 2--showing the relative impact on storm events on both casualties and economic losses. In addition to the bar charts, Figure 3 is a scatterplot of casualty date versus economic losses. Each of these plots presents a picture of the impact of weather events on people. They also help emergency response organizations with valuable information to plan for when, where and how many resources they may need to allocate.
+The United States has a variety of weather events ranging from the extreme cold and extreme heat, extreme precipitation and lack of precipitation, tornadoes, hurricanes, etc. The number of casualties (deaths and injuries) and the economic losses do to these phenomena can significantly vary, making a difficult challenge for the emergency response organizations tasked with allocating response resources. The StormCloud R-Markdown Document was developed to provide public health and economic insight into the nature of these potential disasters to help the responsible agencies to arrange resources. StormCloud uses data from the National Oceanographic and Atmospheric Agency (NOAA) Storm Events Database[a]. After cleaning and processing the data set, StormCloud organized the data using the National Weather Service (NWS) storm type nomenclature [b]. The final data set was then grouped based on the NWS nomeclature, including the total human and economic Damages associated with each event type. After ordering the groups according to casualties and economic losses, StormCloud listed the complete data sets in two tables, Table 1 for casualties and Table 2 for economic losses. To visualize some of the more dramatic features of the data, StormCloud produces two bar charts--Figures 1 and 2--showing the relative impact on storm events on both casualties and economic losses. In addition to the bar charts, Figure 3 is a scatterplot of casualty date versus economic losses. Each of these plots presents a picture of the impact of weather events on people. They also help emergency response organizations with valuable information to plan for when, where and how many resources they may need to allocate.
 
 ```{=html}
-<p style="font-size : 24px; font-weight: bold; color: red; text-align: center;">
+<div style="font-size : 24px; font-weight: bold; color: red; text-align: center;">
 BEFORE YOU START
-</p>
+</div>
 ```
 1.  This document is formatted for a wide viewing window. Please expand the browser window before you start.
 
     1.  For the best view, expand the window to it maximum size.
-
     2.  For a good view, expand the window to ensure the line below does not wrap around to a second line.
 
 ```{r}
-# ___________________________________________________________________________________
+# _____________________________________________________________________________________
 ```
 
 2.  My approach to the project is to keep it as general as possible, so the code is dense and long. That is, there are a lot of complex details that rely on variables, including global variable used as constants, and functions. <strong>Consider Reading Appendix I: Introduction to StormCloud Development</strong> before you assess the code. It will explain some of the subtler details.
@@ -39,9 +38,12 @@ BEFORE YOU START
 
 ## The Purpose of StormCloud
 
-The purpose of StormCloud is, "to explore the NOAA Storm Database and answer some basic questions about severe weather events." The specific questions 1. "Across the United States, which types of events...are most harmful with respect to population health?" 2. "Across the United States, which types of events have the greatest economic consequences?"
+The purpose of StormCloud is, "to explore the NOAA Storm Database and answer some basic questions about severe weather events". The specific questions 
 
-<p>To this end, StormCloud is designed to examine the Storm Database from different jursidicitional perspectives. Specifically, it can be used to examine the data nationwide, statewide, or countywide jurisdictions in any combination. This will allow any organization to examine how causalties and economic losses could be prioritized at any level.</p>
+1. "Across the United States, which types of events...are most harmful with respect to population health?"
+2. "Across the United States, which types of events have the greatest economic consequences?"
+
+To this end, StormCloud is designed to examine the Storm Database from different jursidicitional perspectives. Specifically, it can be used to examine the data nationwide, statewide, or countywide jurisdictions in any combination. This will allow any organization to examine how causalties and economic losses could be prioritized at any level.
 
 # Data Processing
 
@@ -49,43 +51,42 @@ The purpose of StormCloud is, "to explore the NOAA Storm Database and answer som
 
 To understand how StormCloud processes the data, it is best to start with a high level understanding of the data transformations that take place. The following list includes the major data sets only.
 
-1.  **Source Data** are the raw data from the user specified source file.
-2.  **Analysis Data** are the cleaned source data. These data are used to generate the Analysis Tables.
-3.  **Analysis Tables** are tables derived from the Analysis Data and are used to generate the analysis Result Tables.
-4.  **Result Tables** contain the results of the data analysis. These include between two and six tables depending on the analysis requested by the user. The tables list the casualties and economic costs for each weather event. A pair of tables are prepared for nationwide, statewide and/or countywide jurisdictions. The pair consist of a table ordered by casualties and a table ordered by economic losses.
+1.  **sourceDF** is a data.frame used to store the data from the storm data file. The file 
+2.  **analysisDF** are the cleaned source data. These data are used to generate the Analysis Tables.
+3.  **analysisTables** are tables derived from the analysisDF and are used to generate the analysis Result Tables.
+4.  **resultTables** contain the results of the data analysis. These include between two and six tables depending on the analysis requested by the user. The tables list the casualties and economic Damages for each weather event. A pair of tables are prepared for nationwide, statewide and/or countywide jurisdictions. The pair consist of a table ordered by casualties and a table ordered by economic losses.
 
 ## Processing Phases
 
 Given the complexity of StormCloud's intended use, the code is necessarily complex. To make the code easier to follow, I have divided it into the six phases listed below. Three of the phases are involved in some
 
-1.  **Setup Phase**. The purpose of the Setup Phase is to include the necessary libraries and to set the global "constants."
-2.  **Execute Phase**. The purpose of the Execute Phase is to start the transformation process by supplying the Data Generation Phase it the name of the data fileand ending with the **Result Tables**. It also makes the **Results Tables** avaliable for the Data Presentation Phase.
-3.  **Data Generation Phase**. The purpose of the Data Generation Phase is to coordinate the creation of the **Results Tables** by invoking the Data Assembly Phase and the Data Analysis Phase.
-4.  **Data Assembly Phase**. The Data Assembly Phase reads the source data from the user defined data file, creates, and return the **Analysis Data**.
-5.  **Data Analysis Phase**. The purpose of the Data Analysis Phase is to transform the **Analysis Data** to a set of tables and images. This completes the Generation Phase.
+1.  **Setup Phase**. The purpose of the Setup Phase is to include the necessary libraries and to set the global "constants".
+2.  **Execute Phase**. The purpose of the Execute Phase is to start the transformation process by supplying the Results Generation Phase it the name of the data fileand ending with the **resultTables**. It also makes the **resultTables** avaliable for the Data Presentation Phase.
+3.  **Results Generation Phase**. The purpose of the Results Generation Phase is to coordinate the creation of the **resultTables** by invoking the Data Assembly Phase and the Data Analysis Phase.
+4.  **Data Assembly Phase**. The Data Assembly Phase reads the source data from the user defined data file, creates, and return the **analysisDF**.
+5.  **Data Analysis Phase**. The purpose of the Data Analysis Phase is to transform the **analysisDF** to a set of tables and images. This completes the Generation Phase.
 6.  **Data Presentation Phase**. The Data Presentation Phase is called after the Execute Phase finishes to give it access to the Analysis Data.
 
 ```{r phases}
-
 # ==============================================================================
 # Phase level program flow
 # As shown in the figure below, the R code, StormCloud will 
 # 1) execute the Setup Phase to the load the required libraries and assign 
 #    values to the global constants then passes control to the Execution Phase;
-# 2) start the Execute Phase by passing control to the Data Generation Phase 
+# 2) start the Execute Phase by passing control to the Results Generation Phase 
 #    with the data source file name
-#    1) the Data Generation Phase passes control to the Data Assembly Phase with
-#       the name of the data source file named. The Data Assembly Phase converts  
-#       raw source data to the Analysis Tables. The Analysis Tables are returned 
-#       and control is passed back to the Data Generation Phase.
-#    2) the Data Generation Phase passes control to the Data Analysis Phase with
-#       the Analysis Tables. The Data Analysis Phase converts it to a set of
-#       Result Tables. The control is passed back to the Data Generation Phase
-#       with the Result Tables.
-#    3) the Data Generation Phase passes control to the Execution Phase with
+#    1) the Results Generation Phase passes control to the Data Assembly Phase 
+#       with the name of the data source file named. The Data Assembly Phase  
+#       converts raw source data to the Analysis Tables. The Analysis Tables are 
+#       returned and control is passed back to the Results Generation Phase.
+#    2) the Results Generation Phase passes control to the Data Analysis Phase 
+#       with the Analysis Tables. The Data Analysis Phase converts it to a set 
+#       of Result Tables. The control is passed back to the Results Generation 
+#       Phase with the Result Tables.
+#    3) the Results Generation Phase passes control to the Execution Phase with
 #       the Result Tables.
 # 3) The Execution Phase stores the Result List and makes it globally available.
-# 4) The Data Generation Phase presents the Result List in an easy to read
+# 4) The Results Generation Phase presents the Result List in an easy to read
 #    output.
 # 
 # ==============================================================================
@@ -94,51 +95,61 @@ Given the complexity of StormCloud's intended use, the code is necessarily compl
 # phases along with specific data sets.
 # ==============================================================================
 # 
+# 
+#   Start StormCloud 
 #   +-------------+
 #   | Setup Phase |
 #   +-------------+
-#   |
-# Pass control to 
+#   |                                  
+# Pass control to
 # Execution Phase
+#   |                                        return control to   
+#   |                                         Execution Phase 
+#   |                                      with the resultTables
+#   |     +>-------->+-----------------+--->--->--->--->--->--->--->+
+#   V     ^          | Data Generation |  resultTables              |
+#   |     |          |      Phase      |<---<---<---<---<---<--+    |
+#   |     |          |                 |  analysisTables       |    |
+#   |     ^          +--+--------------+<------------------+   |    V
+#   |     |          |  |                                  |   |    |
+#   |     |          |  Pass control to                    |   |    |
+#   V     |          |  Data Assembly                      |   |    |
+#   |     ^          V  Phase                              |   |    |
+#   |     |          |  |                                  |   |    |
+#   |     |          |  +>--->+---------------+            |   |    V
+#   |     |          |        | Data Assembly |            ^   ^    |
+#   |     *          |        |     Phase     |            |   |    |
+#   |     |          |        +---------------+--->--->--->+   |    V
+#   |     ^          |                          return         |    |
+#   V     |          | analysisTables                          |    |
+#   |     |          +--->--->--->--->+---------------+        ^    |
+#   |     |                           | Data Analysis |        |    |
+#   |     |                           |     Phase     |        |    V
+#   |     |                           +---------------+--->--->+    |
+#   |     Pass control to                               return      |
+#   |     Results Generation                                        |
+#   |     Phase                                                     |
+#   V     |                                                         |  
+#   +>--->+-----------------+              resultTables             V
+#         | Execution Phase |<---<---<---<---<--<---<---<---<---<---+
+#         +-----------------+
+#         |
+#         | Pass control 
+#         | and resultTables
+#         | to the R markdown 
+#   +<----+ document
+#   |         
+#   Pass control to
+#   Data Presentation Phase
 #   |
-#   |      >source filename->+-----------------+<--Analysis Tables---<
-#   V     ^                  | Data Generation |                      ^
-#   |     |                  |      Phase      |<----Report Tables----+-<
-#   |     |                  |                 |                      |  ^
-#   |     ^                  +--+--------------+--->Report Tables--->-+->+->
-#   |     |                  |  |                  Pass control to    |  |  V
-#   |     |    Pass control to  |                  Execution Phase    |  |  |
-#   V     |      Data Assembly  |                                     ^  ^  |
-#   |     ^              Phase  |                                     |  |  V
-#   |     |                  |  |                                     |  |  |
-#   V     |                  V  V                                     ^  ^  |
-#   |     |                   >-+-source filename->+---------------+  |  |  V
-#   |     |                     |                  | Data Assembly |  ^  ^  |
-#   |     *                 Pass control to        |     Phase     |  |  |  |
-#   |     |                 Data Assembly          +---------------+->   |  V
-#   |     ^                 Phase                                        ^  |
-#   V     |                     |                                        |  |
-#   |  Pass control to           >-Analysis Data-->+---------------+     |  |
-#   |  Data Generation Phase                       | Data Analysis |     |  |
-#   |     |                                        |     Phase     |     ^  V
-#   |     ^                                        +---------------+---->   |
-#   V     |                                                                 V  
-#   >---->+-----------------+<----<---<----Result Tables----<---<----<---<--
-#         | Execution Phase | 
-#         +-----------------+--->+
-#         |                      |
-#         |                      V
-#         V    Result Tables <--<
-#         |    Available to the Data Presentation Phase
-#         |
-#        Pass control to
-#        Data Presentation Phase
-#         |
-#         V
-#         +-------------------------+
+#   V
+#   +-----+-------------------------+
 #         | Data Presentation Phase |
 #         +-------------------------+
-#
+#         |
+#         |
+#         V
+#         Done
 ```
 
 ## Setup Phase
@@ -153,7 +164,17 @@ The Setup Phase is divided into three sections:
 StormCloud requires the following libraries
 
 ```{r setup phase}
-# library(knitr)
+# Data Presentation Phase ======================================================
+# This code block takes the "worstCasualties" and the "worstLosses" tables from
+# the "resultTables" an converts them to knitr:Kable tables.
+# ==============================================================================
+# knitr      -- The stringr library has several string manipulation functions, 
+#               the str_to_title function that converts strings to a title 
+#               format. The format ensures the first letter of each word in a  
+#               string is converted to an upper case letter.
+#
+#               It is used in the Setup Phase: Program Constants section.
+library(knitr)
 
 # stringr    -- The stringr library has several string manipulation functions, 
 #               the str_to_title function that converts strings to a title 
@@ -163,14 +184,14 @@ StormCloud requires the following libraries
 #               It is used in the Setup Phase: Program Constants section.
 library(stringr)
 
-# dplyr      -- The dplyr library has several functions related to data wrangling,
-#            and the %>% operator.
-#            These functions are used throughout the code.
+# dplyr      -- The dplyr library has several functions related to data 
+#               wrangling,and the %>% operator. These functions are used 
+#               throughout the code.
 library(dplyr)
 
-# rlist      -- The rlist library has several functions to make list manipulation 
-#              easier. 
-#              The list.append function is used through the code.
+# rlist      -- The rlist library has several functions to make list 
+#               manipulation easier. The list.append function is used through 
+#               the code.
 library(rlist)
 
 # kableExtra -- The kableExtra library adds to the functionality of knit::kable, 
@@ -214,10 +235,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ### User Defined Constants
 
 ```{=html}
-<p style="font-size : 24px; font-weight: bold; color: red; text-align: center;">
-NOTE to reader: All "constants" names are in all capital letters. This helps 
+<div style="font-size : 18px; font-weight: bold; color: blue;">
+NOTE to reader: All "constant" names are in uppercase letters. This helps 
 distinguish them from other variables.
-</p>
+</div>
 ```
 A StormCloud user can customize some aspects of processing data. Specifically, the user can
 
@@ -226,27 +247,24 @@ A StormCloud user can customize some aspects of processing data. Specifically, t
 3.  choose the jurisdiction(s) they want to explore.
 
 <!-- READER POINTS -->
-
 ```{=html}
-<p style="font-size : 18px; font-weight: bold; color: blue;">
+<div style="font-size : 18px; font-weight: bold; color: blue;">
+```
 The important points:
 
-<ul>
+* the user must set the name of the data file and select it's location on the WWW.
+* the user must select the jurisdiction(s) they want to investigate
+* if the user wants to investigate a state, the must set the state's two letter designator. If they want to investigate a county, they must select both the state an county.
 
-<li>the user must set the name of the data file and select it's location on the WWW.</li>
-
-<li>the user must select the jurisdiction(s) they want to investigate</li>
-
-<li>if the user wants to investigate a state, the must set the state's two letter designator. If they want to investigate a county, they must select both the state an county.</li>
-
-</p>
+```{=html}
+</div>
 ```
 
 ```{r user defined constants}
 # set the URL and file name of the desired data file. The DATAFILE variable 
 # must be set, the URL is optional because it is only used when the file is not
 # present in the working directory.
-URL      = 
+  URL      = 
   "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 DATAFILE = "storm.csv.bz2"
 
@@ -270,30 +288,38 @@ USE_COUNTY_JURISDICTION    = FALSE
 
 ### Program Constants
 
-StormCloud is designed as a general analysis tool, which means the code is long and involved. For people reading the code, list and data.frame indices, and other aspects of the code can get confusing because each index refers to something specific. For example the following code converts a list into a data.frame, but without knowing what the variable "<em>index</em>" means, the code is harder to understand. NOTE: resultList has been defined and will be defined later
+StormCloud is designed as a general analysis tool, which means the code is long and involved. For people reading the code, list and data.frame indices, and other aspects of the code can get confusing because each index refers to something specific. For example the following code converts a list into a data.frame, but without knowing what the variable "<em>index</em>" means, the code is harder to understand. NOTE: resultTables has been defined and will be defined later
 
 ```{=html}
 <pre>
-       worstEconomic   <- data.frame(resultList[[1]][[index]]).
+       worstLosses   <- data.frame(resultTables[[1]][[index]]).
 </pre>
 
 Using the LOSSES_IDX makes it clearer what the list is.
 
 <pre>
-        worstEconomic   <- data.frame(resultList[[1]][[LOSSES_IDX]])
+        worstLosses   <- data.frame(resultTables[[1]][[LOSSES_IDX]])
 </pre>
+```
 
-<!-- READER POINTS -->
-<p style="font-size : 18px; font-weight: bold; color: blue;">
-The important points:
-<ul>
-<li>the example in this demonstration focuses on national weather data. If the
-code is too confusing, ignore code used to support state and county data.</li>
-<li>there are two analysis types: Casualties and Economic Losses and there 
-several constants to make the code more readable.</li>
-<li>there are three jurisdictional regions: County, State, and National and 
-there several constants to make the code more readable.</li>
-</p>
+```{=html}
+<div style="font-size : 18px; font-weight: bold; color: green;">
+```
+READER POINTS
+
+```{=html}
+<div style="font-size : 14px; font-weight: normal;">
+```
+* the example in this demonstration focuses on national weather data. If the
+code is too confusing, ignore code used to support state and county data.
+* there are two analysis types: Casualties and Economic Losses and there 
+several constants to make the code more readable.
+* there are three jurisdictional regions: County, State, and National and 
+there several constants to make the code more readable.
+
+```{=html}
+</div>
+</div>
 ```
 
 ```{r program constants}
@@ -322,7 +348,7 @@ AXIS_LABELS <- list(
 
 # JURISDICTIONS ################################################################
 # The data file separates data into three possible jurisdictions:
-# 1) National -- all of the data in the data files refer to national-wide weather
+# 1) National -- all of the data in the data files are national-wide weather
 # 2) State    -- all of the data in the data file are subdivided by state, so
 #                filtering on state allows the user to examine the data on a 
 #                state only basis.
@@ -381,7 +407,9 @@ if (USE_STATE_JURISDICTION) {
   DATA_FIELDS   <- list.append(
     DATA_FIELDS, "c('EVTYPE', 'STATE', 'CASUALTIES', 'LOSSES')")
   DATA_FILTERS  <- list.append(DATA_FILTERS, ".$'STATE' == STATE_")
-  JURISDICTION_LABELS <- list.append(JURISDICTION_LABELS, paste0(state.name[grep(STATE_, state.abb)]))
+  JURISDICTION_LABELS <- 
+    list.append(JURISDICTION_LABELS, 
+                paste0(state.name[grep(STATE_, state.abb)]))
 } 
 
 if (USE_NATIONAL_JURISDICTION) {
@@ -392,167 +420,269 @@ if (USE_NATIONAL_JURISDICTION) {
   JURISDICTION_LABELS <- 
     list.append(JURISDICTION_LABELS, paste0("United States"))
 }
+N_JURISDICTIONS <- length(DATA_FIELDS)
 
-# The initial data load from file requires the following select statement
 DATA_ASSEMBLY_SELECT   <- 
   "c('EVTYPE', 'COUNTY', 'STATE', 'CASUALTIES', 'LOSSES')"
 
-# TABLE_SUBS <- c('a', 'b', 'c')
-
 ```
 
-## Data Generation Phase
+## Results Generation Phase
 
 ```{=html}
 <!-- READER POINTS -->
 <p style="font-size : 18px; font-weight: bold; color: blue;">
 The important points:
 <ul>
-<li>the DataGenerationPhase function calls two functions</li>
+<li>the ResultGenerationPhase function calls two functions</li>
 <ul>
 <li>DataAssemblyPhase</li>
 <li></li>
 <li></li>
 </ul>
-<li></li>
-<li></li>
+</ul>
 </p>
 ```
 
-```{r DataGenerationPhase}
+```{r ResultGenerationPhase}
+# ResultGenerationPhase ========================================================
+# The Results Generation Phase is responsible for creating the "resultTables". 
+# These tables hold the final results of the data analysis.
 # ==============================================================================
-# Data Generation Phase flow
-# As shown in the figure below, the R code will:
-# 1) download the file from the user specified URL,
-# 2) read the data file
-# 3) assemble the data by cleaning it, dropping unnecessary rows, and creating
-#    uniform names;
-# 4) analyze the data by:
-#    1) constructing tables ordered by the number of casualties and by economic
-#       losses.
-#    2) creating a set of plots showing how relative magnitude of each event 
-#       type. 
+# Results Generation Phase flow
+# 
+# 1) The Execute Phase passes control to the Results Generation Phase.
+# 2) The Data Assembly Phase opens the storm data file process the raw file 
+#    data and returns a set of analysis data frames.
+# 3) The Results Generation Phase takes the returned data and passes it to the 
+#    Data Analysis Phase.
+# 4) The Data Analysis Phase takes the analysis data frames and converts it into
+#    a set of tables ordered by casualty damage and economic damage. 
+# 
 # ==============================================================================
 # The following diagram is a high level pictorial representation of the Data
 # Generation Phase. 
 # ==============================================================================
-# 
-#                       
-#                   return reportTables
-#  datafile name        ^
-#     |                 |
-#     V                 |  
-#     +-----------------+  reportTables
-#     | Data Generation |<----<---<---<---<-+
-#     |      Phase      |                   |
-#     |                 | analysisTables    |
-#     +---+-------------+<----<---<---<--+  ^
-#     |   |                              ^  |
-#     V   V          datafile name       |  |
-#     +   +-->---->+---------------+     |  |
-#     |           | Data Assembly  |     ^  ^
-#     |            |     Phase     |     |  |
-#     |           +----------------+->-->+  ^
-#     V         Analysis Data               |
-#     +--->--->+---------------+            |
-#              | Data Analysis |            |
-#              |     Phase     |            |
-#              +---------------+--->--->--->+ 
 #
+#  Get control from the   pass resultTables and
+#  the Execution Phase    return control to
+#     |                   the Execution Phase
+#     |                    ^
+#     V                    |  
+#     +--------------------+  
+#     | Results Generation | resultTables
+#     |      Phase         |<---<---<---<----<---+
+#     |                    | analysisTables      ^
+#     +---+----------------+<---<---<---<----+   |
+#     |   |                                  ^   |
+#     |   Pass control to                    |   ^
+#     V   Data Assembly                      ^   |
+#     |   Phase                              |   ^
+#     |   V                                  ^   |
+#     V   |                                  |   |
+#     |   +--->--->+----------------+        |   ^
+# Pass control to  | Data Assembly  |        ^   |
+# Data Analysis    |     Phase      |        |   |
+# Phase            +----------------+--->--->+   ^
+#     |                               return     |
+#     V         analysisTables                   |
+#     +--->--->+---------------+                 ^
+#              | Data Analysis |                 |
+#              |     Phase     |                 |
+#              +---------------+--->--->---->--->+ 
+#                                   return
+# 
+# ResultGenerationPhase function ===============================================
+#
+# THe Results Generation Phase is implemented by ResultGenerationPhase function. The
+# function will:
+# 1) pass control to the DataAssemblyPhase function which will
+#    1) cleans string data;
+#    2) removes "events" that do not contribute to the analysis, i.e., they are 
+#       have no numeric value, so they contribute nothing to final results;
+#    3) removes data not included in the NWS event types such as summary data 
+#       and  data with invalid names like "?", "high", and "others";
+#    4) consolidates misspellings, acronyms, abbreviated phrases, and other 
+#       invalid names into valid NWS weather event types;
+#    5) create a casualty (injury + fatalities) column and a economic losses 
+#       column (property and crop economic losses).
+#    6) create one or more jurisdiction data.frames based on the user needs;
+#    7) each jurisdiction data.frame is grouped by event type and sorted 
+#       alphabetically by event. These data.frames are the "analysisTables". 
+# 2) the "analysisTables" are returned to ResultGenerationPhase, which passes 
+#    control to DataAnalysisPhase function 
+#    1) create two data.frames for each jurisdiction data.frame, one for 
+#       casualty data, the other for economic losses. 
+#    2) the new frames are ordered by casualty damage or economic losses 
+#       depending on the contents of the tables;
+#    3) the ordered tables are used to generate a set of results tables and a 
+#       set of plots;
+#    4) the damage tables are named "analysisTables" and returned to the 
+#       ResultGenerationPhase;
+# 3) the ResultGenerationPhase function returns the "analysisTables" to the 
+#    execution phase.
+# 
+# ------------------------------------------------------------------------------
+# input variables
+# NONE
+# 
+# constants 
+# NONE
+#
+# LOCAL VARIABLES 
+# analysisTables--the "analysisTables" are the product of the Data Assembly 
+#                 Phase. This means the tables have been cleaned, 
+#                 non-contributing data has been removed, the event names are 
+#                 unified to the NWS names, and the data is divided into 
+#                 jurisdictions and each jurisdiction data.frame is grouped into
+#                 two damage tables, one for casualties, the other for economic
+#                 losses.
+# 
+#   resultTables--the "resultTables" are the result of the Data Analysis Phase. 
+#                 The main data in these tables is the "worstDamageTable" for 
+#                 each jurisdiction and each damage type. This data is used for 
+#                 presenting the analysis results.
+#
+# returns resultTables
 # ==============================================================================
-DataGenerationPhase <- function(url, datafile) {
+ResultGenerationPhase <- function() {
 
-  analysisTables <- DataAssemblyPhase(datafile)
-  reportTables   <- DataAnalysisPhase(analysisTables)
+  analysisTables <- DataAssemblyPhase()
+  resultTables   <- DataAnalysisPhase(analysisTables)
 
-  return (reportTables)
+  return (resultTables)
 }
 
 ```
 
-### Data Assembly Phase
 
+### Data Assembly Phase
 ```{=html}
 <!-- READER POINTS -->
 <p style="font-size : 18px; font-weight: bold; color: blue;">
 The important points:
-<ul>
-<li>the DataGenerationPhase function calls two functions</li>
-<ul>
-<li>DataAssemblyPhase</li>
-<li></li>
-<li></li>
-</ul>
-<li></li>
-<li></li>
 </p>
-```
+<ul>
+  <li>the ResultGenerationPhase function calls two functions</li>
+    <ul>
+      <li>DataAssemblyPhase</li>
+      <li></li>
+      <li></li>
+    </ul>
+  </ul>
 
-```{r}
-# AssembleAnalysisTables =======================================
-# =========================================================================
-# The Data Assembly Phase is responsible for creating a list of tables 
-# used by the Data Analysis Phase. Each jurisdiction will get two tables: 
-# one is ordered by causalties, the other by economic losses. 
-# AssembleAnalysisTables =======================================
-# =========================================================================
-# Data Assembly Phase flow
-#    1) clean the data, remove entries that do not contribute to the 
-#       analysis, and make all EVTYPE names conform to the National Weather 
-#       Service Instruction 10-1605 naming conventions.
-#    2) divide the analysisData into jurisdiction tables
-#    3) group the jurisdiction tables by event type and store as 
-#       analysisTables;
-#    4) return analysisTables
-# AssembleAnalysisTables =======================================
-# =========================================================================
-# The following diagram is a high level pictorial representation of the 
-# Data Assembly Phase. 
-# =========================================================================
-# AssembleAnalysisTables =======================================
-# 
-#                         return analysisTables
-#  datafileName                    ^
-#     |                            |
-#     V                            |    analysisTables
-#     +-->---+---------------------+<---<----<---<-----+
-#            | Data Assembly       | analysisData      |
-#            |    Phase            |<---<--<--<--+     |
-#            |                     | sourceData  |     ^
-#            +---------------------+<---<-+      |     |
-#            |   |   |                    |      |     |
-#            V   V   V   datafileName     |      ^     ^
-#            |   |   +-->+--+---------+   |      |     |
-#            |   |       | Read Storm |   |      |     |
-#            V   V       |   File     |   |      ^     ^
-#            +   +       +------------+-->+      |     |
-#            |   |                               |     |
-#            |   |                               ^     ^
-#            V   V    sourceData                 |     |
-#            |   +-->+-------------------+       |     |
-#            |       | Assemble Analysis |       ^     ^
-#            |       |       Data        |       |     |
-#            V       +-------------------+-->-->-+     |
-#            |                                         |
-#            V       analysisData                      |
-#            +--->+-------------------+                |
-#                 | Assemble Analysis |                ^
-#                 |      Tables       |                |
-#                 +-------------------+--->--->--->--->+
-#
-# =========================================================================
-# AssembleAnalysisTables =======================================
+<pre>
+Data Assembly Phase ============================================================
+The Data Assembly Phase is responsible for creating the "analysisTables".
+================================================================================
+Data Assembly Phase flow
+   1) read the data from the storm file;
+   2) clean the data, remove entries that do not contribute to the
+      analysis, and make all EVTYPE names conform to the National Weather
+      Service Instruction 10-1605 naming conventions.
+   3) divide the analysisDF into jurisdiction tables
+   4) group the jurisdiction tables by event type and store as
+      analysisTables;
+   5) return analysisTables
+==============================================================================
+The following diagram is a high level pictorial representation of the
+Data Assembly Phase.
+==============================================================================
+
+ Get control from the Data Assembly Phase
+    |      
+    |                         return analysisTables to ResultGenerationPhase
+    |                            ^
+    V                            |
+    +-->---+---------------------+
+           | Data Assembly       |    analysisTables
+           |    Phase            |<---<---<---<--<---<---<---<--<---<---+
+           |                     |   analysisDF                         |
+           |                     |<---<---<---<---<---<----<---<---+    ^
+           |                     |  sourceDF                       ^    |
+           +---+---+-------------+<---<---<---<---<---<---<---+    |    |
+           |   |   |                                          ^    |    ^
+         Pass control to Read Storm File                      |    ^    |
+           | Pass control to Assemble Analysis Data           |    |    |
+           V   | Pass control to Assemble AnalysisTables      |    |    |
+           |   V   |                                          |    ^    |
+           --->|-->|-->--->+-------------+                    ^    |    ^
+               |   V       | Read Storm  |                    |    ^    |
+               |   |       |   File      |                    |    |    |
+               |   |       +-------------+--->--->--->--->--->+    |    ^
+               V   |                       return sourceDF         |    |
+               |   V                                               |    |
+               |   |        sourceDF                               |    ^
+               +---|-->--->+-------------------+                   ^    |
+                   |       | Assemble Analysis |                   |    |
+                   |       |       Data        |                   |    ^
+                   |       +-------------------+--->-->--->--->--->+    |
+                   |                             return analysisDF      |
+                   |                                                    ^
+                   |                                                    |
+                   |                                                    |
+                   +--->--->+-------------------+                       |
+                            | Assemble Analysis |                       ^
+                            |      Tables       |                       |
+                            +-------------------+--->--->--->-->--->--->+
+                                                  return analysisTables
+                                     
+</pre>
 ```
 
 ```{r DataAssemblyPhase}
-DataAssemblyPhase <- function(datafile)  {
-  if (!file.exists(datafile)) {
-    DownloadDataFile(url, datafile)
+# DataAssemblyPhase function ===================================================
+#
+# The Data Assembly Phase is implemented by DataAssemblyPhase function. The
+# function will:
+# 1) pass control to the ReadStormFile function to read specific data columns 
+#    from data file required by the user. The data will be stored in a 
+#    data.frame "souceDF". The columns are COUNTYNAME, STATE, EVTYPE, 
+#    FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, and CROPDMGEXP.
+# 2) return the "souceDF" and control to DataAssemblyPhase;
+# 3) will return "sourceDF" to DataAssemblyPhase;
+# 4) pass control and "sourceDF" to AssembleAnalysisData, which will transform
+#    the "sourceDF" to the "analysisDF" by cleaning and reducing the data set;
+# 3) return the "analysisDF" and control to the DataAssemblyPhase;
+# 4) pass the "analysisDF" and control to the AssembleAnalysisTables function;
+# 5) process the data to create tables consisting of data.frames ordered by
+#    casualties or economic losses. These tables are stored in the 
+#    "analysisTables", 
+# 6) return the "analysisTables" and control to AssembleAnalysisTables;
+# 7) return control to ResultGenerationPhase
+# 
+# ------------------------------------------------------------------------------
+# input variables
+# NONE
+# 
+# constants 
+# NONE
+#
+# LOCAL VARIABLES 
+#       sourceDF--the "sourceData" is the raw data read from the user specified
+#                 DATAFILE with the columns required for the StormCloud  
+#                 analysis.
+#     analysisDF--the "analysisDF" is the final transformation of the raw data
+#                 to clean, complete, and unified data required for analysis,
+#                 it still has to be organized by jurisdiction and event type.
+# analysisTables--the "analysisTables" are the product of the Data Assembly 
+#                 Phase. This means the tables have been cleaned, 
+#                 non-contributing data has been removed, the event names are 
+#                 unified to the NWS names, and the data is divided into 
+#                 jurisdictions and each jurisdiction data.frame is grouped into
+#                 two damage tables, one for casualties, the other for economic
+#                 losses.
+#
+# returns analysisTables
+# ==============================================================================
+DataAssemblyPhase <- function()  {
+  if (!file.exists(DATAFILE)) {
+    DownloadstormFileName(URL, DATAFILE)
   }
 
-  sourceData     <- ReadStormFile(datafile)
-  analysisData   <- AssembleAnalysisData(sourceData)
-  analysisTables <- AssembleAnalysisTables(analysisData)
+  sourceDF       <- ReadStormFile()
+  analysisDF     <- AssembleAnalysisData(sourceDF)
+  analysisTables <- AssembleAnalysisTables(analysisDF)
 
   return (analysisTables)
 }  ## End of DataAssemblyPhase function
@@ -562,273 +692,484 @@ DataAssemblyPhase <- function(datafile)  {
 #### Read Storm File
 
 ```{r ReadStormFile}
-# AssembleAnalysisTables =======================================
-# ReadStormFile =========================================================
-# The ReadStormFile function reads the contents of the stormDataFile 
+# ReadStormFile ================================================================
+# The ReadStormFile function reads the contents of the storm data file 
 # selecting only the fields of interest.
 # STATE, COUNTYNAME, PROPDMGEXP, CROPDMGEXP, PROPDMG, CROPDMG, FATALITIES,
 # and INJURIES.
 #
-# returns sourceData
-# AssembleAnalysisTables =======================================
-# =========================================================================
-ReadStormFile <- function(filename)
+# returns sourceDF
+#
+# Format of "sourceDF"
+#   COUNTYNAME STATE  EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG
+# 1     MOBILE    AL TORNADO          0       15    25.0          K       0
+# 2    BALDWIN    AL TORNADO          0        0     2.5          K       0
+# 
+#   CROPDMGEXP
+#   1           
+#   2           
+
+# ==============================================================================
+ReadStormFile <- function()
 {
-  sourceData <- read.table(filename, stringsAsFactors = FALSE,
+  sourceDF <- read.table(DATAFILE, stringsAsFactors = FALSE,
                         sep = ",",
                         colClasses = c(rep("NULL",5), NA, NA, NA,
                                        rep("NULL",14), rep(NA, 6),
                                        rep("NULL",9)),
                         header = TRUE)
 
-  return (sourceData)
+  return (sourceDF)
 } ## End of ReadStormFile function
 
 ```
 
 #### Assemble Analysis Data
 
-```{r AssembleAnalysisData}
-# AssembleAnalysisData =================================================
-# The AssembleAnalysisData
-# ======================================================================
-# Assemble Analysis Data  flow
-# 1) AssembleAnalysisData receives the sourceData data.frame from the 
-#    DataAssemblyPhase;
-# 2) sourceData is passed to CleanData, which trims the leading and 
-#    trailing whitespace and converts all text to lower case. By 
-#    converting to lower case the number of comparisons will be reduced. 
-# 
-#    Store the resulting data is stored as cleanData and return it to 
-#    AssembleAnalysisData
-# 3) cleanData is passed to RemoveZeroData, which removes all rows in 
-#    cleanData where FATALITIES == 0, INJURIES == 0, PROPDMG == 0, and 
-#    CROPDMG == 0. These rows will not contribute to the analysis and 
-#    removing them will make thecode more efficient.
-# 
-#    Store the reduced data is stored as clearData and return it to 
-#    AssembleAnalysisData
-# 4) clearData is passed to RemoveInvalidEvents. The source file 
-#    includes events like "?" and "other" these are not valid events 
-#    and the correct event names cannot be discerned, so they are 
-#    dropped.
-# 
-#    Store the valid data is stored as validData and return it to 
-#    AssembleAnalysisData
-# 5) validData is passed to UnifyTypes. Each event type as defined by 
-#    National Weather Service Instruction 10-1605, however the source 
-#    data can include different names, capitalizations, abbreviations, 
-#    and mispellings. Each event type is converted to the appropriate 
-#    NWS event names
-# 
-#    Store the unified data is stored as validData and return it to 
-#    AssembleAnalysisData
-# 6) validData is passed to UnifyTypes. Each event type as defined by 
-#    National Weather Service Instruction 10-1605, however the source 
-#    data can include different names, capitalizations, abbreviations, 
-#    and mispellings. Each event type is converted to the appropriate 
-#    NWS event names
-# 
-#    Store the unified data is stored as stormData and return it to 
-#    AssembleAnalysisData
-# 7) stormData is passed to FinishAnalysisDataset where the FATALITIES and 
-#    INJURIES columns are summed and added to the data.frame in a column
-#    titled CASUALTIES. PROPDMGEXP and CROPDMGEXP are converted to numeric,
-#    values and mutliplied by the PROPDMG value and CROPDMG value 
-#    respectively. The are then summed and added to the data.frame in a
-#    column titled LOSSES. A new data.frame called "analysisData" selects
-#    the EVTYPE, COUNTY, STATE, CASUALTIES, and LOSSES field.
-# 
-#    The "analysisData" is return it to AssembleAnalysisData
-# =========================================================================
-# The following diagram is a high level pictorial representation of the 
-# Data Assembly Phase. 
-# =========================================================================
-# 
-#                           return analysisData
-# sourceData                       ^
-#     |                            |
-#     V                            |
-#     +-->---+---------------------+  analysisData
-#            |                     |<---<---<--<---<--<--<--+
-#            |                     |  stormData             |
-#            |  Assemble Analysis  |<---<---<--<--<--<--+   |
-#            |                     |  validData          |  |
-#            |       Data          |<---<---<--<---<--+  |  |
-#            |                     |         ^  |  |
-#            |                     |<---<---<---<--+  |  |  |
-#            |                     |  cleanData    |  ^  |  |
-#            +---+---+---+---+-----+<---<---<---+  ^  |  |  |
-#            |   |   |   |   |                  |  |  |  |  |
-#            |   |   |   |   |                  |  |  ^  |  |
-#            |   |   |   |   |                  |  ^  |  |  |
-#            V   V   V   V   V     sourceData   |  |  |  |  |
-#            |   |   |   |   +-->+-----------+  |  |  |  |  |
-#            |   |   |   |       | CleanData |  ^  ^  ^  |  |
-#            |   |   |   |       +-----------+->+  |  |  |  |
-#            V   V   V   V     cleanData           |  |  |  |
-#            |   |   |   +-->+-------------+       |  |  |  |
-#            |   |   |       | Remove Zero |       |  ^  |  |
-#            |   V   |       |     Data    |       |  |  |  |
-#            |   |   V       +-------------+-->-->-+  |  |  |
-#            V   |   |    clearData                   |  |  |
-#            |   |   +-->+----------------+           ^  |  |
-#            |   V       | Remove Invalid |           |  |  |
-#            |   |       |    Events      |           |  |  |
-#            |   |       +----------------+-->-->-->--+  |  |
-#            |   |                                       |  |
-#            |   V         validData                     ^  |
-#            |   +-->-->-+-------------+                 |  |
-#            |           | Unify Types |                 |  |
-#            |           +-------------+-->-->-->-->-->--+  |
-#            |                                              |
-#            |        stormData                             |
-#            +-->-->-+----------------+                     |
-#                    |Finish Analysis |                     |
-#                    |   Dataset      |                     |
-#                    +----------------+--->--->--->--->--->-+
-#
-# AssembleAnalysisTables =======================================
-# =========================================================================
-AssembleAnalysisData <- function(sourceData)  {
-  cleanData    <- CleanData(sourceData)
-  clearData    <- RemoveZeroData(cleanData)
-  validData    <- RemoveInvalidEvents(clearData)
-  stormData    <- UnifyTypes(validData)
-  analysisData <- FinishAnalysisDataset(stormData)
+```{=html}
+<p style="font-size : 18px; font-weight: bold; color: green;">
+READER POINTS
+</p>
+<p style="font-size : 12px;">
+The important points:
+</p>
+<ul>
+  <li>the ResultGenerationPhase function calls two functions</li>
+    <ul>
+      <li>DataAssemblyPhase</li>
+      <li></li>
+      <li></li>
+    </ul>
+  </ul>
 
-  return (analysisData)
+<pre>
+Assemble Analysis Data =======================================================
+The Assemble Analysis Data is responsible for producing "analysisDF".
+==============================================================================
+Assemble Analysis Data flow
+   1) receive the sourceDF from the Data Assembly Phase;
+   2) clean the data;
+   3) remove "non-contributing" rows from the cleaned data; 
+   4) remove event names that do not correlate to the NWS naming convention;
+   5) convert all event names in the cleaned data to consistently formatted event names;
+   6) add columns for the total number of casualties and total economic loss the the data.frame, this is the "analysisDF";
+   7) return the"analysisDF" to the Data Assembly Phase.
+================================================================================
+The following diagram is a high level pictorial representation of the
+Assemble Analysis Data
+================================================================================
+
+ Get control and sourceDF from DataAssemblyPhase
+  |
+  |                         return analysisDF to DataAssemblyPhase
+  |                            ^
+  V                            |
+  +-->-->+---------------------+  analysisDF
+         |                     |<---<---<---<---<---<---<---<---<---<---<---+
+         |                     |  stormDF                                   |
+         |  Assemble Analysis  |<---<---<---<----<---<---<---<---<---<--+   |
+         |                     |  validDF                               ^   |
+         |       Data          |<---<---<---<---<---<---<---<---<---+   |   |
+         |                     |  nonZeroDF                         ^   ^   |
+         |                     |<---<---<---<---<---<---<---<---+   |   |   |
+         |                     |  cleanDF                       |   ^   |   |
+         +--+--+--+--+----+<---<---<---<---<---<---<---<---+    ^   |   ^   |
+         |  |  |  |  |                                     |    |   |   |   |
+         Pass control to CleanData                         |    |   ^   |   |
+         |  Pass control to RemoveZeroData                 |    |   |   |   |
+         V  |  Pass control to RemoveInvalidEvents         |    ^   |   ^   |
+         |  V  |  Pass control to UnifyTypes               ^    |   |   |   |
+         |  |  |  |  Pass control to FinishAnalysisDataset |    |   |   |   |
+         |  |  V  |  |                                     |    |   |   ^   |
+         V  |  |  V  |        receive sourceDF             |    |   |   |   |
+         +--|->|--|--|--->--->+-----------+                |    |   |   |   |
+            V  |  |  |        | CleanData |                |    ^   ^   |   |
+            |  V  |  |        +-----------+--->--->--->--->+    |   |   ^   |
+            V  |  |  V                        return cleanDF    |   |   |   |
+            |  |  |  |                                          |   |   |   |
+            |  |  V  |        receive cleanDF                   |   |   ^   |
+            +--|>-|->|--->--->+-------------+                   |   |   |   |
+               V  |  |        | Remove Zero |                   |   ^   |   |
+               |  V  |        |     Data    |                   |   |   |   |
+               |  |  V        +-------------+--->--->--->-->--->+   |   ^   |
+               |  V  |                        return nonZeroDF      |   |   |
+               |  |  |                                              |   |   |
+               V  |  |        receive nonZeroDF                     |   ^   |
+               +->|->|--->--->+----------------+                    ^   |   |
+                  V  |        | Remove Invalid |                    |   |   |
+                  |  |        |    Events      |                    |   |   |
+                  |  |        +----------------+--->--->--->--->--->+   ^   |
+                  |  V                        return validDF            |   |
+                  |  V                                                  |   |
+                  V  |         receive validDF                          ^   |
+                  +--|--->--->+-------------+                           |   |
+                     |        | Unify Types |                           |   |
+                     |        +-------------+--->--->--->--->--->--->-->+   |
+                     |                        return stormDF                |
+                     |                                                      |
+                     |         receive stormDF                              |
+                     +--->--->+----------------+                            |
+                              |Finish Analysis |                            |
+                              |   Dataset      |                            |
+                              +----------------+--->--->--->--->--->--->--->+
+                                              return analysisDF
+
+================================================================================
+```
+
+```{r AssembleAnalysisData}
+# AssembleAnalysisData function ================================================
+# Assemble Analysis Data  flow
+# 1) get control and "sourceDF" from DataAssemblyPhase;
+# 2) pass control and "sourceDF" to cleanData; 
+#    1) trim white space from "sourceData" text columns;
+#    2) convert all strings in "sourceData" to lower case;
+#    3) store in "cleanDF";
+#    4) return "cleanDF" to AssembleAnalysisData 
+# 3) AssembleAnalysisData passes control and "cleanDF" to RemoveZeroData; 
+#    1) create "nonZeroDF";
+#    2) store all the rows of "cleanDF" in "nonZeroDF" where at least one of the 
+#       following is true: FATALITIES == 0, INJURIES == 0, PROPDMG == 0, and 
+#       CROPDMG == 0;
+#    3) return "nonZeroDF" to AssembleAnalysisData 
+# 4) AssembleAnalysisData passes control and "nonZeroDF" to RemoveInvalidEvents; 
+#    1) create "validDF";
+#    2) store all the rows of "nonZeroDF" in "validDF" where the events are 
+#       related to the events found in the NWS Instruction 10-1005 [b]. The raw
+#       data contains events like "?", "high", and "other". There is no 
+#       equvalent for these events.
+#    3) return "validDF" to AssembleAnalysisData 
+# 5) AssembleAnalysisData passes control and "validDF" to UnifyTypes; 
+#    1) rename "validDF" to "stormDF";
+#    2) loop through each event to
+#       1) determine the NWS event type for each event in "stormDF";
+#       2) replace the event with the correct NWS event type;
+#    3) return "stormDF" to AssembleAnalysisData
+# 6) AssembleAnalysisData passes control and "stormDF" to FinishAnalysisDataset; 
+#    1) for each row of "stormDF" perform the following modifications
+#       1) convert PROPDMGEXP and CROPDMGEXP to numeric values;
+#       2) multiply PROPDMGEXP by PROPDMG, and CROPDMG by CROPDMGEXP
+#       3) add the adjusted values of PROPDMG and CROPDMG then store the result 
+#          in a new column called LOSSES. These are the economic losses;
+#       4) FATALITIES to INJURIES and store the result in a new column called 
+#          CASUALTIES;
+#    2) select the EVTYPE, COUNTYNAME, STATE, CASUALTIES, and LOSSES columns and
+#       store them in "analysisDF";
+#    3) return "analysisDF" to AssembleAnalysisData
+#  7) return "analysisDF" and control to DataAssemblyPhase; 
+# 
+# ------------------------------------------------------------------------------
+# input variables
+#       sourceDF--the "sourceData" is the raw data read from the user specified
+#                 DATAFILE with the columns required for the StormCloud
+#                 analysis. The "sourceData" has dimension (902297, 9)
+# 
+# constants
+# NONE
+# 
+# LOCAL VARIABLES
+#        cleanDF--"cleanDF" is the "sourceDF" after removing all of the leading  
+#                 and trailing white space and all string were changes to all 
+#                 lower-case letters. The "cleanDF" has dimension (902297, 9);
+#      nonZeroDF--"nonZeroDF" is the "cleanDF"  after rows with all numerical 
+# `               values equal to zero are removed. The "nonZeroDF" has 
+#                 dimension (254633, 9); 
+#        validDF--"validDF" is the "nonZeroDF" after invalid event names such as 
+#                 "other", and "apache county". The "validDF" has dimension 
+#                 (254592, 9);
+#        stormDF--"stormDF" is the "validDF" after every storm event name is 
+#                 converted to the NWS Instruction 10-1005 [b] storm type naming 
+#                 convention. The "stormDF" has dimension (254592, 9);
+#     analysisDF--"analysisDF" is the "stormDF" after consolidating casualties 
+#                 and economic losses and selecting specific columns. The 
+#                 "analysisDF" has dimension (254592, 5).
+# 
+# returns analysisDF
+# ==============================================================================
+AssembleAnalysisData <- function(sourceDF)  {
+  
+  cleanDF    <- CleanData(sourceDF)
+  nonZeroDF  <- RemoveZeroData(cleanDF)
+  validDF    <- RemoveInvalidEvents(nonZeroDF)
+  stormDF    <- UnifyTypes(validDF)
+  analysisDF <- FinishAnalysisDataset(stormDF)
+
+print(paste0("sourceDF ", dim(sourceDF)))
+print(head(sourceDF, n = 2))
+print(paste0("cleanDF ", dim(cleanDF)))
+print(head(cleanDF, n = 2))
+print(paste0("nonZeroDF ", dim(nonZeroDF)))
+print(head(nonZeroDF, n = 2))
+print(paste0("validDF ", dim(validDF)))
+print(head(validDF, n = 2))
+print(paste0("stormDF ", dim(stormDF)))
+print(head(stormDF, n = 2))
+print(paste0("analysisDF ", dim(analysisDF)))
+print(head(analysisDF, n = 2))
+
+  return (analysisDF)
 }  ## End of AssembleAnalysisData function
 
 ```
 
 ##### Clean Data
 
-```{r}
-# AssembleAnalysisTables =======================================
-# = CleanData==============================================================
-# The CleanData function trims the leading and trailing whitespace from the
-# EVTYPE column and converts all character data to lower case letters.
-# This is done to simplify searches of specific data.
-#
-# returns sourceData
-# =========================================================================
-# AssembleAnalysisTables =======================================
-CleanData <- function(sourceData)
-{
-  cleanData            <- sourceData
-  cleanData$EVTYPE     <- trimws(cleanData$EVTYPE, which = c("both"))
-  cleanData$EVTYPE     <- tolower(cleanData$EVTYPE)
-  cleanData$PROPDMGEXP <- tolower(cleanData$PROPDMGEXP)
-  cleanData$CROPDMGEXP <- tolower(cleanData$CROPDMGEXP)
+```{=html}
+<div style="font-size : 18px; font-weight: bold; color: green;">
+READER POINTS
 
-  return (cleanData)
+<div style="font-size : 12px; font-weight: normal;">
+```
+
+The important points:
+* All strings are converted to lower-case letters for two reasons;
+
+1. the contributors to the data set use mixes of upper- and lower-case which makes comparisons complex and time consuming. For example, "THUNDERSTORM WINDS", and "thunderstorm winds" are two ways contributors will write "Thunderstorm Winds". To compare all of the events to every possible combination of upper and lower case would take slow down the program.
+
+2. the UnifyTypes function converts the "validDF" event names (lower case) to the NWS event names. If the converted name is was still lower case, then there is a possible chance that it could match a different event type. By converting all events to lower case to the proper NWS name, there is no chance of mismatch.
+
+```{=html}
+head(cleanDF, n=2)
+Notice that the event "TORNADO" in sourceDF is now "tornado" in "cleanDF".
+<pre>
+<div style="font-size : 10px; color: green; ">
+  COUNTYNAME STATE  EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+1     MOBILE    AL tornado          0       15    25.0          k       0          1
+2    BALDWIN    AL tornado          0        0     2.5          k       0          2 
+</div>
+</pre>
+</div>
+</div>
+```
+
+```{r CleanData}
+# CleanData =====================================================================
+# 1) copy "sourceDF" into "cleanDF";
+# 2) trim all of the columns with string data. That is, remove the leading and
+#    trailing white space. For example, the string " TORNADO " becomes "TORNADO"
+#    after removing the leading and trailing white spaces.
+# 3) change all string to lower-case letters. 
+# ------------------------------------------------------------------------------
+# input variables
+#       sourceDF--the "sourceData" is the raw data read from the user specified
+#                 DATAFILE with the columns required for the StormCloud
+#                 analysis. The "sourceData" has dimension (902297, 9)
+# 
+# constants
+# NONE
+# 
+# LOCAL VARIABLES
+#        cleanDF--"cleanDF" is the "sourceDF" after removing all of the leading  
+#                 and trailing white space and all string were changes to all 
+#                 lower-case letters. The "cleanDF" has dimension (902297, 9);
+# 
+# returns cleanDF
+# ==============================================================================
+CleanData <- function(sourceDF)
+{
+  cleanDF            <- sourceDF
+  cleanDF$EVTYPE     <- trimws(cleanDF$EVTYPE, which = c("both"))
+  cleanDF$PROPDMGEXP <- trimws(cleanDF$PROPDMGEXP, which = c("both"))
+  cleanDF$CROPDMGEXP <- trimws(cleanDF$CROPDMGEXP, which = c("both"))
+  cleanDF$EVTYPE     <- tolower(cleanDF$EVTYPE)
+  cleanDF$PROPDMGEXP <- tolower(cleanDF$PROPDMGEXP)
+  cleanDF$CROPDMGEXP <- tolower(cleanDF$CROPDMGEXP)
+
+  return (cleanDF)
 }  ## End of CleanRawData function
 
 ```
 
 ##### Remove Zero Data
 
+```{=html}
+<div style="font-size : 18px; font-weight: bold; color: green;">
+READER POINTS
+
+  <div style="font-size : 12;">
+The important points:
+    <ul>
+      <li>The analysis of the storm data relies on the summing the FATALITIES, INJURIES, PROPDMG, and CROPDMG columns;</li>
+      <li>if any row has at least one of these columns with a non-zero value, the row will contribute to one of the value of the column;</li>
+      <li>if a row has no non-zero values in any of these columns that row will not contribute to the value of any column. Therefore, that row is a non-contributor and does no matter to the analysis so it can be eliminated.</li>
+    </ul>
+  </div>
+  <h6>Size change in nonZeroDF<h6>
+  Notice the size of the data reduces the size of the data.frame by 647664 rows.
+</div>
+```
+
 ```{r}
-# AssembleAnalysisTables =======================================
-# = RemoveZeroData ===================================================
-# The RemoveZeroData function searches for lines where the FATALITIES, 
-# INJURIES, PROPDMG, and CROPDMG == 0 damage are all zero. Since these
-# rows do not contribute to the grouped data, there is no reason to
-# include them
-#
-# returns clearData
-# AssembleAnalysisTables =======================================
-# ====================================================================
-RemoveZeroData <- function(cleanData)
+# RemoveZeroData ===============================================================
+# 1) copy rows of "cleanDF" to "nonZeroDF" if the row has at least one non-zero 
+#    value in FATALITIES, INJURIES, PROPDMG, and CROPDMG then it is included in
+#    "nonZeroDF". 
+# ------------------------------------------------------------------------------
+# input variables
+#        cleanDF--the "cleanDF" is the original "sourceDF" after trimming white 
+#                 space. The dimension of "cleanDF" is (902297, 9)
+# 
+# constants
+# NONE
+# 
+# LOCAL VARIABLES
+#      nonZeroDF--"nonZeroDF" is the "sourceDF" after cleaning it and removing
+#                 all zero values. The dimension of "nonZeroDF" is (254633, 9). 
+#                 In other words, by removing the zero data reduce the number of 
+#                 rows by 647664.
+# 
+# returns nonZeroDF
+# ==============================================================================
+RemoveZeroData <- function(cleanDF)
 {
   # remove rows with
-  clearData <-
-    cleanData[
-      cleanData$FATALITIES != 0 |
-      cleanData$INJURIES != 0 |
-      cleanData$PROPDMG != 0 |
-      cleanData$CROPDMG != 0, ]
+  nonZeroDF <-
+    cleanDF[
+      cleanDF$FATALITIES != 0 |
+      cleanDF$INJURIES != 0 |
+      cleanDF$PROPDMG != 0 |
+      cleanDF$CROPDMG != 0, ]
 
-  return (clearData)
-}  ## End of LoadStormCostData function
-
+  return (nonZeroDF)
+}  ## End of LoadStormDamageData function
 ```
 
 ##### Remove Invalid Events
 
-```{r}
-# = RemoveInvalidEvents ========================================
-# The RemoveInvalidEvents function searches EVTYPEs with invalid 
-# names. These names include '?,' 'high,' 'marine accident,'
-# 'marine mishap,' 'other,' 'apache county,' and 'drowning.' 
-#
-# returns validData
-# ==============================================================
-RemoveInvalidEvents <- function(clearData) {
+```{=html}
+<div style="font-size : 18px; font-weight: bold; color: green;">
+<!-- READER POINTS -->
+  <div style="font-size : 12;">
+The important points:
+    <ul>
+      <li>during the investigation of the source file I found the following 
+      events that do not correspond any event in the NATIONAL WEATHER SERVICE INSTRUCTION 10-1605 [b]: '?', 'high', 'marine accident', 'marine mishap', 'other', and 'apache county'</li>
+    </ul>
+    The dimension of "nonZeroDF" is (254633, 9) and the "validDF" is (254592, 9). In other words, by removing the zero data reduce the number of rows  by 647664.
+  <h6>Size change in nonZeroDF<h6>
+  Notice the size of the data reduces the size of the data.frame by 647664 rows.
+  </div>
+</div>
+```
 
-  validData <- clearData[
-    clearData$EVTYPE != '?' &
-    clearData$EVTYPE != 'high' &
-    clearData$EVTYPE != 'marine accident' &
-    clearData$EVTYPE != 'marine mishap' &
-    clearData$EVTYPE != 'other'&
-    clearData$EVTYPE != 'apache county' &
-    clearData$EVTYPE != 'drowning'
+```{r}
+# RemoveInvalidEvents ==========================================================
+# 1) copy rows of "nonZeroDF" to "validDF";
+# 2) during the copy, exclude the following events:
+#    '?', 'high', 'marine accident', 'marine mishap', 'other', and 
+#    'apache county'
+# 3) return "validDF"
+# ------------------------------------------------------------------------------
+# input variables
+#      nonZeroDF--the "nonZeroDF" is the original "sourceDF" after trimming white 
+#                 space, and excluding rows that do not contribute. 
+# 
+# constants
+# NONE
+# 
+# LOCAL VARIABLES
+#        validDF--"validDF" is the "sourceDF" after cleaning, removing all non- 
+#                  contributing values, and removing all invalid events. 
+# validDF
+# returns validDF
+# ==============================================================================
+RemoveInvalidEvents <- function(nonZeroDF) {
+
+  validDF <- nonZeroDF[
+    nonZeroDF$EVTYPE != '?' &
+    nonZeroDF$EVTYPE != 'high' &
+    nonZeroDF$EVTYPE != 'marine accident' &
+    nonZeroDF$EVTYPE != 'marine mishap' &
+    nonZeroDF$EVTYPE != 'other'&
+    nonZeroDF$EVTYPE != 'apache county'
     ,]
 
-  return (validData)
+  return (validDF)
 }
 
 ```
 
 ##### Unify Types
 
+
+
+```{=html}
+<div style="font-size : 18px; font-weight: bold; color: green;">
+<!-- READER POINTS -->
+
+  <div style="font-size : 10; font-weight: normal;">
+The important points:
+    <ul>
+      <li>The event reporters use different names for the same event type.<br>
+If these types are not consisted , the report will end up with 
+the following events, all of which correspond to the NWS event
+"Thunderstorm Winds":<br>
+THUDERSTORM WINDS, THUNDEERSTORM WINDS, THUNDERESTORM WINDS, 
+THUNDERSTORM, THUNDERSTORM  WINDS, Thunderstorm Wind, 
+THUNDERSTORM WIND, THUNDERSTORM WIND (G40), THUNDERSTORM WIND 
+50, THUNDERSTORM WIND 52,  THUNDERSTORM WIND 56, THUNDERSTORM 
+WIND 59, THUNDERSTORM WIND 59 MPH, THUNDERSTORM WIND 59 MPH., 
+THUNDERSTORM WIND 60 MPH, THUNDERSTORM WIND 65 MPH, THUNDERSTORM 
+WIND 65MPH, THUNDERSTORM WIND 69, THUNDERSTORM WIND 98 MPH, 
+THUNDERSTORM  THUNDERSTORM WIND G55, THUNDERSTORM WIND G60, 
+THUNDERSTORM WIND G61, THUNDERSTORM WIND TREES, THUNDERSTORM 
+WIND. THUNDERSTORM WIND/ TREE, THUNDERSTORM WIND/ TREES, 
+THUNDERSTORM WIND/AWNING, THUNDERSTORM WINDS, THUNDERSTORM WINDS, 
+THUNDERSTORM WINDS 13, THUNDERSTORM WINDS 2, THUNDERSTORM WINDS 
+50, THUNDERSTORM WINDS 52, THUNDERSTORM WINDS 53, THUNDERSTORM 
+WINDS 60, THUNDERSTORM WINDS 61, THUNDERSTORM WINDS 62, 
+THUNDERSTORM WINDS 63 MPH, THUNDERSTORM WINDS G, THUNDERSTORM 
+WINDS G60, THUNDERSTORM WINDS., THUNDERSTORM WINDS53, 
+THUNDERSTORMS WIND, THUNDERSTORMS WINDS, THUNDERSTORMW, 
+THUNDERSTORMW 50, THUNDERSTORMW WINDS, THUNDERSTORMWINDS, 
+THUNDERSTROM WIND, THUNDERSTROM WINDS, THUNDERTORM WINDS, 
+THUNDERTSORM WIND,  THUNDESTORM WINDS, THUNERSTORM WINDS, 
+TSTM, TSTM WIND, Tstm Wind, TSTM WIND,  TSTM WIND  (G45), TSTM 
+WIND (41), TSTM WIND (G35), TSTM WIND (G40),  TSTM WIND (G45), 
+TSTM WIND (G45), TSTM WIND 40, TSTM WIND 45, TSTM WIND 50, TSTM
+WIND 51, TSTM WIND 52, TSTM WIND 55, TSTM WIND 65), TSTM WIND
+DAMAGE, TSTM WIND G45, TSTM WIND G58, TSTM WINDS, TSTM WND, TSTMW</li>
+    </ul>
+  </div>
+  <h6>Size change in nonZeroDF<h6>
+       COUNTYNAME STATE  EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+ 1     MOBILE    AL Tornado          0       15    25.0          k       0              1
+ 2    BALDWIN    AL Tornado          0        0     2.5          k       0              2
+
+</div>
+```
+
+
 ```{r Unify Types}
-# UnifyTypes ===================================================
-# The UnifyTypes function is long, involved and profoundly boring. For
-# each mispelled and incorrectly named event, the UnifyTypes function
-# will replace the EVTYPE with the correct NWS spelling. 
-#
-# returns validData
-# ==============================================================
-MarineTitle <- function(searchString){
-  print(paste0("in marine ", searchString))
-  
-  gsub("^marine hail$", "Marine Hail",
-  gsub("^marine high wind$", "Marine High Wind",
-  gsub("^marine strong wind$", "Marine Strong Wind",
-  gsub("^marine thunderstorm wind$", "Marine Thunderstorm Wind",
-  gsub("^marine tstm wind$", "Marine Thunderstorm Wind",
-       searchString)))))
-  
-  return (searchString)
-}
-
-CoastalTitle <- function(searchString){
-  print(paste0("in coastal ", searchString))
-    gsub("^.*coastal.*$", "Coastal Flood",
-    gsub("^.*erosion.*$", "Coastal Flood",
-    gsub("^.*tidal.*$", "Coastal Flood",
-         searchString)))
-}
-
-UnifyTypes <- function(stormData) {
-  # events <- stormData$EVTYPE
-  # events <- 
-  # stormData$EVTYPE <-
-  evt <- mapply(function(x) if (grepl("marine", stormData$EVTYPE, fixed = TRUE)) MarineTitle(stormData$EVTYPE) else stormData$EVTYPE)
-  # stormData$EVTYPE <- mapply(MarineTitle, stormData$EVTYPE)
-  stormData$EVTYPE <- mapply(CoastalTitle, stormData$EVTYPE)
-  
-  print(head(stormData))
-  print(paste0("evt list ", evt))
-  stormData$EVTYPE <-
-    # gsub("^marine hail$", "Marine Hail",
-    # gsub("^marine high wind$", "Marine High Wind",
-    # gsub("^marine strong wind$", "Marine Strong Wind",
-    # gsub("^marine thunderstorm wind$", "Marine Thunderstorm Wind",
-    # gsub("^marine tstm wind$", "Marine Thunderstorm Wind",
+# UnifyTypes ===================================================================
+# 1) rename "validDF" to "stormDF"
+# 2) based on the an extensive study of the event names in the data file and the
+#    NWS event names and classifications, I developed a mapping from the file
+#    names to the NWS names;
+# 3) the file to NWS mappings were turned in to gsub statements
+# 4) each event name in "stormDF" is converted from the file name to the NWS name.
+# ------------------------------------------------------------------------------
+# input variables
+#        validDF--renamed to "stormDF". The "validDF" is the original "sourceDF"
+#                 after trimming white space, excluding rows that do not 
+#                 contribute, 
+# 
+# constants
+# NONE
+# 
+# LOCAL VARIABLES
+#        stormDF--"validDF" is the "sourceDF" after cleaning, removing all non- 
+#                  contributing values, and removing all invalid events. 
+# 
+# returns stormDF
+# ==============================================================================
+UnifyTypes <- function(stormDF) {
+  stormDF$EVTYPE <-
+    gsub("^marine hail$", "Marine Hail",
+    gsub("^marine high wind$", "Marine High Wind",
+    gsub("^marine strong wind$", "Marine Strong Wind",
+    gsub("^marine thunderstorm wind$", "Marine Thunderstorm Wind",
+    gsub("^marine tstm wind$", "Marine Thunderstorm Wind",
     gsub("^storm force winds$", "Marine Strong Wind",
     gsub("^(high|heavy|rough).+seas.*$", "Marine Strong Wind",
     gsub("^(high|heavy).+swells.*$", "Marine High Wind",
@@ -836,57 +1177,58 @@ UnifyTypes <- function(stormData) {
     gsub("^tsunami$", "Tsunami",
     gsub("^tropical depression$", "Tropical Depression",
     gsub("^tropical storm.*$", "Tropical Storm",
-    stormData$EVTYPE)))))))#)))))
+    gsub("^drowning$", "Rip Current",
+    stormDF$EVTYPE)))))))))))))
 
-  stormData$EVTYPE <-
-    # gsub("^.*coastal.*$", "Coastal Flood",
-    # gsub("^.*erosion.*$", "Coastal Flood",
-    # gsub("^.*tidal.*$", "Coastal Flood",
+  stormDF$EVTYPE <-
+    gsub("^.*coastal.*$", "Coastal Flood",
+    gsub("^.*erosion.*$", "High Surf",
+    gsub("^.*tidal.*$", "Coastal Flood",
     gsub("^astronomical high tide$", "Coastal Flood",
     gsub("^storm surge.*$", "Storm Tide",
     gsub("^high.+(tides|waves).*$", "Storm Tide",
     gsub("^rogue.+$", "Storm Tide",
-    stormData$EVTYPE))))#)))
+    stormDF$EVTYPE)))))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^lake.*snow$", "Lake-Effect Snow",
     gsub("^lake.*$", "Lakeshore Flood",
-    stormData$EVTYPE))
+    stormDF$EVTYPE))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^(dam break|ice floes|ice jam( flood.+|))$", "Flash Flood",
     gsub("^.+small stream urban$", "Flash Flood",
     gsub("^urban.+(small|stream).*$", "Flash Flood",
     gsub("^(small|minor).+flood.*$", "Flash Flood",
     gsub("^flood.+flash.*$", "Flash Flood",
     gsub("^flash.*$", "Flash Flood",
-    stormData$EVTYPE))))))
+    stormDF$EVTYPE))))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^fog and cold temperatures$", "Freezing Fog",
     gsub("^freezing fog$", "Freezing Fog",
     gsub("^.*freezing (drizzle|rain|spray).*$", "Winter Weather",
-    stormData$EVTYPE)))
+    stormDF$EVTYPE)))
 
   # # must come after marine
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^hail.*$", "Hail",
     gsub("^small hail$", "Hail",
     gsub("^thunderstorm.+hail$", "Hail",
     gsub("^.*tstm.+hail$", "Hail",
     gsub("^(wind|gusty).+hail$", "Hail",
-    stormData$EVTYPE)))))
+    stormDF$EVTYPE)))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^(wind|non|gusty).+wind.*$", "High Wind",
     gsub("^(strong|gusty).*$", "Strong Wind",
     gsub("^(rain.+wind|wind.+rain)$", "High Wind",
     gsub("^wind.*$", "High Wind",
     gsub("^gradient wind$", "Rip Current",
     gsub("^rip current.*$", "Rip Current",
-    stormData$EVTYPE))))))
+    stormDF$EVTYPE))))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^(wind|gusty).+rain$", "Heavy Rain",
     gsub("^(unseasonal|hvy|high.+heavy).+rain.*$", "Heavy Rain",
     gsub("^rain(.*|fall)$", "Heavy Rain",
@@ -894,9 +1236,9 @@ UnifyTypes <- function(stormData) {
     gsub("^heavy.(rain|rains)$", "Heavy Rain",
     gsub("^heavy rain/severe weather$", "Heavy Rain",
     gsub("^(torrential|record|excessive) rainfall$", "Heavy Rain",
-    stormData$EVTYPE)))))))
+    stormDF$EVTYPE)))))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^heavy rain/lightning", "Lightning",
     gsub("^thunderstorm.+lightning", "Lightning",
     gsub("^tstm.+lightning", "Lightning",
@@ -904,9 +1246,9 @@ UnifyTypes <- function(stormData) {
     gsub("^lighting$", "Lightning",
     gsub("^ligntning+rain$", "Heavy Rain",
     gsub("^lightning.*$", "Lightning",
-    stormData$EVTYPE)))))))
+    stormDF$EVTYPE)))))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^thunderstorm.+flood($|ing$)", "Flood",
     gsub("^high.+water$", "Flood",
     gsub("^(flood|river|rural|major|break).+$", "Flood",
@@ -916,9 +1258,9 @@ UnifyTypes <- function(stormData) {
     gsub("^flood$", "Flood",
     gsub("^heavy rain(s/flooding| and flood)$", "Flood",
     gsub("^heavy snow/high winds & flood$", "Flood",
-    stormData$EVTYPE)))))))))
+    stormDF$EVTYPE)))))))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^thunder.+$", "Thunderstorm Wind",
     gsub("^tstm.+$", "Thunderstorm Wind",
     gsub("^.+burst.*$", "Thunderstorm Wind",
@@ -926,96 +1268,96 @@ UnifyTypes <- function(stormData) {
     gsub("^severe turb.+$", "Thunderstorm Wind",
     gsub("^whirlwind$", "Thunderstorm Wind",
     gsub("^(thude|thune|tund|thundeer).+$", "Thunderstorm Wind",
-    stormData$EVTYPE)))))))
+    stormDF$EVTYPE)))))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^(cold air torn|torn).+$", "Tornado",
     gsub("^(gustnado|landspout)$", "Tornado",
-    stormData$EVTYPE))
+    stormDF$EVTYPE))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^.*heavy snow$", "Heavy Snow",
     gsub("^(excessive|high|heavy).+snow$", "Heavy Snow",
     gsub("^record snow$", "Winter Weather",
-    stormData$EVTYPE)))
+    stormDF$EVTYPE)))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^extreme.+chill$|^(extended|extreme|record) cold$", "Extreme Cold/Wind Chill",
     gsub("^hypo.+$", "Extreme Cold/Wind Chill",
-    stormData$EVTYPE))
+    stormDF$EVTYPE))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^high.+blizzard.*$", "Blizzard",
     gsub("^.*blowing snow$", "Blizzard",
     gsub("^.*blizzard.*$", "Blizzard",
     gsub("^high.+wind.*$", "High Wind",
     gsub("^snow/high winds$", "Blizzard",
-    stormData$EVTYPE)))))
+    stormDF$EVTYPE)))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^heavy.+ice$", "Winter Storm",
     gsub("^heavy.+storm$", "Winter Storm",
     gsub("^heavy.+winds$", "Winter Storm",
     gsub("^heavy.+snow.*$", "Winter Storm",
     gsub("^winter.+storm$", "Winter Storm",
     gsub("^.*winter storm.+$", "Winter Storm",
-    stormData$EVTYPE))))))
+    stormDF$EVTYPE))))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^.*sl(ide|ump).*$", "Debris Flow",
     gsub("^(snow|sleet|glaze).+ice storm$", "Winter Weather",
     gsub("^glaze.*$", "Winter Weather",
-    stormData$EVTYPE)))
+    stormDF$EVTYPE)))
 
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^cool and wet$", "Winter Weather",
     gsub("^(late|light).+snow.*$", "Winter Weather",
     gsub("^.*winter storm.+$", "Winter Storm",
     gsub("^(rain.snow|snow.rain)$", "Winter Weather",
     gsub("^falling snow/ice$", "Winter Weather",
     gsub("^wint.+$", "Winter Weather",
-    stormData$EVTYPE))))))
+    stormDF$EVTYPE))))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^.*drought.*$", "Drought",
     gsub("^.*heat.*$", "Excessive Heat",
     gsub("^hyper.+$", "Excessive Heat",
     gsub("^.*warm.*$", "Heat",
-    stormData$EVTYPE))))
+    stormDF$EVTYPE))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^dust storm.*$", "Dust Storm",
     gsub("^blowing dust$", "Dust Storm",
     gsub("^.*waterspout.*$", "Waterspout",
     gsub("^.*dust devil.*$", "Dust Devil",
-    stormData$EVTYPE))))
+    stormDF$EVTYPE))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^.*(frost|freeze).*$", "Frost/Freeze",
-    stormData$EVTYPE)
+    stormDF$EVTYPE)
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^ice storm$", "Ice Storm",
     gsub("^ic(e|y).*$", "Winter Weather",
     gsub("^.*mix.*$", "Winter Weather",
-    stormData$EVTYPE)))
+    stormDF$EVTYPE)))
 
-stormData$EVTYPE <-
+stormDF$EVTYPE <-
   gsub("^snow.*$", "Winter Weather",
   gsub("^sleet$", "Winter Weather",
   gsub("^.*cold.*$", "Cold/Wind Chill",
   gsub("^low.*$", "Cold/Wind Chill",
-  stormData$EVTYPE))))
+  stormDF$EVTYPE))))
 
-stormData$EVTYPE <-
+stormDF$EVTYPE <-
   gsub("^cold.*(.*|temperature|wave|winds|wind chill)$", "Cold/Wind Chill",
   gsub("^high.+cold$", "Cold/Wind Chill",
   gsub("^.*cold.*$", "Cold/Wind Chill",
   gsub("^low.*$", "Cold/Wind Chill",
-  stormData$EVTYPE))))
+  stormDF$EVTYPE))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^(high|heavy|rough|hazardous).+surf.*$", "High Surf",
     gsub("^avalanc.*$", "Avalanche",
     gsub("^seiche$", "Seiche",
@@ -1027,15 +1369,15 @@ stormData$EVTYPE <-
     gsub("^heavy precipitation$", "Heavy Rain",
     gsub("^(dense|.*)fog$", "Dense Fog",
     gsub("^falling snow/ice$", "Winter Weather",
-    stormData$EVTYPE)))))))))))
+    stormDF$EVTYPE)))))))))))
 
-  stormData$EVTYPE <-
+  stormDF$EVTYPE <-
     gsub("^.*fire.*$", "Wildfire",
     gsub("^.*funnel.*$", "Funnel Cloud",
     gsub("^.*smoke$", "Dense Smoke",
-    stormData$EVTYPE)))
+    stormDF$EVTYPE)))
 
-  return (stormData)
+  return (stormDF)
 }
 
 ```
@@ -1048,36 +1390,40 @@ stormData$EVTYPE <-
 <p style="font-size : 18px; font-weight: bold; color: blue;">
 The important points:
 <ul>
-<li>this function uses the "DATA_ASSEMBLY_SELECT" constant described in the Setup Phase -> Program Constants block. The constant is a string dexcribing a list of strings. Each of these strings is the name of a column in the "stormData" data.frame. </li>
+<li>this function uses the "DATA_ASSEMBLY_SELECT" constant described in the Setup Phase -> Program Constants block. The constant is a string dexcribing a list of strings. Each of these strings is the name of a column in the "stormDF" data.frame. </li>
 <li>By itself, the "DATA_ASSEMBLY_SELECT" constant is a string so the colname function cannot accept it. To make it acceptable, the function uses an parse and evaluate pair.
 This changes the string to a column of strings, which can be used by the colnames function.</li>
+</ul>
 </p>
+   EVTYPE  COUNTY STATE CASUALTIES LOSSES
+ 1 Tornado  MOBILE    AL         15 0.0250
+ 2 Tornado BALDWIN    AL          0 0.0025
 ```
 
 ```{r}
-# FinishAnalysisDataset ========================================
-# The FinishAnalysisDataset function receives the "stormData" 
-# and stores it in "analysisData" after:
+# FinishAnalysisDataset ========================================================
+# The FinishAnalysisDataset function receives the "stormDF" 
+# and stores it in "analysisDF" after:
 # 1) it converts the exponents to numeric values
 # 2) sets the PROPDMG to the product of PROPDMG and  PROPDMGEXP
 # 3) sets the CROPDMG to the product of CROPDMG and  CROPDMGEXP
-# 4) adds the CASUALTIES column to "analysisData." This is the sum of 
+# 4) adds the CASUALTIES column to "analysisDF". This is the sum of 
 #    FATALITIES and INJURIES;
-# 4) adds the LOSSES column to "analysisData." This is the sum of 
+# 4) adds the LOSSES column to "analysisDF". This is the sum of 
 #    PROPDMG and CROPDMG. LOSSES are divided by 1,000,000 so the 
 #    display is easier to read.
 #
-# returns analysisData
-# ====================================================================
-FinishAnalysisDataset <- function(stormData) {
+# returns analysisDF
+# ==============================================================================
+FinishAnalysisDataset <- function(stormDF) {
 
-  analysisData <- stormData %>% ungroup(.) %>%
-    mutate (PROPDMGEXP = ifelse(PROPDMGEXP == 'k', 1000.,
-                                ifelse(PROPDMGEXP == 'm',
-                                       1000000., 1.) ),
-            CROPDMGEXP = ifelse(CROPDMGEXP == 'k', 1000.,
-                                ifelse(CROPDMGEXP == 'm',
-                                       1000000., 1.) ),
+  analysisDF <- stormDF %>% ungroup(.) %>%
+    mutate (PROPDMGEXP = 
+              ifelse(PROPDMGEXP == 'k', 1000.,
+                     ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
+            CROPDMGEXP = 
+              ifelse(CROPDMGEXP == 'k', 1000., 
+                     ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
             PROPDMG       = PROPDMG * PROPDMGEXP,
             CROPDMG       = CROPDMG * CROPDMGEXP,
             CASUALTIES    = FATALITIES + INJURIES,
@@ -1085,9 +1431,9 @@ FinishAnalysisDataset <- function(stormData) {
             ) %>%
     select(EVTYPE, COUNTYNAME, STATE, CASUALTIES, LOSSES)
 
-  colnames(analysisData) <- eval(parse(text = DATA_ASSEMBLY_SELECT))
+  colnames(analysisDF) <- eval(parse(text = DATA_ASSEMBLY_SELECT))
 
-  return(analysisData)
+  return(analysisDF)
 }  ## End of MakeJurisStormList function
 
 ```
@@ -1095,33 +1441,33 @@ FinishAnalysisDataset <- function(stormData) {
 #### Assemble Analysis Tables
 
 ```{r}
-# AssembleAnalysisTables ==================================================
+# AssembleAnalysisTables =======================================================
 # The AssembleAnalysisTables function receives the 
-# "analysisData" and converts it to a set of tables grouped one 
+# "analysisDF" and converts it to a set of tables grouped one 
 # table for each jurisdiction and each table is grouped by 
 # EVTYPE.
-# =========================================================================
+# ==============================================================================
 # Assemble Analysis Tables  flow
-# 1) AssembleAnalysisData receives the "analysisData" data.frame 
+# 1) AssembleAnalysisData receives the "analysisDF" data.frame 
 #    from the DataAssemblyPhase;
-## 2) the "analysisData" is passed to the MakeJurisAnalysisTables function,
+## 2) the "analysisDF" is passed to the MakeJurisAnalysisTables function,
 #    which will divide the set into 1, 2, or 3 sets depending on the 
 #    number of sets required by the user. NOTE: if the user wants the
-#    national set, then they get the entirety of the"analysisData."
+#    national set, then they get the entirety of the"analysisDF".
 #    otherwise, sets will include only the state and county data if that
-#    is required. The function returns the "jurisAnalysisTables." 
-# 2) the "jurisAnalysisTables." is passed to the GroupJurisTables function,
+#    is required. The function returns the "jurisAnalysisTables". 
+# 2) the "jurisAnalysisTables". is passed to the GroupJurisTables function,
 #    which groups each table by event type and stores the result in the
-#    "analysisTables."
-# 3) return "analysisTables."
+#    "analysisTables".
+# 3) return "analysisTables".
 #
-# =========================================================================
+# ==============================================================================
 # The following diagram is a high level pictorial representation of the 
 # Data Assembly Phase. 
-# =========================================================================
+# ==============================================================================
 # 
 #                           return analysisTables
-# analysisData
+# analysisDF
 #     |                            |
 #     V                            |
 #     +-->---+---------------------+  analysisTables 
@@ -1129,20 +1475,20 @@ FinishAnalysisDataset <- function(stormData) {
 #            |     Tables          |jurisAnalysisTables   |
 #            +---+-----------------+<---<---<---<---+  ^
 #            |   |                                  |  ^
-#            V   V    analysisData                  |  |
+#            V   V    analysisDF                  |  |
 #            |   +-->+----------------------+       |  |
 #            |       | MakeJurisAnalysisTables |       ^  ^
 #            |       +----------------------+--->-->+  |
-#            V         jurisAnalysisTables                                |
+#            V         jurisAnalysisTables             |
 #            +--->-->+-----------------+               |
 #                    | GroupJurisTables|               |
 #                    +-----------------+--->--->--->-->+
 #
-# =========================================================================
-AssembleAnalysisTables <- function(analysisData)
+# ==============================================================================
+AssembleAnalysisTables <- function(analysisDF)
 {
-  jurisAnalysisTables <- MakeJurisAnalysisTables(analysisData)
-  analysisTables    <- GroupJurisTables(jurisAnalysisTables)
+  jurisAnalysisTables <- MakeJurisAnalysisTables(analysisDF)
+  analysisTables      <- GroupJurisTables(jurisAnalysisTables)
 
   return (analysisTables)
 }  ## End of AssembleAnalysisTables function
@@ -1153,34 +1499,35 @@ AssembleAnalysisTables <- function(analysisData)
 <p style="font-size : 18px; font-weight: bold; color: blue;">
 The important points:
 <ul>
-<li>this function uses the "DATA_FIELDS" and "DATA_FILTERS" constants described in the Setup Phase -> Program Constants block. The "DATA_FIELDS" constant is a list of strings each string is a list of "analysisData" fields required by a specific jurisdiction. When it is parsed and evaluated, the select function will return the appropriate fields for the specified jurisdiction.</li>
+<li>this function uses the "DATA_FIELDS" and "DATA_FILTERS" constants described in the Setup Phase -> Program Constants block. The "DATA_FIELDS" constant is a list of strings each string is a list of "analysisDF" fields required by a specific jurisdiction. When it is parsed and evaluated, the select function will return the appropriate fields for the specified jurisdiction.</li>
 <li>By itself, the "DATA_FILTERS" constants select the filters the data.frame for the appropriate jurisdiction. .</li>
+</ul>
 </p>
 
-```{r}
-# MakeJurisAnalysisTables ========================================
-# The MakeJurisAnalysisTables function accepts the "analysisData"
+```{r MakeJurisAnalysisTables}
+# MakeJurisAnalysisTables ======================================================
+# The MakeJurisAnalysisTables function accepts the "analysisDF"
 # and generates one table for each jurisdiction specified by
 # the user. Each jurisdiction table is filtered so only the 
 # the required fields are stored in the table.
 #
 # returns jurisAnalysisTables
-# ==============================================================
-MakeJurisAnalysisTables <- function(analysisData) {
+# ==============================================================================
+MakeJurisAnalysisTables <- function(analysisDF) {
   jurisAnalysisTables = list()
 
-  for (i in 1:length(DATA_INDICES)) {
+  for (i in 1:N_JURISDICTIONS) {
 
-   jurisAnalysisData <- analysisData %>%
+   jurisAnalysisDF <- analysisDF %>%
       select(eval(parse(text = DATA_FIELDS[i])))
 
     if (DATA_FILTERS[[i]] != "NATIONAL") {
-      jurisAnalysisData <- jurisAnalysisData %>%
+      jurisAnalysisDF <- jurisAnalysisDF %>%
         filter(eval(parse(text = DATA_FILTERS[[i]])))
     }
 
     jurisAnalysisTables <- 
-      list.append(jurisAnalysisTables, jurisAnalysisData)
+      list.append(jurisAnalysisTables, jurisAnalysisDF)
   }
 
   return(jurisAnalysisTables)
@@ -1192,14 +1539,14 @@ MakeJurisAnalysisTables <- function(analysisData) {
 
 ```{r}
 
-# GroupJurisTables =============================================
+# GroupJurisTables =============================================================
 # The GroupJurisTables function accepts the 
 # "jurisAnalysisTables" and groups each table by EVTYPE and 
 # each event type is assigned the sum of the group's CASUALTIES,
 # and LOSSES.
 #
 # returns analysisTables
-# ==============================================================
+# ==============================================================================
 GroupJurisTables <- function(jurisAnalysisTables)
 {
   analysisTables = list()
@@ -1214,7 +1561,7 @@ GroupJurisTables <- function(jurisAnalysisTables)
   }
 
   return(analysisTables)
-} ## End of GroupJurisCost function
+} ## End of GroupJurisDamage function
 
 ```
 
@@ -1236,18 +1583,18 @@ GroupJurisTables <- function(jurisAnalysisTables)
 # ==============================================================================
 # 
 #                       
-#                   return reportTables
-#  datafile name        ^
+#                   return resultTables
+#  stormFileName name        ^
 #     |                 |
 #     V                 |  
-#     +-----------------+  reportTables
+#     +-----------------+  resultTables
 #     | Data Analysis |<----<---<---<---<--+
 #     |      Phase      |                    |
 #     |                 | analysisTables     |
 #     +---+-------------+<----<---<---<---+  ^
 #     |   |                               ^  |
 #     |   |                               |  |
-#     V   V          datafile name        |  |
+#     V   V          stormFileName name        |  |
 #     +   +-->-+---------------+      |  |
 #     |        | Data Assembly |      ^  ^
 #     |        |     Phase     |      |  |
@@ -1258,90 +1605,140 @@ GroupJurisTables <- function(jurisAnalysisTables)
 #         |     Phase     |        |
 #         +---------------+--->--->+ 
 #
+
+# DataAnalysisPhase ============================================================
+# The GroupJurisTables function accepts the 
+# "jurisAnalysisTables" and groups each table by EVTYPE and 
+# each event type is assigned the sum of the group's CASUALTIES,
+# and LOSSES.
+#
+# returns analysisTables
 # ==============================================================================
-# GenerateResultsList ##########################################
 DataAnalysisPhase <- function(analysisTables)
 {
-  resultList  <- list()
+  resultTables  <- list()
 
-  worstCasualtiesTables  <- MakeWorstCostTables(analysisTables, CASUALTIES_IDX)
-  worstEconomicTables    <- MakeWorstCostTables(analysisTables, LOSSES_IDX)
+  worstCasualtiesTables  <- MakeworstDamageTables(analysisTables, CASUALTIES_IDX)
+  worstLossesTables    <- MakeworstDamageTables(analysisTables, LOSSES_IDX)
 
-  worstCasualtiesData  <- data.frame(worstCasualtiesTables)
-  worstEconomicData    <- data.frame(worstEconomicTables)
-  resultList <- list.append(resultList, worstCasualtiesData)
-  resultList <- list.append(resultList, worstEconomicData)
+  worstCasualtiesDF  <- data.frame(worstCasualtiesTables)
+  worstLossesDF    <- data.frame(worstLossesTables)
+  resultTables <- list.append(resultTables, worstCasualtiesDF)
+  resultTables <- list.append(resultTables, worstLossesDF)
 
-  eventSet <- SetUnion(worstCasualtiesData$EVTYPE, worstEconomicData$EVTYPE)
+  resultTables <- list.append(resultTables, MakeBarImages(worstCasualtiesDF, CASUALTIES_IDX))
+  resultTables <- list.append(resultTables, MakeBarImages(worstLossesDF, LOSSES_IDX))
 
-  resultList <- list.append(resultList, MakeBarImages(worstCasualtiesData, CASUALTIES_IDX))
-  resultList <- list.append(resultList, MakeBarImages(worstEconomicData, LOSSES_IDX))
-  resultList <- list.append(resultList, MakeHvEImages(analysisTables, eventSet))
+  set <- c(head(worstCasualtiesDF$EVTYPE, n = 10), 
+                head(worstLossesDF$EVTYPE, n = 10))
+  eventSet <- unique(set)
+  resultTables <- list.append(resultTables, MakeCvLImages(analysisTables, eventSet))
 
-  return (resultList)
+  return (resultTables)
 }
 
 ```
 
-##### Make Worst Cost Tables
+#### Make Worst Damage Tables
 
-```{r}
+```{r MakeworstDamageTables}
+# MakeworstDamageTables ==========================================================
+# MakeworstDamageTables accepts the "analysisTables" and "analysisIndex" and 
+#                     orders each of the analysis tables by the corresponding 
+#                     analysis type. This sets up tables ordered by either 
+#                     Casualties or Losses for each Jurisdiction. It also 
+#                     creates two new columns for each table, PERCENT_* and
+#                     ACC_PERCENT_*, where * is either CASUALTIES or LOSSES.
+# 
+# The PERCENT_* value is the percentage each weather event contributes to the 
+# Damage of the overall Damage of all weather events. ACC_PERCENT_* accumulates the 
+# percentages of each event from the highest to lowest values. Each value 
+# represents the percentage the events and the previous events Damage. 
+#
+# Input analysisTables are a set of data.frames contained in a list. Each 
+#       data.frame stores data for a given Jurisdiction/Analysis Type.
+# 
+#       analysisIndex is the analysis type (casualties or economic losses).
+#
+# return worstDamageTables
+#
+# ==============================================================================
+# Example of a worstDamageTable
+# 
+#              EVTYPE CASUALTIES    LOSSES PERCENT_CASUALTY ACC_PERCENT_CASUALTY
+# 1           Tornado      96997 52057.005       0.62316578            0.6231658
+# 2    Excessive Heat      12363   524.795       0.07942718            0.7025930
+# ==============================================================================
+MakeworstDamageTables <- function(analysisTables, analysisIndex) {
+  worstDamageTables = list()
 
-# MakeWorstCostTables ###########################################
-MakeWorstCostTables <- function(analysisTables, index) {
-  print(paste0(" in MakeWorstCostTables ",index))
-  worstCostTables = list()
-  for (i in 1:length(DATA_INDICES)) {
-    switch(index,
+  for (i in 1:N_JURISDICTIONS) {
+    switch(analysisIndex,
            table <- analysisTables[[i]] %>%
              arrange(desc(.$CASUALTIES), .by_group = TRUE),
            table <- analysisTables[[i]] %>%
              arrange(desc(.$LOSSES), .by_group = TRUE)
     )
-    totalValue <- sum(table[, index + 1])
+    totalValue <- sum(table[, analysisIndex + 1])
 
     accumulator     <- 0
     percentList     <- list()
     accumulatorList <- list()
+    
+    # TODO: make this a lambda function
     for (i in 1:length(table$EVTYPE)) {
-      percent <- table[i, index + 1]/totalValue
+      percent <- table[i, analysisIndex + 1]/totalValue
       accumulator <- accumulator + percent
       percentList <- append(percentList, percent)
       accumulatorList <- append(accumulatorList, accumulator)
     }
 
-    if (index == CASUALTIES_IDX) {
+    if (analysisIndex == CASUALTIES_IDX) {
        table$PERCENT_CASUALTY <- as.numeric(unlist(percentList))
        table$ACC_PERCENT_CASUALTY <- as.numeric(unlist(accumulatorList))
-    } else if (index == LOSSES_IDX) {
+    } else if (analysisIndex == LOSSES_IDX) {
        table$PERCENT_LOSSES <- as.numeric(unlist(percentList))
        table$ACC_PERCENT_LOSSES <- as.numeric(unlist(accumulatorList))
     }
 
-    worstCostTables <- list.append(worstCostTables, table)
+    worstDamageTables <- list.append(worstDamageTables, table)
   }
 
-
-  return (worstCostTables)
+  return (worstDamageTables)
 }
 
 ```
 
-##### Make Bar Images
+#### Make Bar Images
 
 ```{r MakeBarImages}
-
-MakeBarImages <- function(worstCostTables, index) {
+# MakeBarImages ================================================================
+# MakeBarImages accepts the "worstDamageTables" and the "analysisIndex" and 
+#               creates a bar plot for each jurisdiction using the analysis
+#               based on "analysisIndex". The plots use the first ten entries
+#               in the "worstDamageTable".
+# 
+#               Each plot has all of the specified jurisdictions and is saved as 
+#               a png file. They are also returned as list of images.
+#
+# Input worstDamageTables are a set of data.frames listing the weather events for
+#       each analysis type from the highest amount of damage (casualties or 
+#       economic losses) ot the least.
+# 
+#       analysisIndex is the analysis type (casualties or economic losses).
+#
+# return imageList
+#
+# ==============================================================================
+MakeBarImages <- function(worstDamageTables, index) {
 
   pltSet = list()
 
-  print(paste0("worstcosts type is  ", class(worstCostTables)))
-
-  for (i in 1:length(DATA_INDICES)) {
-    worstCostTables <- head(worstCostTables, n=10)
+  for (i in 1:N_JURISDICTIONS) {
+    worstDamageTables <- head(worstDamageTables, n=10)
 
     if (index == CASUALTIES_IDX) {
-      table <- worstCostTables %>% select(EVTYPE, CASUALTIES)
+      table <- worstDamageTables %>% select(EVTYPE, CASUALTIES)
       table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
 
       plt <- ggplot(table,
@@ -1359,7 +1756,7 @@ MakeBarImages <- function(worstCostTables, index) {
               axis.title.y = element_text(size = 8, face="bold"))
       pltSet <- list.append(pltSet, plt)
     } else  {
-      table <- worstCostTables %>% select(EVTYPE, LOSSES)
+      table <- worstDamageTables %>% select(EVTYPE, LOSSES)
 
       table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
 
@@ -1384,18 +1781,42 @@ MakeBarImages <- function(worstCostTables, index) {
   imageList <- plot_grid(plotlist = pltSet)
 
   save_plot(paste0("imageBars", index, ".png"), imageList)
-  # imageList <- NULL
+
   return (imageList)
 }
 
 ```
 
-##### Make Human vs. Economic Image
+#### Make Human vs. Economic Image
 
-```{r MakeHvEImages}
-
-
-MakeHvEImages <- function(analysisTables, eventSet) {
+```{r MakeCvLImages}
+  
+# MakeCvLImages ================================================================
+# MakeCvLImages accepts the "analysisTables" and the "eventSet". This function
+#               will create a scatterplot of casualties vs. economic losses for
+#               all of the weather events. Each event is a point the plot and
+#               a regression line is drawn, separating the points that are 
+#               are donminated by casualties from those domintaed by losses. 
+# 
+#               The "eventSet" is a list the ten worst events from both the 
+#               casualty and the economic losses data. After removing 
+#               duplicate events the eventSet contains thirteen weather events. 
+#               The plot represents this points by colored dots and a label 
+#               showing which event type corresponds to each of the thirteen
+#               events.
+# 
+#               The plot compares the trade-off between the human and economic 
+#               Damages of severe weather. 
+#
+# Input analysisTables are a set of data.frames listing the analysis types, 
+#       and their respective Damages.
+# 
+#       analysisIndex is the analysis type (casualties or economic losses).
+#
+# return imageSet
+#
+# ==============================================================================
+MakeCvLImages <- function(analysisTables, eventSet) {
 
   eventSet <- c(eventSet)
   print(paste0("type of eventSet ", class(eventSet)))
@@ -1403,7 +1824,7 @@ MakeHvEImages <- function(analysisTables, eventSet) {
 
   pltSet = list()
 
-  for (i in 1:length(DATA_INDICES)) {
+  for (i in 1:N_JURISDICTIONS) {
     table <- data.frame(analysisTables[[i]])
     table$EVFACTOR <- factor(table$EVTYPE, levels = table$EVTYPE)
 
@@ -1412,8 +1833,8 @@ MakeHvEImages <- function(analysisTables, eventSet) {
     plt <- ggplot(table, aes(x = CASUALTIES, y = LOSSES)) +
       ggtitle(paste0("Figure ", 3, ". ",
               JURISDICTION_LABELS[[i]],
-              " Casualties vs. Economic Costs")) +
-      xlab("Event Type") + ylab("Cost ($ millions)") +
+              " Casualties vs. Economic Losses")) +
+      xlab("Event Type") + ylab("Losses ($ millions)") +
       theme(plot.title = element_text(face="plain", color="black", size=28),
             axis.title.x = element_text(face="bold", color="black", size=14),
             axis.title.y = element_text(face="bold", color="black", size=14),
@@ -1443,34 +1864,28 @@ MakeHvEImages <- function(analysisTables, eventSet) {
 
 ```
 
-### Ancillary Functions
-
-#### Set Union
-
-```{r MakeSet}
-SetUnion <- function(a, b) {
-  set <- head(a, n=10)
-  b   <- head(b, n=10)
-
-  for (i in 1:length(b)) {
-    if (!(b[i] %in% set)) {
-      set <- list.append(set, b[i])
-    }
-  }
-
-  return (set)
-}
-
-```
-
 #### Download Data File
 
 ```{r}
-
-# DownloadDataFile ##################################################
-DownloadDataFile <- function(url, destfile)
+# DownloadDataFile =============================================================
+# DownloadDataFile accepts a url and a dataFileName and attempts to download the
+#                  file from the internet. If the download succeeds the function
+#                  returns. If the download fails, StormCloud will stop.
+#
+# Input "url" is the location of the target file. It contains the storm data for
+#       this project. The URL is set by the user in Setup Phase -> User Defined
+#       Constants.
+# 
+#       "dataFileName" is the name of the of the storm data file. The 
+#       dataFileName is set by the user in Setup Phase -> User Defined 
+#       Constants. 
+#
+# no return value
+#
+# ==============================================================================
+DownloadDataFile <- function(url, stormFileName)
 {
-  retrieve = download.file(url, destfile, mode = "wb")
+  retrieve = download.file(url, stormFileName, mode = "wb")
 
   if (is.null(retrieve)) {
     print("ERROR: could not access ", url)
@@ -1483,25 +1898,37 @@ DownloadDataFile <- function(url, destfile)
 ## Execute Phase
 
 ```{r execute phase}
-
-resultList <- DataGenerationPhase(URL, DATAFILE)
+# Execute Phase ================================================================
+# The execute phase has to responsiblities: call the ResultGenerationPhase 
+# passing the url and stormFileName, and store the result as a global variable 
+# accessible all subsequent code blocks.
+#
+# ==============================================================================
+resultTables <- ResultGenerationPhase()
 
 ```
 
+<hr style="background: DarkOrchid; height: 3px"/>
+
+# Results
+
 ```{r}
+# Data Presentation Phase ======================================================
+# This code block takes the "worstCasualties" and the "worstLosses" tables from
+# the "resultTables" an converts them to knitr:Kable tables.
+# ==============================================================================
 
-
-worstCasualties <- resultList[1]
-worstEconomic   <- resultList[2]
+worstCasualties <- resultTables[1]
+worstLosses   <- resultTables[2]
 
 tbl = list()
 
 for (j in CASUALTIES_IDX:LOSSES_IDX) {
-  for (i in 1:length(DATA_INDICES)) {
+  for (i in 1:N_JURISDICTIONS) {
     switch(j,
       worstList <- data.frame(worstCasualties) %>%
         select(EVTYPE, CASUALTIES, PERCENT_CASUALTY, ACC_PERCENT_CASUALTY),
-      worstList <- data.frame(worstEconomic) %>%
+      worstList <- data.frame(worstLosses) %>%
         select(EVTYPE, LOSSES, PERCENT_LOSSES, ACC_PERCENT_LOSSES)
       )
 
@@ -1527,23 +1954,19 @@ for (j in CASUALTIES_IDX:LOSSES_IDX) {
 
 ```
 
-<hr style="background: DarkOrchid; height: 3px"/>
-
-# Results
-
 The United States has a variety of weather events ranging from the extreme cold and extreme heat, extreme precipitation and lack of precipitation, tornadoes, hurricanes, etc. To understand the impact of these events, the National Oceanographic and Atmospheric Administration (NOAA) collects and analyzes weather data from all over the country. The data are restricted to forty-eight "significant weather phenomena[1]" and associated data. Part of the collected information induces the number of casualties (deaths and injuries) and the amount of damage to property including crop damage.
 
-StormCloud was produced to provide emergency services planners information regarding the damage to human life and the financial losses of specific weather events. Using this information, planners can help mitigate the damage by understanding the costs of these events. To this end, StormCloud presents presents the costs for storm damage as independent sets of data, one describing the human cost, and the other describing the financial cost.
+StormCloud was produced to provide emergency services planners information regarding the damage to human life and the financial losses of specific weather events. Using this information, planners can help mitigate the damage by understanding the damages of these events. To this end, StormCloud presents presents the damages for storm damage as independent sets of data, one describing the human damage, and the other describing the financial damage.
 
 In Table 1a, the list of weather related casualties from 1950 to approximately 2012. The numbers range from 0 \~ 97,000 deaths or injuries. From the data in Table 1a, tornadoes are the leading cause of weather related casualties in the United States with 96,907 dead or injured followed by "Excessive Heat" with \~12,363 dead or injured. Comparing the relative seriousness of weather events, tornadoes represent 62% of all casualties. In fact, 90% of all US weather related casualties happen with the eight worst weather events and 99% happen with the worst 21 events.
 
 Table 1b is a list of weather related financial losses. Again, tornadoes are the biggest economic with approximately \$52 billion in losses from 1950 to 2012. This amounts to 27% of all weather related losses, which is significantly less proportion of casualties caused by tornadoes. The first nine events from Table 1b account for 90% of weather related financial losses compared to eight for casualties. The 99% level for financial losses happens in the first 19 events compared to 21 for casualties.
 
-The weather events tables 1a and 1b show the number of casualties and the financial losses due to those events gives an overall picture of the damage caused by severe weather, but the dramatic differences between event types and types of damage within an event type are difficult to discern. Figure 1 shows an eight-fold difference in casualties between "Excessive Heat" and "Tornado." In contrast, Figure 2 shows a two-fold difference between in economic loss between "Flood" and "Tornado." The second event type differs between casualties and economic loss, which raises an interesting question. Since the worst events associated with public health are different then the events associated with economic losses, how should planners adapt their emergency response to based on the resources required by these different emergencies. Figure 3 is a plot of casualties versus economic losses. As with all of the data in this study, tornadoes are far worst than any other weather event, but which event is the second worst? This is a judgment call for the planners, but StormCloud the plot in Figure 3, gives planners a tool to help assess how to distribute resources and to request resources from government agencies.
+The weather events tables 1a and 1b show the number of casualties and the financial losses due to those events gives an overall picture of the damage caused by severe weather, but the dramatic differences between event types and types of damage within an event type are difficult to discern. Figure 1 shows an eight-fold difference in casualties between "Excessive Heat" and "Tornado". In contrast, Figure 2 shows a two-fold difference between in economic loss between "Flood" and "Tornado". The second event type differs between casualties and economic loss, which raises an interesting question. Since the worst events associated with public health are different then the events associated with economic losses, how should planners adapt their emergency response to based on the resources required by these different emergencies. Figure 3 is a plot of casualties versus economic losses. As with all of the data in this study, tornadoes are far worst than any other weather event, but which event is the second worst? This is a judgment call for the planners, but StormCloud the plot in Figure 3, gives planners a tool to help assess how to distribute resources and to request resources from government agencies.
 
-The U.S. Federal Emergency Management Agency (FEMA) places the Valuation of Statistical Life (VSL) at \$12.5 million [2] based on a U.S. Department of Transportation memo [3]. With this information, emergency planners could monetize the value of a human life. In addition to the VSL, FEMA also uses the Abbreviated Injury Scale (AIS) to monetize the cost of injuries based on their seriousness. By monetizing deaths and injuries, the Casualties versus Economic Loss plot could include a line dividing the amount of given resources required by an emergency response.
+The U.S. Federal Emergency Management Agency (FEMA) places the Valuation of Statistical Life (VSL) at \$12.5 million [2] based on a U.S. Department of Transportation memo [3]. With this information, emergency planners could monetize the value of a human life. In addition to the VSL, FEMA also uses the Abbreviated Injury Scale (AIS) to monetize the damage of injuries based on their seriousness. By monetizing deaths and injuries, the Casualties versus Economic Loss plot could include a line dividing the amount of given resources required by an emergency response.
 
-## Weather Related Costs
+## Weather Related Damages
 ```{r, message=TRUE, echo = TRUE}
   tbl[[1]]
 ```
@@ -1589,18 +2012,203 @@ The U.S. Federal Emergency Management Agency (FEMA) places the Valuation of Stat
 
 Functions "Constants" Generality -- Jurisdictions Code Standards Including all code, including code comments
 
-## Appendix II: Complete Cost Tables
+## Appendix II: Significant Constants/Variables
+
+<table>
+<tr>
+<th>Name</th>
+<th>Purpose</th>
+<th>Used</th>
+</tr>
+
+<tr><td>AXIS_LABELS</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>CASUALTIES_IDX</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>CNTY_BASE_IDX</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>COUNTY_TITLE</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>DATAFILE</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>DATA_INDICES</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>DATA_FIELDS</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>DATA_FILTERS</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>DATA_ASSEMBLY_SELECT</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>JURISDICTION_LABELS</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>LOSSES_IDX</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>N_JURISDICTIONS</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>ST_BASE_IDX</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>URL</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>USE_NATIONAL_JURISDICTION</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>USE_STATE_JURISDICTION</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>USE_COUNTY_JURISDICTION</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>US_BASE_IDX</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>URL</td>
+<td></td>
+<td></td>
+</tr>
+</table>
+
+
+<table>
+<tr>
+<th>Name</th>
+<th>Purpose</th>
+<th>Used</th>
+</tr>
+
+<tr><td>analysisDF</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>analysisTables</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>cleanDF</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>nonZeroDF</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>eventSet</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>juris</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>jurisAnalysisDF</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>jurisAnalysisTables</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>resultTables</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>resultTables</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>sourceDF</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>stormDF</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>stormFileName</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>tbl</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>validDF</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>worstCasualtiesTables</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>worstCasualtiesDF</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>worstLossesDF</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>worstLossesTables</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>worstDamageTables</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>worstCasualties</td>
+<td></td>
+<td></td>
+</tr>
+<tr><td>worstLosses</td>
+<td></td>
+<td></td>
+</tr>
+</table>
+
+## Appendix III: Complete Damage Tables
 
 ```{r}
 
 tbl = list()
 
 for (j in CASUALTIES_IDX:LOSSES_IDX) {
-  for (i in 1:length(DATA_INDICES)) {
+  for (i in 1:N_JURISDICTIONS) {
     switch(j,
       worstList <- data.frame(worstCasualties) %>%
         select(EVTYPE, CASUALTIES, PERCENT_CASUALTY, ACC_PERCENT_CASUALTY),
-      worstList <- data.frame(worstEconomic) %>%
+      worstList <- data.frame(worstLosses) %>%
         select(EVTYPE, LOSSES, PERCENT_LOSSES, ACC_PERCENT_LOSSES)
       )
 
@@ -1634,7 +2242,7 @@ for (j in CASUALTIES_IDX:LOSSES_IDX) {
   tbl[[2]]
 ```
 
-## Appendix III: Improvements
+## Appendix IV: Improvements
 
 1. Actuarial data Time series data (analysis, we have the data) 
 2. Complete reports regarding injury types and seriousness 
