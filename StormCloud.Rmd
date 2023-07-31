@@ -53,7 +53,7 @@ To understand how StormCloud processes the data, it is best to start with a high
 
 1.  **sourceDF** is a data.frame used to store the data from the storm data file. The file 
 2.  **analysisDF** are the cleaned source data. These data are used to generate the Analysis Tables.
-3.  **analysisTables** are tables derived from the analysisDF and are used to generate the analysis Result Tables.
+3.  **analysisTable** are tables derived from the analysisDF and are used to generate the analysis Result Tables.
 4.  **resultTables** contain the results of the data analysis. These include between two and six tables depending on the analysis requested by the user. The tables list the casualties and economic Damages for each weather event. A pair of tables are prepared for nationwide, statewide and/or countywide jurisdictions. The pair consist of a table ordered by casualties and a table ordered by economic losses.
 
 ## Processing Phases
@@ -109,7 +109,7 @@ Given the complexity of StormCloud's intended use, the code is necessarily compl
 #   |     +>-------->+-----------------+--->--->--->--->--->--->--->+
 #   V     ^          | Data Generation |  resultTables              |
 #   |     |          |      Phase      |<---<---<---<---<---<--+    |
-#   |     |          |                 |  analysisTables       |    |
+#   |     |          |                 |  analysisTable       |    |
 #   |     ^          +--+--------------+<------------------+   |    V
 #   |     |          |  |                                  |   |    |
 #   |     |          |  Pass control to                    |   |    |
@@ -121,7 +121,7 @@ Given the complexity of StormCloud's intended use, the code is necessarily compl
 #   |     *          |        |     Phase     |            |   |    |
 #   |     |          |        +---------------+--->--->--->+   |    V
 #   |     ^          |                          return         |    |
-#   V     |          | analysisTables                          |    |
+#   V     |          | analysisTable                          |    |
 #   |     |          +--->--->--->--->+---------------+        ^    |
 #   |     |                           | Data Analysis |        |    |
 #   |     |                           |     Phase     |        |    V
@@ -268,6 +268,7 @@ The important points:
   "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 DATAFILE = "storm.csv.bz2"
 
+VERBOSE = TRUE
 
 # set the STATE_ and COUNTY_ if the user intends to include state and county
 # results for their analysis. 
@@ -341,10 +342,6 @@ LOSSES_IDX        = 2
 # The AXIS_LABELS constants hold titles for graphs and tables corresponding to
 # the analysis type. So AXIS_LABELS[CASUALTIES_IDX] is the set of labels 
 # corresponding to the casualty labels.
-AXIS_LABELS <- list(
-    c("Event Type", "Casualties", "Percent of Total", "Accumulated Percent"),
-    c("Event Type", "Losses (in millions)", 
-      "Percent of Total", "Accumulated Percent"))
 
 # JURISDICTIONS ################################################################
 # The data file separates data into three possible jurisdictions:
@@ -420,10 +417,32 @@ if (USE_NATIONAL_JURISDICTION) {
   JURISDICTION_LABELS <- 
     list.append(JURISDICTION_LABELS, paste0("United States"))
 }
-N_JURISDICTIONS <- length(DATA_FIELDS)
+# N_JURISDICTIONS <- length(DATA_FIELDS)
 
 DATA_ASSEMBLY_SELECT   <- 
-  "c('EVTYPE', 'COUNTY', 'STATE', 'CASUALTIES', 'LOSSES')"
+  "c('EVTYPE', 'CASUALTIES', 'LOSSES')"
+
+
+
+
+
+
+  DAMAGE_IDX = c(CASUALTIES_IDX, LOSSES_IDX)
+  DAMAGE_NAMES = c("CASUALTIES", "LOSSES")
+
+  DAMAGE_IDX = c(CASUALTIES_IDX, LOSSES_IDX)
+  DAMAGE_NAMES = c("CASUALTIES", "LOSSES")
+  DAMAGE_SELECT = c("c('EVTYPE_C', 'CASUALTIES_C')", 
+                    "c('EVTYPE_L', 'LOSSES_L')")
+  TABLE_NAMES = c("c('EVTYPE', 'CASUALTIES')", 
+                    "c('EVTYPE', 'LOSSES')")
+  DAMAGE_REORDER = c("reorder(EVTYPE, -CASUALTIES)", 
+                     "reorder(EVTYPE, -LOSSES)")
+  
+AXIS_LABELS <- list(
+    c("Event Type", "Casualties", "Percent of Total", "Accumulated Percent"),
+    c("Event Type", "Losses (in millions)", 
+      "Percent of Total", "Accumulated Percent"))
 
 ```
 
@@ -472,7 +491,7 @@ The important points:
 #     +--------------------+  
 #     | Results Generation | resultTables
 #     |      Phase         |<---<---<---<----<---+
-#     |                    | analysisTables      ^
+#     |                    | analysisTable      ^
 #     +---+----------------+<---<---<---<----+   |
 #     |   |                                  ^   |
 #     |   Pass control to                    |   ^
@@ -485,7 +504,7 @@ The important points:
 # Data Analysis    |     Phase      |        |   |
 # Phase            +----------------+--->--->+   ^
 #     |                               return     |
-#     V         analysisTables                   |
+#     V         analysisTable                   |
 #     +--->--->+---------------+                 ^
 #              | Data Analysis |                 |
 #              |     Phase     |                 |
@@ -508,8 +527,8 @@ The important points:
 #       column (property and crop economic losses).
 #    6) create one or more jurisdiction data.frames based on the user needs;
 #    7) each jurisdiction data.frame is grouped by event type and sorted 
-#       alphabetically by event. These data.frames are the "analysisTables". 
-# 2) the "analysisTables" are returned to ResultGenerationPhase, which passes 
+#       alphabetically by event. These data.frames are the "analysisTable". 
+# 2) the "analysisTable" are returned to ResultGenerationPhase, which passes 
 #    control to DataAnalysisPhase function 
 #    1) create two data.frames for each jurisdiction data.frame, one for 
 #       casualty data, the other for economic losses. 
@@ -517,9 +536,9 @@ The important points:
 #       depending on the contents of the tables;
 #    3) the ordered tables are used to generate a set of results tables and a 
 #       set of plots;
-#    4) the damage tables are named "analysisTables" and returned to the 
+#    4) the damage tables are named "analysisTable" and returned to the 
 #       ResultGenerationPhase;
-# 3) the ResultGenerationPhase function returns the "analysisTables" to the 
+# 3) the ResultGenerationPhase function returns the "analysisTable" to the 
 #    execution phase.
 # 
 # ------------------------------------------------------------------------------
@@ -530,7 +549,7 @@ The important points:
 # NONE
 #
 # LOCAL VARIABLES 
-# analysisTables--the "analysisTables" are the product of the Data Assembly 
+# analysisTable--the "analysisTable" are the product of the Data Assembly 
 #                 Phase. This means the tables have been cleaned, 
 #                 non-contributing data has been removed, the event names are 
 #                 unified to the NWS names, and the data is divided into 
@@ -544,13 +563,172 @@ The important points:
 #                 presenting the analysis results.
 #
 # returns resultTables
+
+ #          EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+ # 1       TORNADO          0       15   25.00          K       0           
+ # 2       TORNADO          0        0    2.50          K       0   
 # ==============================================================================
 ResultGenerationPhase <- function() {
 
-  analysisTables <- DataAssemblyPhase()
-  resultTables   <- DataAnalysisPhase(analysisTables)
+  if (!file.exists(DATAFILE)) {
+    DownloadstormFileName(URL, DATAFILE)
+  }
 
-  return (resultTables)
+  sourceDF <- read.table(DATAFILE, stringsAsFactors = FALSE,
+                        sep = ",",
+                        colClasses = c(rep("NULL",7), NA,
+                                       rep("NULL",14), rep(NA, 6),
+                                       rep("NULL",9)),
+                        header = TRUE)
+  cleanDF            <- sourceDF
+  cleanDF$EVTYPE     <- trimws(cleanDF$EVTYPE, which = c("both"))
+  cleanDF$PROPDMGEXP <- trimws(cleanDF$PROPDMGEXP, which = c("both"))
+  cleanDF$CROPDMGEXP <- trimws(cleanDF$CROPDMGEXP, which = c("both"))
+  cleanDF$EVTYPE     <- tolower(cleanDF$EVTYPE)
+  cleanDF$PROPDMGEXP <- tolower(cleanDF$PROPDMGEXP)
+  cleanDF$CROPDMGEXP <- tolower(cleanDF$CROPDMGEXP)
+  
+  nonZeroDF <- cleanDF[
+    cleanDF$FATALITIES != 0 |
+      cleanDF$INJURIES != 0 |
+      cleanDF$PROPDMG != 0 |
+      cleanDF$CROPDMG != 0, ]
+  
+    validDF <- nonZeroDF[
+    nonZeroDF$EVTYPE != '?' &
+    nonZeroDF$EVTYPE != 'high' &
+    nonZeroDF$EVTYPE != 'marine accident' &
+    nonZeroDF$EVTYPE != 'marine mishap' &
+    nonZeroDF$EVTYPE != 'other'&
+    nonZeroDF$EVTYPE != 'apache county'
+    ,]
+
+  stormDF    <- UnifyTypes(validDF)
+  analysisDF <- stormDF %>% ungroup(.) %>%
+    mutate (PROPDMGEXP = 
+              ifelse(PROPDMGEXP == 'k', 1000.,
+                     ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
+            CROPDMGEXP = 
+              ifelse(CROPDMGEXP == 'k', 1000., 
+                     ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
+            PROPDMG       = PROPDMG * PROPDMGEXP,
+            CROPDMG       = CROPDMG * CROPDMGEXP,
+            CASUALTIES    = FATALITIES + INJURIES,
+            LOSSES     = (PROPDMG + CROPDMG)/1000000.0
+            ) %>%
+    select(EVTYPE, CASUALTIES, LOSSES)
+
+  colnames(analysisDF) <- c('EVTYPE', 'CASUALTIES', 'LOSSES')
+  # analysisTable = list()
+    analysisTable <- analysisDF %>% group_by(EVTYPE)
+    analysisTable <- analysisTable %>%
+      summarise_at(c("CASUALTIES", "LOSSES"), sum)
+
+    analysisTable <- analysisTable %>% arrange(.$EVTYPE, .by_group = TRUE)
+  damageTables = list()
+
+  DAMAGE_ORDERING = c("desc(.$CASUALTIES)", "desc(.$LOSSES)")
+
+  for (damage in CASUALTIES_IDX:LOSSES_IDX) {
+    table <- analysisTable %>%
+      arrange(eval(parse(text=DAMAGE_ORDERING[damage])), .by_group = TRUE)
+    totalValue <- sum(table[, damage + 1])
+
+    accumulator     <- 0
+    percentList     <- list()
+    accumulatorList <- list()
+    
+    # TODO: make this a lambda function
+    for (i in 1:length(table$EVTYPE)) {
+      percent <- table[i, damage + 1]/totalValue
+      accumulator <- accumulator + percent
+      percentList <- append(percentList, percent)
+      accumulatorList <- append(accumulatorList, accumulator)
+    }
+
+    if (damage == CASUALTIES_IDX) {
+       table$PERCENT_CASUALTY <- as.numeric(unlist(percentList))
+       table$ACC_PERCENT_CASUALTY <- as.numeric(unlist(accumulatorList))
+    } else if (damage == LOSSES_IDX) {
+       table$PERCENT_LOSSES <- as.numeric(unlist(percentList))
+       table$ACC_PERCENT_LOSSES <- as.numeric(unlist(accumulatorList))
+    }
+    
+    damageTables <- list.append(damageTables, table)
+  } # end of for loop
+
+  worstDamageTable <- cbind(damageTables[[1]], damageTables[[2]])
+  colnames(worstDamageTable) <- 
+    c('EVTYPE_C', 'CASUALTIES_C', 'LOSSES_C', 'PERCENT_CASUALTY', 
+      'ACC_PERCENT_CASUALTY', 'EVTYPE_L', 'CASUALTIES_L', 'LOSSES_L', 
+      'PERCENT_LOSSES', 'ACC_PERCENT_LOSSES')
+  
+  
+   for (damage in CASUALTIES_IDX:LOSSES_IDX)
+  {
+    table <- head(worstDamageTable, n=10) %>% 
+      select(eval(parse(text = DAMAGE_SELECT[[damage]])))
+    colnames(table) <- eval(parse(text = TABLE_NAMES[[damage]]))
+
+    table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
+
+    plt <- ggplot(table,
+                  aes(x = eval(parse(text=DAMAGE_REORDER[[damage]])),
+                      y = eval(parse(text=DAMAGE_NAMES[[damage]])))) +
+      ggtitle(paste0("Figure 1. United States Storm Related ",
+                     str_to_title(DAMAGE_NAMES[[damage]]))) +
+      xlab("Events") +
+      ylab(DAMAGE_NAMES[damage]) +
+      geom_bar(stat="identity", width=0.7, fill="steelblue") +
+      theme(plot.title = element_text(face="plain", color="black", size=12),
+            axis.text.x = element_text(size = 5, face="bold"),
+            axis.text.y = element_text(size = 5, face="bold"),
+            axis.title.x = element_text(size = 8, face="bold"),
+            axis.title.y = element_text(size = 8, face="bold"))
+    save_plot(paste0("imageBars0", damage, ".png"), plt) 
+   }
+  
+
+  set <- c(head(worstDamageTable$EVTYPE_C, n = 10),
+                head(worstDamageTable$EVTYPE_L, n = 10))
+  eventSet <- unique(set)
+
+  bigEvt <- analysisTable[analysisTable$EVTYPE %in% eventSet,  ]
+  # print (analysisTable$EVTYPE_C)
+  # print (bigEvt)
+  # print(analysisTable)
+  # 
+  # # print(paste0("Analysistable type ", class(analysisTable)))
+  # # print(head(analysisTable))
+  plt <- ggplot(analysisTable, aes(x = CASUALTIES, y = LOSSES)) +
+    ggtitle(
+      paste0("Figure 3. United States  Casualties vs. Economic Losses")) +
+    xlab("Event Type") + ylab("Losses ($ millions)") +
+    theme(plot.title = element_text(face="plain", color="black", size=28),
+          axis.title.x = element_text(face="bold", color="black", size=14),
+          axis.title.y = element_text(face="bold", color="black", size=14),
+          axis.text = element_text(size = 10, face="bold")) +
+    geom_point(data =
+                 analysisTable[!(analysisTable$EVTYPE %in% eventSet),  ],
+               aes(x = CASUALTIES, y = LOSSES, size = 3) +
+                 theme(legend.position="none")) +
+    geom_point(data = analysisTable[analysisTable$EVTYPE %in% eventSet,  ],
+           aes(x = CASUALTIES, y = LOSSES, color = EVTYPE, size = 3)) +
+    geom_smooth(method = lm) +
+    geom_text_repel (
+      data = bigEvt,
+      aes(x=CASUALTIES, y=LOSSES, label = EVTYPE, color = EVTYPE, fontface = "bold"),
+      min.segment.length = 0.0, nudge_y = 10.0, nudge_x = 100.0,
+      force = 40.0,
+      force_pull = 1.0
+    )
+
+  save_plot("imageSet.png", plt, ncol = 2, nrow = 2)
+    
+  # analysisTable <- DataAssemblyPhase()
+  # resultTables   <- DataAnalysisPhase(analysisTable)
+
+  return (worstDamageTable)
 }
 
 ```
@@ -573,7 +751,7 @@ The important points:
 
 <pre>
 Data Assembly Phase ============================================================
-The Data Assembly Phase is responsible for creating the "analysisTables".
+The Data Assembly Phase is responsible for creating the "analysisTable".
 ================================================================================
 Data Assembly Phase flow
    1) read the data from the storm file;
@@ -582,8 +760,8 @@ Data Assembly Phase flow
       Service Instruction 10-1605 naming conventions.
    3) divide the analysisDF into jurisdiction tables
    4) group the jurisdiction tables by event type and store as
-      analysisTables;
-   5) return analysisTables
+      analysisTable;
+   5) return analysisTable
 ==============================================================================
 The following diagram is a high level pictorial representation of the
 Data Assembly Phase.
@@ -591,11 +769,11 @@ Data Assembly Phase.
 
  Get control from the Data Assembly Phase
     |      
-    |                         return analysisTables to ResultGenerationPhase
+    |                         return analysisTable to ResultGenerationPhase
     |                            ^
     V                            |
     +-->---+---------------------+
-           | Data Assembly       |    analysisTables
+           | Data Assembly       |    analysisTable
            |    Phase            |<---<---<---<--<---<---<---<--<---<---+
            |                     |   analysisDF                         |
            |                     |<---<---<---<---<---<----<---<---+    ^
@@ -604,7 +782,7 @@ Data Assembly Phase.
            |   |   |                                          ^    |    ^
          Pass control to Read Storm File                      |    ^    |
            | Pass control to Assemble Analysis Data           |    |    |
-           V   | Pass control to Assemble AnalysisTables      |    |    |
+           V   | Pass control to Assemble analysisTable      |    |    |
            |   V   |                                          |    ^    |
            --->|-->|-->--->+-------------+                    ^    |    ^
                |   V       | Read Storm  |                    |    ^    |
@@ -625,7 +803,7 @@ Data Assembly Phase.
                             | Assemble Analysis |                       ^
                             |      Tables       |                       |
                             +-------------------+--->--->--->-->--->--->+
-                                                  return analysisTables
+                                                  return analysisTable
                                      
 </pre>
 ```
@@ -644,11 +822,11 @@ Data Assembly Phase.
 # 4) pass control and "sourceDF" to AssembleAnalysisData, which will transform
 #    the "sourceDF" to the "analysisDF" by cleaning and reducing the data set;
 # 3) return the "analysisDF" and control to the DataAssemblyPhase;
-# 4) pass the "analysisDF" and control to the AssembleAnalysisTables function;
+# 4) pass the "analysisDF" and control to the AssembleanalysisTable function;
 # 5) process the data to create tables consisting of data.frames ordered by
 #    casualties or economic losses. These tables are stored in the 
-#    "analysisTables", 
-# 6) return the "analysisTables" and control to AssembleAnalysisTables;
+#    "analysisTable", 
+# 6) return the "analysisTable" and control to AssembleanalysisTable;
 # 7) return control to ResultGenerationPhase
 # 
 # ------------------------------------------------------------------------------
@@ -665,7 +843,7 @@ Data Assembly Phase.
 #     analysisDF--the "analysisDF" is the final transformation of the raw data
 #                 to clean, complete, and unified data required for analysis,
 #                 it still has to be organized by jurisdiction and event type.
-# analysisTables--the "analysisTables" are the product of the Data Assembly 
+# analysisTable--the "analysisTable" are the product of the Data Assembly 
 #                 Phase. This means the tables have been cleaned, 
 #                 non-contributing data has been removed, the event names are 
 #                 unified to the NWS names, and the data is divided into 
@@ -673,18 +851,70 @@ Data Assembly Phase.
 #                 two damage tables, one for casualties, the other for economic
 #                 losses.
 #
-# returns analysisTables
+# returns analysisTable
 # ==============================================================================
 DataAssemblyPhase <- function()  {
   if (!file.exists(DATAFILE)) {
     DownloadstormFileName(URL, DATAFILE)
   }
 
-  sourceDF       <- ReadStormFile()
-  analysisDF     <- AssembleAnalysisData(sourceDF)
-  analysisTables <- AssembleAnalysisTables(analysisDF)
+  sourceDF <- read.table(DATAFILE, stringsAsFactors = FALSE,
+                        sep = ",",
+                        colClasses = c(rep("NULL",7), NA,
+                                       rep("NULL",14), rep(NA, 6),
+                                       rep("NULL",9)),
+                        header = TRUE)
+  cleanDF            <- sourceDF
+  cleanDF$EVTYPE     <- trimws(cleanDF$EVTYPE, which = c("both"))
+  cleanDF$PROPDMGEXP <- trimws(cleanDF$PROPDMGEXP, which = c("both"))
+  cleanDF$CROPDMGEXP <- trimws(cleanDF$CROPDMGEXP, which = c("both"))
+  cleanDF$EVTYPE     <- tolower(cleanDF$EVTYPE)
+  cleanDF$PROPDMGEXP <- tolower(cleanDF$PROPDMGEXP)
+  cleanDF$CROPDMGEXP <- tolower(cleanDF$CROPDMGEXP)
+  
+  nonZeroDF <- cleanDF[
+    cleanDF$FATALITIES != 0 |
+      cleanDF$INJURIES != 0 |
+      cleanDF$PROPDMG != 0 |
+      cleanDF$CROPDMG != 0, ]
+  
+    validDF <- nonZeroDF[
+    nonZeroDF$EVTYPE != '?' &
+    nonZeroDF$EVTYPE != 'high' &
+    nonZeroDF$EVTYPE != 'marine accident' &
+    nonZeroDF$EVTYPE != 'marine mishap' &
+    nonZeroDF$EVTYPE != 'other'&
+    nonZeroDF$EVTYPE != 'apache county'
+    ,]
 
-  return (analysisTables)
+  stormDF    <- UnifyTypes(validDF)
+  analysisDF <- stormDF %>% ungroup(.) %>%
+    mutate (PROPDMGEXP = 
+              ifelse(PROPDMGEXP == 'k', 1000.,
+                     ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
+            CROPDMGEXP = 
+              ifelse(CROPDMGEXP == 'k', 1000., 
+                     ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
+            PROPDMG       = PROPDMG * PROPDMGEXP,
+            CROPDMG       = CROPDMG * CROPDMGEXP,
+            CASUALTIES    = FATALITIES + INJURIES,
+            LOSSES     = (PROPDMG + CROPDMG)/1000000.0
+            ) %>%
+    select(EVTYPE, CASUALTIES, LOSSES)
+
+  colnames(analysisDF) <- c('EVTYPE', 'CASUALTIES', 'LOSSES')
+  analysisTable = list()
+    analysisTable <- analysisDF %>% group_by(EVTYPE)
+    analysisTable <- analysisTable %>%
+      summarise_at(c("CASUALTIES", "LOSSES"), sum)
+
+    analysisTable <- analysisTable %>% arrange(.$EVTYPE, .by_group = TRUE)
+
+  # sourceDF       <- ReadStormFile()
+  # analysisDF     <- AssembleAnalysisData(sourceDF)
+  # analysisTable <- AssembleanalysisTable(analysisDF)
+
+  return (analysisTable)
 }  ## End of DataAssemblyPhase function
 
 ```
@@ -701,23 +931,25 @@ DataAssemblyPhase <- function()  {
 # returns sourceDF
 #
 # Format of "sourceDF"
-#   COUNTYNAME STATE  EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG
-# 1     MOBILE    AL TORNADO          0       15    25.0          K       0
-# 2    BALDWIN    AL TORNADO          0        0     2.5          K       0
+#          EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+# 1       TORNADO          0       15   25.00          K       0           
+# 2       TORNADO          0        0    2.50          K       0           
+# 3       TORNADO          0        2   25.00          K       0           
 # 
-#   CROPDMGEXP
-#   1           
-#   2           
-
 # ==============================================================================
 ReadStormFile <- function()
 {
   sourceDF <- read.table(DATAFILE, stringsAsFactors = FALSE,
                         sep = ",",
-                        colClasses = c(rep("NULL",5), NA, NA, NA,
+                        colClasses = c(rep("NULL",7), NA,
                                        rep("NULL",14), rep(NA, 6),
                                        rep("NULL",9)),
                         header = TRUE)
+
+  if (VERBOSE) {
+    print(paste0("sourceDF ", dim(sourceDF)))
+    print(head(sourceDF))
+  }
 
   return (sourceDF)
 } ## End of ReadStormFile function
@@ -886,29 +1118,60 @@ Assemble Analysis Data
 # 
 # returns analysisDF
 # ==============================================================================
-AssembleAnalysisData <- function(sourceDF)  {
-  
-  cleanDF    <- CleanData(sourceDF)
-  nonZeroDF  <- RemoveZeroData(cleanDF)
-  validDF    <- RemoveInvalidEvents(nonZeroDF)
-  stormDF    <- UnifyTypes(validDF)
-  analysisDF <- FinishAnalysisDataset(stormDF)
-
-print(paste0("sourceDF ", dim(sourceDF)))
-print(head(sourceDF, n = 2))
-print(paste0("cleanDF ", dim(cleanDF)))
-print(head(cleanDF, n = 2))
-print(paste0("nonZeroDF ", dim(nonZeroDF)))
-print(head(nonZeroDF, n = 2))
-print(paste0("validDF ", dim(validDF)))
-print(head(validDF, n = 2))
-print(paste0("stormDF ", dim(stormDF)))
-print(head(stormDF, n = 2))
-print(paste0("analysisDF ", dim(analysisDF)))
-print(head(analysisDF, n = 2))
-
-  return (analysisDF)
-}  ## End of AssembleAnalysisData function
+# AssembleAnalysisData <- function(sourceDF)  {
+#   
+#   cleanDF            <- sourceDF
+#   cleanDF$EVTYPE     <- trimws(cleanDF$EVTYPE, which = c("both"))
+#   cleanDF$PROPDMGEXP <- trimws(cleanDF$PROPDMGEXP, which = c("both"))
+#   cleanDF$CROPDMGEXP <- trimws(cleanDF$CROPDMGEXP, which = c("both"))
+#   cleanDF$EVTYPE     <- tolower(cleanDF$EVTYPE)
+#   cleanDF$PROPDMGEXP <- tolower(cleanDF$PROPDMGEXP)
+#   cleanDF$CROPDMGEXP <- tolower(cleanDF$CROPDMGEXP)
+#   
+#   nonZeroDF <- cleanDF[
+#     cleanDF$FATALITIES != 0 |
+#       cleanDF$INJURIES != 0 |
+#       cleanDF$PROPDMG != 0 |
+#       cleanDF$CROPDMG != 0, ]
+#   
+#     validDF <- nonZeroDF[
+#     nonZeroDF$EVTYPE != '?' &
+#     nonZeroDF$EVTYPE != 'high' &
+#     nonZeroDF$EVTYPE != 'marine accident' &
+#     nonZeroDF$EVTYPE != 'marine mishap' &
+#     nonZeroDF$EVTYPE != 'other'&
+#     nonZeroDF$EVTYPE != 'apache county'
+#     ,]
+# 
+#   stormDF    <- UnifyTypes(validDF)
+#   analysisDF <- stormDF %>% ungroup(.) %>%
+#     mutate (PROPDMGEXP = 
+#               ifelse(PROPDMGEXP == 'k', 1000.,
+#                      ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
+#             CROPDMGEXP = 
+#               ifelse(CROPDMGEXP == 'k', 1000., 
+#                      ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
+#             PROPDMG       = PROPDMG * PROPDMGEXP,
+#             CROPDMG       = CROPDMG * CROPDMGEXP,
+#             CASUALTIES    = FATALITIES + INJURIES,
+#             LOSSES     = (PROPDMG + CROPDMG)/1000000.0
+#             ) %>%
+#     select(EVTYPE, CASUALTIES, LOSSES)
+# 
+#   colnames(analysisDF) <- c('EVTYPE', 'CASUALTIES', 'LOSSES')
+# 
+#   return (analysisDF)
+# }  ## End of AssembleAnalysisData function
+# AssembleAnalysisData <- function(sourceDF)  {
+#   
+#   cleanDF    <- CleanData(sourceDF)
+#   nonZeroDF  <- RemoveZeroData(cleanDF)
+#   validDF    <- RemoveInvalidEvents(nonZeroDF)
+#   stormDF    <- UnifyTypes(validDF)
+#   analysisDF <- FinishAnalysisDataset(stormDF)
+# 
+#   return (analysisDF)
+# }  ## End of AssembleAnalysisData function
 
 ```
 
@@ -975,6 +1238,11 @@ CleanData <- function(sourceDF)
   cleanDF$PROPDMGEXP <- tolower(cleanDF$PROPDMGEXP)
   cleanDF$CROPDMGEXP <- tolower(cleanDF$CROPDMGEXP)
 
+  if (VERBOSE) {
+    print(paste0("cleanDF ", dim(cleanDF)))
+    print(head(cleanDF))
+  }
+
   return (cleanDF)
 }  ## End of CleanRawData function
 
@@ -1030,6 +1298,11 @@ RemoveZeroData <- function(cleanDF)
       cleanDF$PROPDMG != 0 |
       cleanDF$CROPDMG != 0, ]
 
+  if (VERBOSE) {
+    print(paste0("nonZeroDF ", dim(nonZeroDF)))
+    print(head(nonZeroDF))
+  }
+
   return (nonZeroDF)
 }  ## End of LoadStormDamageData function
 ```
@@ -1083,6 +1356,11 @@ RemoveInvalidEvents <- function(nonZeroDF) {
     nonZeroDF$EVTYPE != 'other'&
     nonZeroDF$EVTYPE != 'apache county'
     ,]
+
+  if (VERBOSE) {
+    print(paste0("validDF ", dim(validDF)))
+    print(head(validDF))
+  }
 
   return (validDF)
 }
@@ -1377,6 +1655,11 @@ stormDF$EVTYPE <-
     gsub("^.*smoke$", "Dense Smoke",
     stormDF$EVTYPE)))
 
+  if (VERBOSE) {
+    print(paste0("stormDF ", dim(stormDF)))
+    print(head(stormDF))
+  }
+
   return (stormDF)
 }
 
@@ -1391,7 +1674,7 @@ stormDF$EVTYPE <-
 The important points:
 <ul>
 <li>this function uses the "DATA_ASSEMBLY_SELECT" constant described in the Setup Phase -> Program Constants block. The constant is a string dexcribing a list of strings. Each of these strings is the name of a column in the "stormDF" data.frame. </li>
-<li>By itself, the "DATA_ASSEMBLY_SELECT" constant is a string so the colname function cannot accept it. To make it acceptable, the function uses an parse and evaluate pair.
+<li>By itself, the "DATA_ASSEMBLY_SELECT" constant is a string so the colname function cannot accept it. To make it acceptable, the function uses a parse and evaluate pair.
 This changes the string to a column of strings, which can be used by the colnames function.</li>
 </ul>
 </p>
@@ -1429,9 +1712,14 @@ FinishAnalysisDataset <- function(stormDF) {
             CASUALTIES    = FATALITIES + INJURIES,
             LOSSES     = (PROPDMG + CROPDMG)/1000000.0
             ) %>%
-    select(EVTYPE, COUNTYNAME, STATE, CASUALTIES, LOSSES)
+    select(EVTYPE, CASUALTIES, LOSSES)
 
-  colnames(analysisDF) <- eval(parse(text = DATA_ASSEMBLY_SELECT))
+  colnames(analysisDF) <- c('EVTYPE', 'CASUALTIES', 'LOSSES')
+
+  if (VERBOSE) {
+    print(paste0("analysisDF ", dim(analysisDF)))
+    print(head(analysisDF))
+  }
 
   return(analysisDF)
 }  ## End of MakeJurisStormList function
@@ -1441,8 +1729,8 @@ FinishAnalysisDataset <- function(stormDF) {
 #### Assemble Analysis Tables
 
 ```{r}
-# AssembleAnalysisTables =======================================================
-# The AssembleAnalysisTables function receives the 
+# AssembleanalysisTable =======================================================
+# The AssembleanalysisTable function receives the 
 # "analysisDF" and converts it to a set of tables grouped one 
 # table for each jurisdiction and each table is grouped by 
 # EVTYPE.
@@ -1450,48 +1738,48 @@ FinishAnalysisDataset <- function(stormDF) {
 # Assemble Analysis Tables  flow
 # 1) AssembleAnalysisData receives the "analysisDF" data.frame 
 #    from the DataAssemblyPhase;
-## 2) the "analysisDF" is passed to the MakeJurisAnalysisTables function,
+## 2) the "analysisDF" is passed to the MakeJurisanalysisTable function,
 #    which will divide the set into 1, 2, or 3 sets depending on the 
 #    number of sets required by the user. NOTE: if the user wants the
 #    national set, then they get the entirety of the"analysisDF".
 #    otherwise, sets will include only the state and county data if that
-#    is required. The function returns the "jurisAnalysisTables". 
-# 2) the "jurisAnalysisTables". is passed to the GroupJurisTables function,
+#    is required. The function returns the "jurisanalysisTable". 
+# 2) the "jurisanalysisTable". is passed to the GroupTables function,
 #    which groups each table by event type and stores the result in the
-#    "analysisTables".
-# 3) return "analysisTables".
+#    "analysisTable".
+# 3) return "analysisTable".
 #
 # ==============================================================================
 # The following diagram is a high level pictorial representation of the 
 # Data Assembly Phase. 
 # ==============================================================================
 # 
-#                           return analysisTables
+#                           return analysisTable
 # analysisDF
 #     |                            |
 #     V                            |
-#     +-->---+---------------------+  analysisTables 
+#     +-->---+---------------------+  analysisTable 
 #            |  Assemble Analysis  |<---<--<--<--<--<--+
-#            |     Tables          |jurisAnalysisTables   |
+#            |     Tables          |jurisanalysisTable   |
 #            +---+-----------------+<---<---<---<---+  ^
 #            |   |                                  |  ^
 #            V   V    analysisDF                  |  |
 #            |   +-->+----------------------+       |  |
-#            |       | MakeJurisAnalysisTables |       ^  ^
+#            |       | MakeJurisanalysisTable |       ^  ^
 #            |       +----------------------+--->-->+  |
-#            V         jurisAnalysisTables             |
+#            V         jurisanalysisTable             |
 #            +--->-->+-----------------+               |
-#                    | GroupJurisTables|               |
+#                    | GroupTables|               |
 #                    +-----------------+--->--->--->-->+
 #
 # ==============================================================================
-AssembleAnalysisTables <- function(analysisDF)
+AssembleanalysisTable <- function(analysisDF)
 {
-  jurisAnalysisTables <- MakeJurisAnalysisTables(analysisDF)
-  analysisTables      <- GroupJurisTables(jurisAnalysisTables)
+  # jurisanalysisTable <- MakeJurisanalysisTable(analysisDF)
+  analysisTable      <- GroupTables(analysisDF)
 
-  return (analysisTables)
-}  ## End of AssembleAnalysisTables function
+  return (analysisTable)
+}  ## End of AssembleanalysisTable function
 
 ```
 
@@ -1504,34 +1792,34 @@ The important points:
 </ul>
 </p>
 
-```{r MakeJurisAnalysisTables}
-# MakeJurisAnalysisTables ======================================================
-# The MakeJurisAnalysisTables function accepts the "analysisDF"
+```{r MakeJurisanalysisTable}
+# MakeJurisanalysisTable ======================================================
+# The MakeJurisanalysisTable function accepts the "analysisDF"
 # and generates one table for each jurisdiction specified by
 # the user. Each jurisdiction table is filtered so only the 
 # the required fields are stored in the table.
 #
-# returns jurisAnalysisTables
+# returns jurisanalysisTable
 # ==============================================================================
-MakeJurisAnalysisTables <- function(analysisDF) {
-  jurisAnalysisTables = list()
-
-  for (i in 1:N_JURISDICTIONS) {
-
-   jurisAnalysisDF <- analysisDF %>%
-      select(eval(parse(text = DATA_FIELDS[i])))
-
-    if (DATA_FILTERS[[i]] != "NATIONAL") {
-      jurisAnalysisDF <- jurisAnalysisDF %>%
-        filter(eval(parse(text = DATA_FILTERS[[i]])))
-    }
-
-    jurisAnalysisTables <- 
-      list.append(jurisAnalysisTables, jurisAnalysisDF)
-  }
-
-  return(jurisAnalysisTables)
-}  ## End of MakeJurisStormList function
+# MakeJurisanalysisTable <- function(analysisDF) {
+#   jurisanalysisTable = list()
+# 
+#   for (i in 1:N_JURISDICTIONS) {
+# 
+#    jurisAnalysisDF <- analysisDF %>%
+#       select(eval(parse(text = DATA_FIELDS[i])))
+# 
+#     if (DATA_FILTERS[[i]] != "NATIONAL") {
+#       jurisAnalysisDF <- jurisAnalysisDF %>%
+#         filter(eval(parse(text = DATA_FILTERS[[i]])))
+#     }
+# 
+#     jurisanalysisTable <- 
+#       list.append(jurisanalysisTable, jurisAnalysisDF)
+#   }
+# 
+#   return(jurisanalysisTable)
+# }  ## End of MakeJurisStormList function
 
 ```
 
@@ -1539,28 +1827,30 @@ MakeJurisAnalysisTables <- function(analysisDF) {
 
 ```{r}
 
-# GroupJurisTables =============================================================
-# The GroupJurisTables function accepts the 
-# "jurisAnalysisTables" and groups each table by EVTYPE and 
+# GroupTables =============================================================
+# The GroupTables function accepts the 
+# "jurisanalysisTable" and groups each table by EVTYPE and 
 # each event type is assigned the sum of the group's CASUALTIES,
 # and LOSSES.
 #
-# returns analysisTables
+# returns analysisTable
 # ==============================================================================
-GroupJurisTables <- function(jurisAnalysisTables)
+GroupTables <- function(analysisDF)
 {
-  analysisTables = list()
-  for (juris in jurisAnalysisTables)
-  {
-    juris <- juris %>% group_by(EVTYPE)
-    juris <- juris %>%
+  analysisTable = list()
+    analysisTable <- analysisDF %>% group_by(EVTYPE)
+    analysisTable <- analysisTable %>%
       summarise_at(c("CASUALTIES", "LOSSES"), sum)
 
-    juris <- juris %>% arrange(.$EVTYPE, .by_group = TRUE)
-    analysisTables <- list.append(analysisTables, data.frame(juris))
-  }
+    analysisTable <- analysisTable %>% arrange(.$EVTYPE, .by_group = TRUE)
 
-  return(analysisTables)
+
+  if (VERBOSE) {
+    print(paste0("analysisTable ", dim(analysisTable)))
+    print(head(analysisTable))
+  }
+    
+  return(analysisTable)
 } ## End of GroupJurisDamage function
 
 ```
@@ -1590,7 +1880,7 @@ GroupJurisTables <- function(jurisAnalysisTables)
 #     +-----------------+  resultTables
 #     | Data Analysis |<----<---<---<---<--+
 #     |      Phase      |                    |
-#     |                 | analysisTables     |
+#     |                 | analysisTable     |
 #     +---+-------------+<----<---<---<---+  ^
 #     |   |                               ^  |
 #     |   |                               |  |
@@ -1607,35 +1897,120 @@ GroupJurisTables <- function(jurisAnalysisTables)
 #
 
 # DataAnalysisPhase ============================================================
-# The GroupJurisTables function accepts the 
-# "jurisAnalysisTables" and groups each table by EVTYPE and 
+# The GroupTables function accepts the 
+# "jurisanalysisTable" and groups each table by EVTYPE and 
 # each event type is assigned the sum of the group's CASUALTIES,
 # and LOSSES.
 #
-# returns analysisTables
+# returns analysisTable
 # ==============================================================================
-DataAnalysisPhase <- function(analysisTables)
+DataAnalysisPhase <- function(analysisTable)
 {
-  resultTables  <- list()
+  damageTables = list()
 
-  worstCasualtiesTables  <- MakeworstDamageTables(analysisTables, CASUALTIES_IDX)
-  worstLossesTables    <- MakeworstDamageTables(analysisTables, LOSSES_IDX)
+  DAMAGE_ORDERING = c("desc(.$CASUALTIES)", "desc(.$LOSSES)")
 
-  worstCasualtiesDF  <- data.frame(worstCasualtiesTables)
-  worstLossesDF    <- data.frame(worstLossesTables)
-  resultTables <- list.append(resultTables, worstCasualtiesDF)
-  resultTables <- list.append(resultTables, worstLossesDF)
+  for (damage in CASUALTIES_IDX:LOSSES_IDX) {
+    table <- analysisTable %>%
+      arrange(eval(parse(text=DAMAGE_ORDERING[damage])), .by_group = TRUE)
+    totalValue <- sum(table[, damage + 1])
 
-  resultTables <- list.append(resultTables, MakeBarImages(worstCasualtiesDF, CASUALTIES_IDX))
-  resultTables <- list.append(resultTables, MakeBarImages(worstLossesDF, LOSSES_IDX))
+    accumulator     <- 0
+    percentList     <- list()
+    accumulatorList <- list()
+    
+    # TODO: make this a lambda function
+    for (i in 1:length(table$EVTYPE)) {
+      percent <- table[i, damage + 1]/totalValue
+      accumulator <- accumulator + percent
+      percentList <- append(percentList, percent)
+      accumulatorList <- append(accumulatorList, accumulator)
+    }
 
-  set <- c(head(worstCasualtiesDF$EVTYPE, n = 10), 
-                head(worstLossesDF$EVTYPE, n = 10))
+    if (damage == CASUALTIES_IDX) {
+       table$PERCENT_CASUALTY <- as.numeric(unlist(percentList))
+       table$ACC_PERCENT_CASUALTY <- as.numeric(unlist(accumulatorList))
+    } else if (damage == LOSSES_IDX) {
+       table$PERCENT_LOSSES <- as.numeric(unlist(percentList))
+       table$ACC_PERCENT_LOSSES <- as.numeric(unlist(accumulatorList))
+    }
+    
+    damageTables <- list.append(damageTables, table)
+  } # end of for loop
+
+  worstDamageTable <- cbind(damageTables[[1]], damageTables[[2]])
+  colnames(worstDamageTable) <- 
+    c('EVTYPE_C', 'CASUALTIES_C', 'LOSSES_C', 'PERCENT_CASUALTY', 
+      'ACC_PERCENT_CASUALTY', 'EVTYPE_L', 'CASUALTIES_L', 'LOSSES_L', 
+      'PERCENT_LOSSES', 'ACC_PERCENT_LOSSES')
+  
+  
+   for (damage in CASUALTIES_IDX:LOSSES_IDX)
+  {
+    table <- head(worstDamageTable, n=10) %>% 
+      select(eval(parse(text = DAMAGE_SELECT[[damage]])))
+    colnames(table) <- eval(parse(text = TABLE_NAMES[[damage]]))
+
+    table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
+
+    plt <- ggplot(table,
+                  aes(x = eval(parse(text=DAMAGE_REORDER[[damage]])),
+                      y = eval(parse(text=DAMAGE_NAMES[[damage]])))) +
+      ggtitle(paste0("Figure 1. United States Storm Related ",
+                     str_to_title(DAMAGE_NAMES[[damage]]))) +
+      xlab("Events") +
+      ylab(DAMAGE_NAMES[damage]) +
+      geom_bar(stat="identity", width=0.7, fill="steelblue") +
+      theme(plot.title = element_text(face="plain", color="black", size=12),
+            axis.text.x = element_text(size = 5, face="bold"),
+            axis.text.y = element_text(size = 5, face="bold"),
+            axis.title.x = element_text(size = 8, face="bold"),
+            axis.title.y = element_text(size = 8, face="bold"))
+    save_plot(paste0("imageBars0", damage, ".png"), plt) 
+   }
+  
+
+  set <- c(head(worstDamageTable$EVTYPE_C, n = 10),
+                head(worstDamageTable$EVTYPE_L, n = 10))
   eventSet <- unique(set)
-  resultTables <- list.append(resultTables, MakeCvLImages(analysisTables, eventSet))
 
-  return (resultTables)
-}
+  bigEvt <- analysisTable[analysisTable$EVTYPE %in% eventSet,  ]
+  # print (analysisTable$EVTYPE_C)
+  # print (bigEvt)
+  # print(analysisTable)
+  # 
+  # # print(paste0("Analysistable type ", class(analysisTable)))
+  # # print(head(analysisTable))
+  plt <- ggplot(analysisTable, aes(x = CASUALTIES, y = LOSSES)) +
+    ggtitle(
+      paste0("Figure 3. United States  Casualties vs. Economic Losses")) +
+    xlab("Event Type") + ylab("Losses ($ millions)") +
+    theme(plot.title = element_text(face="plain", color="black", size=28),
+          axis.title.x = element_text(face="bold", color="black", size=14),
+          axis.title.y = element_text(face="bold", color="black", size=14),
+          axis.text = element_text(size = 10, face="bold")) +
+    geom_point(data =
+                 analysisTable[!(analysisTable$EVTYPE %in% eventSet),  ],
+               aes(x = CASUALTIES, y = LOSSES, size = 3) +
+                 theme(legend.position="none")) +
+    geom_point(data = analysisTable[analysisTable$EVTYPE %in% eventSet,  ],
+           aes(x = CASUALTIES, y = LOSSES, color = EVTYPE, size = 3)) +
+    geom_smooth(method = lm) +
+    geom_text_repel (
+      data = bigEvt,
+      aes(x=CASUALTIES, y=LOSSES, label = EVTYPE, color = EVTYPE, fontface = "bold"),
+      min.segment.length = 0.0, nudge_y = 10.0, nudge_x = 100.0,
+      force = 40.0,
+      force_pull = 1.0
+    )
+
+  save_plot("imageSet.png", plt, ncol = 2, nrow = 2)
+
+  # MakeBarImages(worstDamageTable)
+  # MakeCvLImages(worstDamageTable, eventSet)
+
+  return(worstDamageTable)
+} # end of DataAnalysisPhase
 
 ```
 
@@ -1643,7 +2018,7 @@ DataAnalysisPhase <- function(analysisTables)
 
 ```{r MakeworstDamageTables}
 # MakeworstDamageTables ==========================================================
-# MakeworstDamageTables accepts the "analysisTables" and "analysisIndex" and 
+# MakeworstDamageTables accepts the "analysisTable" and "analysisIndex" and 
 #                     orders each of the analysis tables by the corresponding 
 #                     analysis type. This sets up tables ordered by either 
 #                     Casualties or Losses for each Jurisdiction. It also 
@@ -1655,7 +2030,7 @@ DataAnalysisPhase <- function(analysisTables)
 # percentages of each event from the highest to lowest values. Each value 
 # represents the percentage the events and the previous events Damage. 
 #
-# Input analysisTables are a set of data.frames contained in a list. Each 
+# Input analysisTable are a set of data.frames contained in a list. Each 
 #       data.frame stores data for a given Jurisdiction/Analysis Type.
 # 
 #       analysisIndex is the analysis type (casualties or economic losses).
@@ -1669,17 +2044,15 @@ DataAnalysisPhase <- function(analysisTables)
 # 1           Tornado      96997 52057.005       0.62316578            0.6231658
 # 2    Excessive Heat      12363   524.795       0.07942718            0.7025930
 # ==============================================================================
-MakeworstDamageTables <- function(analysisTables, analysisIndex) {
-  worstDamageTables = list()
+MakeworstDamageTables <- function(analysisTable) {
+  damageTables = list()
 
-  for (i in 1:N_JURISDICTIONS) {
-    switch(analysisIndex,
-           table <- analysisTables[[i]] %>%
-             arrange(desc(.$CASUALTIES), .by_group = TRUE),
-           table <- analysisTables[[i]] %>%
-             arrange(desc(.$LOSSES), .by_group = TRUE)
-    )
-    totalValue <- sum(table[, analysisIndex + 1])
+  DAMAGE_ORDERING = c("desc(.$CASUALTIES)", "desc(.$LOSSES)")
+
+  for (damage in CASUALTIES_IDX:LOSSES_IDX) {
+    table <- analysisTable %>%
+      arrange(eval(parse(text=DAMAGE_ORDERING[damage])), .by_group = TRUE)
+    totalValue <- sum(table[, damage + 1])
 
     accumulator     <- 0
     percentList     <- list()
@@ -1687,24 +2060,30 @@ MakeworstDamageTables <- function(analysisTables, analysisIndex) {
     
     # TODO: make this a lambda function
     for (i in 1:length(table$EVTYPE)) {
-      percent <- table[i, analysisIndex + 1]/totalValue
+      percent <- table[i, damage + 1]/totalValue
       accumulator <- accumulator + percent
       percentList <- append(percentList, percent)
       accumulatorList <- append(accumulatorList, accumulator)
     }
 
-    if (analysisIndex == CASUALTIES_IDX) {
+    if (damage == CASUALTIES_IDX) {
        table$PERCENT_CASUALTY <- as.numeric(unlist(percentList))
        table$ACC_PERCENT_CASUALTY <- as.numeric(unlist(accumulatorList))
-    } else if (analysisIndex == LOSSES_IDX) {
+    } else if (damage == LOSSES_IDX) {
        table$PERCENT_LOSSES <- as.numeric(unlist(percentList))
        table$ACC_PERCENT_LOSSES <- as.numeric(unlist(accumulatorList))
     }
+    
+    damageTables <- list.append(damageTables, table)
+  } # end of for loop
 
-    worstDamageTables <- list.append(worstDamageTables, table)
-  }
+  table <- cbind(damageTables[[1]], damageTables[[2]])
+  colnames(table) <- 
+    c('EVTYPE_C', 'CASUALTIES_C', 'LOSSES_C', 'PERCENT_CASUALTY', 
+      'ACC_PERCENT_CASUALTY', 'EVTYPE_L', 'CASUALTIES_L', 'LOSSES_L', 
+      'PERCENT_LOSSES', 'ACC_PERCENT_LOSSES')
 
-  return (worstDamageTables)
+  return (table)
 }
 
 ```
@@ -1730,69 +2109,41 @@ MakeworstDamageTables <- function(analysisTables, analysisIndex) {
 # return imageList
 #
 # ==============================================================================
-MakeBarImages <- function(worstDamageTables, index) {
+MakeBarImages <- function(worstDamageTables) {
+  
+  for (damage in CASUALTIES_IDX:LOSSES_IDX)
+  {
+    table <- head(worstDamageTables, n=10) %>% 
+      select(eval(parse(text = DAMAGE_SELECT[[damage]])))
+    colnames(table) <- eval(parse(text = TABLE_NAMES[[damage]]))
 
-  pltSet = list()
+    table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
 
-  for (i in 1:N_JURISDICTIONS) {
-    worstDamageTables <- head(worstDamageTables, n=10)
-
-    if (index == CASUALTIES_IDX) {
-      table <- worstDamageTables %>% select(EVTYPE, CASUALTIES)
-      table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
-
-      plt <- ggplot(table,
-                    aes(x = reorder(EVTYPE, -CASUALTIES),
-                        y = CASUALTIES )) +
-        ggtitle(paste0("Figure ", 1, ". ", JURISDICTION_LABELS[[i]], " ",
-                       AXIS_LABELS[[index]][2])) +
-        xlab(AXIS_LABELS[[1]][1]) +
-        ylab(AXIS_LABELS[[1]][2]) +
-        geom_bar(stat="identity", width=0.7, fill="steelblue") +
-        theme(plot.title = element_text(face="plain", color="black", size=12),
-              axis.text.x = element_text(size = 5, face="bold"),
-              axis.text.y = element_text(size = 5, face="bold"),
-              axis.title.x = element_text(size = 8, face="bold"),
-              axis.title.y = element_text(size = 8, face="bold"))
-      pltSet <- list.append(pltSet, plt)
-    } else  {
-      table <- worstDamageTables %>% select(EVTYPE, LOSSES)
-
-      table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
-
-      plt <- ggplot(table,
-                    aes(x = reorder(EVTYPE, -LOSSES),
-                        y = LOSSES )) +
-        ggtitle(paste0("Figure ", 2, ". ",
-                JURISDICTION_LABELS[[i]], " ",
-                       AXIS_LABELS[[index]][2])) +
-        xlab(AXIS_LABELS[[2]][1]) +
-        ylab(AXIS_LABELS[[2]][2]) +
-        geom_bar(stat="identity", width=0.7, fill="steelblue") +
-        theme(plot.title = element_text(face="plain", color="black", size=12),
-              axis.text.x = element_text(face="bold", size = 5),
-              axis.text.y = element_text(size = 5, face="bold"),
-              axis.title.x = element_text(size = 8, face="bold"),
-              axis.title.y = element_text(size = 8, face="bold"))
-      pltSet <- list.append(pltSet, plt)
-    }
-  }
-
-  imageList <- plot_grid(plotlist = pltSet)
-
-  save_plot(paste0("imageBars", index, ".png"), imageList)
-
-  return (imageList)
+    plt <- ggplot(table,
+                  aes(x = eval(parse(text=DAMAGE_REORDER[[damage]])),
+                      y = eval(parse(text=DAMAGE_NAMES[[damage]])))) +
+      ggtitle(paste0("Figure 1. United States Storm Related ",
+                     str_to_title(DAMAGE_NAMES[[damage]]))) +
+      xlab("Events") +
+      ylab(DAMAGE_NAMES[damage]) +
+      geom_bar(stat="identity", width=0.7, fill="steelblue") +
+      theme(plot.title = element_text(face="plain", color="black", size=12),
+            axis.text.x = element_text(size = 5, face="bold"),
+            axis.text.y = element_text(size = 5, face="bold"),
+            axis.title.x = element_text(size = 8, face="bold"),
+            axis.title.y = element_text(size = 8, face="bold"))
+    save_plot(paste0("imageBars0", damage, ".png"), plt)
+  } # end of for loop
 }
 
 ```
 
-#### Make Human vs. Economic Image
+#### Make Casualties vs. Economic Loss Image
 
 ```{r MakeCvLImages}
   
 # MakeCvLImages ================================================================
-# MakeCvLImages accepts the "analysisTables" and the "eventSet". This function
+# MakeCvLImages accepts the "analysisTable" and the "eventSet". This function
 #               will create a scatterplot of casualties vs. economic losses for
 #               all of the weather events. Each event is a point the plot and
 #               a regression line is drawn, separating the points that are 
@@ -1808,7 +2159,7 @@ MakeBarImages <- function(worstDamageTables, index) {
 #               The plot compares the trade-off between the human and economic 
 #               Damages of severe weather. 
 #
-# Input analysisTables are a set of data.frames listing the analysis types, 
+# Input analysisTable are a set of data.frames listing the analysis types, 
 #       and their respective Damages.
 # 
 #       analysisIndex is the analysis type (casualties or economic losses).
@@ -1816,50 +2167,38 @@ MakeBarImages <- function(worstDamageTables, index) {
 # return imageSet
 #
 # ==============================================================================
-MakeCvLImages <- function(analysisTables, eventSet) {
+MakeCvLImages <- function(analysisTable, eventSet) {
+  analysisTable$EVFACTOR_C <- factor(analysisTable$EVTYPE_C, 
+                             levels = analysisTable$EVTYPE_C)
 
-  eventSet <- c(eventSet)
-  print(paste0("type of eventSet ", class(eventSet)))
-  print(paste0("eventSet ", eventSet))
+  bigEvt <- analysisTable[analysisTable$EVTYPE_C %in% eventSet,  ]
 
-  pltSet = list()
+  print(paste0("Analysistable type ", class(analysisTable)))
+  print(head(analysisTable))
+  plt <- ggplot(analysisTable, aes(x = CASUALTIES_C, y = LOSSES_C)) +
+    ggtitle(
+      paste0("Figure 3. United States  Casualties vs. Economic Losses")) +
+    xlab("Event Type") + ylab("Losses ($ millions)") +
+    theme(plot.title = element_text(face="plain", color="black", size=28),
+          axis.title.x = element_text(face="bold", color="black", size=14),
+          axis.title.y = element_text(face="bold", color="black", size=14),
+          axis.text = element_text(size = 10, face="bold")) +
+    geom_point(data = 
+                 analysisTable[!(analysisTable$EVTYPE_C %in% eventSet),  ],
+               aes(x = CASUALTIES_C, y = LOSSES_C, size = 3) +
+                 theme(legend.position="none")) +
+    geom_point(data = analysisTable[analysisTable$EVTYPE_C %in% eventSet,  ],
+           aes(x = CASUALTIES_C, y = LOSSES_C, color = EVTYPE_C, size = 3)) +
+    geom_smooth(method = lm) +
+    geom_text_repel (
+      data = bigEvt,
+      aes(x=CASUALTIES_C, y=LOSSES_C, label = EVTYPE_C, color = EVTYPE_C, fontface = "bold"),
+      min.segment.length = 0.0, nudge_y = 10.0, nudge_x = 100.0,
+      force = 40.0,
+      force_pull = 1.0
+    )
 
-  for (i in 1:N_JURISDICTIONS) {
-    table <- data.frame(analysisTables[[i]])
-    table$EVFACTOR <- factor(table$EVTYPE, levels = table$EVTYPE)
-
-    bigEvt <- table[table$EVTYPE %in% eventSet,  ]
-
-    plt <- ggplot(table, aes(x = CASUALTIES, y = LOSSES)) +
-      ggtitle(paste0("Figure ", 3, ". ",
-              JURISDICTION_LABELS[[i]],
-              " Casualties vs. Economic Losses")) +
-      xlab("Event Type") + ylab("Losses ($ millions)") +
-      theme(plot.title = element_text(face="plain", color="black", size=28),
-            axis.title.x = element_text(face="bold", color="black", size=14),
-            axis.title.y = element_text(face="bold", color="black", size=14),
-            axis.text = element_text(size = 10, face="bold")) +
-      geom_point(data = table[!(table$EVTYPE %in% eventSet),  ],
-             aes(x = CASUALTIES, y = LOSSES, size = 3) +
-               theme(legend.position="none")) +
-      geom_point(data = table[table$EVTYPE %in% eventSet,  ],
-             aes(x = CASUALTIES, y = LOSSES, color = EVTYPE, size = 3))+
-      geom_smooth(method = lm) +
-      geom_text_repel (
-        data = bigEvt,
-        aes(x=CASUALTIES, y=LOSSES, label = EVTYPE, color = EVTYPE, fontface = "bold"),
-        min.segment.length = 0.0, nudge_y = 10.0, nudge_x = 100.0,
-        force = 40.0,
-        force_pull = 1.0
-      )
-
-    pltSet <- list.append(pltSet, plt)
-
-  }
-
-  imageSet <- plot_grid(plotlist = pltSet)
-
-  save_plot("imageSet.png", imageSet, ncol = 2, nrow = 2)
+  save_plot("imageSet.png", plt, ncol = 2, nrow = 2)
 }
 
 ```
@@ -1904,7 +2243,161 @@ DownloadDataFile <- function(url, stormFileName)
 # accessible all subsequent code blocks.
 #
 # ==============================================================================
-resultTables <- ResultGenerationPhase()
+  if (!file.exists(DATAFILE)) {
+    DownloadstormFileName(URL, DATAFILE)
+  }
+
+  sourceDF <- read.table(DATAFILE, stringsAsFactors = FALSE,
+                        sep = ",",
+                        colClasses = c(rep("NULL",7), NA,
+                                       rep("NULL",14), rep(NA, 6),
+                                       rep("NULL",9)),
+                        header = TRUE)
+  cleanDF            <- sourceDF
+  cleanDF$EVTYPE     <- trimws(cleanDF$EVTYPE, which = c("both"))
+  cleanDF$PROPDMGEXP <- trimws(cleanDF$PROPDMGEXP, which = c("both"))
+  cleanDF$CROPDMGEXP <- trimws(cleanDF$CROPDMGEXP, which = c("both"))
+  cleanDF$EVTYPE     <- tolower(cleanDF$EVTYPE)
+  cleanDF$PROPDMGEXP <- tolower(cleanDF$PROPDMGEXP)
+  cleanDF$CROPDMGEXP <- tolower(cleanDF$CROPDMGEXP)
+  
+  nonZeroDF <- cleanDF[
+    cleanDF$FATALITIES != 0 |
+      cleanDF$INJURIES != 0 |
+      cleanDF$PROPDMG != 0 |
+      cleanDF$CROPDMG != 0, ]
+  
+    validDF <- nonZeroDF[
+    nonZeroDF$EVTYPE != '?' &
+    nonZeroDF$EVTYPE != 'high' &
+    nonZeroDF$EVTYPE != 'marine accident' &
+    nonZeroDF$EVTYPE != 'marine mishap' &
+    nonZeroDF$EVTYPE != 'other'&
+    nonZeroDF$EVTYPE != 'apache county'
+    ,]
+
+  stormDF    <- UnifyTypes(validDF)
+  analysisDF <- stormDF %>% ungroup(.) %>%
+    mutate (PROPDMGEXP = 
+              ifelse(PROPDMGEXP == 'k', 1000.,
+                     ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
+            CROPDMGEXP = 
+              ifelse(CROPDMGEXP == 'k', 1000., 
+                     ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
+            PROPDMG       = PROPDMG * PROPDMGEXP,
+            CROPDMG       = CROPDMG * CROPDMGEXP,
+            CASUALTIES    = FATALITIES + INJURIES,
+            LOSSES     = (PROPDMG + CROPDMG)/1000000.0
+            ) %>%
+    select(EVTYPE, CASUALTIES, LOSSES)
+
+  colnames(analysisDF) <- c('EVTYPE', 'CASUALTIES', 'LOSSES')
+  # analysisTable = list()
+    analysisTable <- analysisDF %>% group_by(EVTYPE)
+    analysisTable <- analysisTable %>%
+      summarise_at(c("CASUALTIES", "LOSSES"), sum)
+
+    analysisTable <- analysisTable %>% arrange(.$EVTYPE, .by_group = TRUE)
+  damageTables = list()
+
+  DAMAGE_ORDERING = c("desc(.$CASUALTIES)", "desc(.$LOSSES)")
+
+  for (damage in CASUALTIES_IDX:LOSSES_IDX) {
+    table <- analysisTable %>%
+      arrange(eval(parse(text=DAMAGE_ORDERING[damage])), .by_group = TRUE)
+    totalValue <- sum(table[, damage + 1])
+
+    accumulator     <- 0
+    percentList     <- list()
+    accumulatorList <- list()
+    
+    # TODO: make this a lambda function
+    for (i in 1:length(table$EVTYPE)) {
+      percent <- table[i, damage + 1]/totalValue
+      accumulator <- accumulator + percent
+      percentList <- append(percentList, percent)
+      accumulatorList <- append(accumulatorList, accumulator)
+    }
+
+    if (damage == CASUALTIES_IDX) {
+       table$PERCENT_CASUALTY <- as.numeric(unlist(percentList))
+       table$ACC_PERCENT_CASUALTY <- as.numeric(unlist(accumulatorList))
+    } else if (damage == LOSSES_IDX) {
+       table$PERCENT_LOSSES <- as.numeric(unlist(percentList))
+       table$ACC_PERCENT_LOSSES <- as.numeric(unlist(accumulatorList))
+    }
+    
+    damageTables <- list.append(damageTables, table)
+  } # end of for loop
+
+  worstDamageTable <- cbind(damageTables[[1]], damageTables[[2]])
+  colnames(worstDamageTable) <- 
+    c('EVTYPE_C', 'CASUALTIES_C', 'LOSSES_C', 'PERCENT_CASUALTY', 
+      'ACC_PERCENT_CASUALTY', 'EVTYPE_L', 'CASUALTIES_L', 'LOSSES_L', 
+      'PERCENT_LOSSES', 'ACC_PERCENT_LOSSES')
+  
+  
+   for (damage in CASUALTIES_IDX:LOSSES_IDX)
+  {
+    table <- head(worstDamageTable, n=10) %>% 
+      select(eval(parse(text = DAMAGE_SELECT[[damage]])))
+    colnames(table) <- eval(parse(text = TABLE_NAMES[[damage]]))
+
+    table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
+
+    plt <- ggplot(table,
+                  aes(x = eval(parse(text=DAMAGE_REORDER[[damage]])),
+                      y = eval(parse(text=DAMAGE_NAMES[[damage]])))) +
+      ggtitle(paste0("Figure 1. United States Storm Related ",
+                     str_to_title(DAMAGE_NAMES[[damage]]))) +
+      xlab("Events") +
+      ylab(DAMAGE_NAMES[damage]) +
+      geom_bar(stat="identity", width=0.7, fill="steelblue") +
+      theme(plot.title = element_text(face="plain", color="black", size=12),
+            axis.text.x = element_text(size = 5, face="bold"),
+            axis.text.y = element_text(size = 5, face="bold"),
+            axis.title.x = element_text(size = 8, face="bold"),
+            axis.title.y = element_text(size = 8, face="bold"))
+    save_plot(paste0("imageBars0", damage, ".png"), plt) 
+   }
+  
+
+  set <- c(head(worstDamageTable$EVTYPE_C, n = 10),
+                head(worstDamageTable$EVTYPE_L, n = 10))
+  eventSet <- unique(set)
+
+  bigEvt <- analysisTable[analysisTable$EVTYPE %in% eventSet,  ]
+  # print (analysisTable$EVTYPE_C)
+  # print (bigEvt)
+  # print(analysisTable)
+  # 
+  # # print(paste0("Analysistable type ", class(analysisTable)))
+  # # print(head(analysisTable))
+  plt <- ggplot(analysisTable, aes(x = CASUALTIES, y = LOSSES)) +
+    ggtitle(
+      paste0("Figure 3. United States  Casualties vs. Economic Losses")) +
+    xlab("Event Type") + ylab("Losses ($ millions)") +
+    theme(plot.title = element_text(face="plain", color="black", size=28),
+          axis.title.x = element_text(face="bold", color="black", size=14),
+          axis.title.y = element_text(face="bold", color="black", size=14),
+          axis.text = element_text(size = 10, face="bold")) +
+    geom_point(data =
+                 analysisTable[!(analysisTable$EVTYPE %in% eventSet),  ],
+               aes(x = CASUALTIES, y = LOSSES, size = 3) +
+                 theme(legend.position="none")) +
+    geom_point(data = analysisTable[analysisTable$EVTYPE %in% eventSet,  ],
+           aes(x = CASUALTIES, y = LOSSES, color = EVTYPE, size = 3)) +
+    geom_smooth(method = lm) +
+    geom_text_repel (
+      data = bigEvt,
+      aes(x=CASUALTIES, y=LOSSES, label = EVTYPE, color = EVTYPE, fontface = "bold"),
+      min.segment.length = 0.0, nudge_y = 10.0, nudge_x = 100.0,
+      force = 40.0,
+      force_pull = 1.0
+    )
+
+  save_plot("imageSet.png", plt, ncol = 2, nrow = 2)
+    # resultTable <- ResultGenerationPhase()
 
 ```
 
@@ -1918,27 +2411,33 @@ resultTables <- ResultGenerationPhase()
 # the "resultTables" an converts them to knitr:Kable tables.
 # ==============================================================================
 
-worstCasualties <- resultTables[1]
-worstLosses   <- resultTables[2]
+# worstCasualties <- resultTables[1]
+# worstLosses   <- resultTables[2]
 
 tbl = list()
 
-for (j in CASUALTIES_IDX:LOSSES_IDX) {
-  for (i in 1:N_JURISDICTIONS) {
-    switch(j,
-      worstList <- data.frame(worstCasualties) %>%
-        select(EVTYPE, CASUALTIES, PERCENT_CASUALTY, ACC_PERCENT_CASUALTY),
-      worstList <- data.frame(worstLosses) %>%
-        select(EVTYPE, LOSSES, PERCENT_LOSSES, ACC_PERCENT_LOSSES)
+# print(class(resultTable))
+# print(resultTable)
+# #       worstList <- resultTable %>%
+# #         select(EVTYPE_C)
+# #       
+# # print(worstList)
+
+for (damage in CASUALTIES_IDX:LOSSES_IDX) {
+    switch(damage,
+      worstList <- worstDamageTable %>%
+        select(EVTYPE_C, CASUALTIES_C, PERCENT_CASUALTY, ACC_PERCENT_CASUALTY),
+      worstList <- worstDamageTable %>%
+        select(EVTYPE_L, LOSSES_L, PERCENT_LOSSES, ACC_PERCENT_LOSSES)
       )
 
     resTable <- knitr::kable(head(worstList, n = 10), "html",
       caption = paste0("<center><strong><font size='1'>",
-                       "Table ", j, ". ", JURISDICTION_LABELS[[i]], " ",
-                       AXIS_LABELS[[j]][2],
+                       "Table ", damage,". United States ",
+                       AXIS_LABELS[[damage]][2],
                        "</font><center></strong>"),
       digits = 3, align = "lrrr",
-      col.names = c(AXIS_LABELS[[j]]), row.names = TRUE) %>%
+      col.names = c(AXIS_LABELS[[damage]]), row.names = TRUE) %>%
       kable_styling(bootstrap_options = c("striped", "hover"),
                     full_width = F,
                     position = "left",
@@ -1949,7 +2448,6 @@ for (j in CASUALTIES_IDX:LOSSES_IDX) {
       column_spec(column=4, width="2cm") %>%
       kable_classic_2()
     tbl <- list.append(tbl, resTable)
-  }
 }
 
 ```
@@ -1980,13 +2478,13 @@ The U.S. Federal Emergency Management Agency (FEMA) places the Valuation of Stat
 ## Worst Weather Related Causes of Casualties
 
 ```{r, message=TRUE, echo = TRUE}
-    knitr::include_graphics("imageBars1.png")
+    knitr::include_graphics("imageBars01.png")
 ```
 
 ## Worst Weather Related Causes of Economic Losses
 
 ```{r, message=TRUE, echo = TRUE}
-    knitr::include_graphics("imageBars2.png")
+    knitr::include_graphics("imageBars02.png")
 ```
 
 ## Comparison of Causalties and Economic Losses
@@ -2111,7 +2609,7 @@ Functions "Constants" Generality -- Jurisdictions Code Standards Including all c
 <td></td>
 <td></td>
 </tr>
-<tr><td>analysisTables</td>
+<tr><td>analysisTable</td>
 <td></td>
 <td></td>
 </tr>
@@ -2135,7 +2633,7 @@ Functions "Constants" Generality -- Jurisdictions Code Standards Including all c
 <td></td>
 <td></td>
 </tr>
-<tr><td>jurisAnalysisTables</td>
+<tr><td>jurisanalysisTable</td>
 <td></td>
 <td></td>
 </tr>
@@ -2200,46 +2698,46 @@ Functions "Constants" Generality -- Jurisdictions Code Standards Including all c
 ## Appendix III: Complete Damage Tables
 
 ```{r}
-
-tbl = list()
-
-for (j in CASUALTIES_IDX:LOSSES_IDX) {
-  for (i in 1:N_JURISDICTIONS) {
-    switch(j,
-      worstList <- data.frame(worstCasualties) %>%
-        select(EVTYPE, CASUALTIES, PERCENT_CASUALTY, ACC_PERCENT_CASUALTY),
-      worstList <- data.frame(worstLosses) %>%
-        select(EVTYPE, LOSSES, PERCENT_LOSSES, ACC_PERCENT_LOSSES)
-      )
-
-    resTable <- knitr::kable(worstList, "html",
-      caption = paste0("<center><strong><font size='1'>",
-                       "Table ", j, ". ", JURISDICTION_LABELS[DATA_INDICES[[i]]], " ",
-                       AXIS_LABELS[[j]][2],
-                       "</font><center></strong>"),
-      digits = 3, align = "lrrr",
-      col.names = c(AXIS_LABELS[[j]]), row.names = TRUE) %>%
-      kable_styling(bootstrap_options = c("striped", "hover"),
-                    full_width = F,
-                    position = "left",
-                    font_size = 10) %>%
-      column_spec(column=1, width="1cm") %>%
-      column_spec(column=2, width="4cm") %>%
-      column_spec(column=3, width="2cm") %>%
-      column_spec(column=4, width="2cm") %>%
-      kable_classic_2()
-    tbl <- list.append(tbl, resTable)
-  }
-}
+# 
+# tbl = list()
+# 
+# for (j in CASUALTIES_IDX:LOSSES_IDX) {
+#   for (i in 1:N_JURISDICTIONS) {
+#     switch(j,
+#       worstList <- data.frame(worstCasualties) %>%
+#         select(EVTYPE, CASUALTIES, PERCENT_CASUALTY, ACC_PERCENT_CASUALTY),
+#       worstList <- data.frame(worstLosses) %>%
+#         select(EVTYPE, LOSSES, PERCENT_LOSSES, ACC_PERCENT_LOSSES)
+#       )
+# 
+#     resTable <- knitr::kable(worstList, "html",
+#       caption = paste0("<center><strong><font size='1'>",
+#                        "Table ", j, ". ", JURISDICTION_LABELS[DATA_INDICES[[i]]], " ",
+#                        AXIS_LABELS[[j]][2],
+#                        "</font><center></strong>"),
+#       digits = 3, align = "lrrr",
+#       col.names = c(AXIS_LABELS[[j]]), row.names = TRUE) %>%
+#       kable_styling(bootstrap_options = c("striped", "hover"),
+#                     full_width = F,
+#                     position = "left",
+#                     font_size = 10) %>%
+#       column_spec(column=1, width="1cm") %>%
+#       column_spec(column=2, width="4cm") %>%
+#       column_spec(column=3, width="2cm") %>%
+#       column_spec(column=4, width="2cm") %>%
+#       kable_classic_2()
+#     tbl <- list.append(tbl, resTable)
+#   }
+# }
 
 ```
 
 ```{r, message=TRUE, echo = TRUE}
-  tbl[[1]]
+  # tbl[[1]]
 ```
 
 ```{r, message=TRUE, echo = TRUE}
-  tbl[[2]]
+  # tbl[[2]]
 ```
 
 ## Appendix IV: Improvements
