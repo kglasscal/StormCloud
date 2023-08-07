@@ -1,206 +1,815 @@
 ---
-title: 'StormCloud: The Human and Economic Toll from U.S. Storms'
+title: 'Severe Weather: Preparing for Emergency Response'
 author: "Kevin Glass"
 date: "`r Sys.Date()`"
 output:
   html_document:
     toc: yes
-    toc_depth: 5
+    toc_depth: 3
     number_sections: yes
     toc_float:
       toc_collapsed: yes
     theme: united
 ---
 
-# Synopsis
+```{r knitr setup}
 
-The United States has a variety of weather events ranging from the extreme cold and extreme heat, extreme precipitation and lack of precipitation, tornadoes, hurricanes, etc. The number of casualties (deaths and injuries) and the economic losses do to these phenomena can significantly vary, making a difficult challenge for the emergency response organizations tasked with allocating response resources. The StormCloud R-Markdown Document was developed to provide public health and economic insight into the nature of these potential disasters to help the responsible agencies to arrange resources. StormCloud uses data from the National Oceanographic and Atmospheric Agency (NOAA) Storm Events Database[a]. After cleaning and processing the data set, StormCloud organized the data using the National Weather Service (NWS) storm type nomenclature [b]. The final data set was then grouped based on the NWS nomeclature, including the total human and economic Damages associated with each event type. After ordering the groups according to casualties and economic losses, StormCloud listed the complete data sets in two tables, Table 1 for casualties and Table 2 for economic losses. To visualize some of the more dramatic features of the data, StormCloud produces two bar charts--Figures 1 and 2--showing the relative impact on storm events on both casualties and economic losses. In addition to the bar charts, Figure 3 is a scatterplot of casualty date versus economic losses. Each of these plots presents a picture of the impact of weather events on people. They also help emergency response organizations with valuable information to plan for when, where and how many resources they may need to allocate.
+knitr::opts_chunk$set(echo = TRUE)
+options(max.print = 1000000)
+
+```
+
 
 ```{=html}
-<div style="font-size : 24px; font-weight: bold; color: red; text-align: center;">
-BEFORE YOU START
-</div>
-```
-1.  This document is formatted for a wide viewing window. Please expand the browser window before you start.
-
-    1.  For the best view, expand the window to it maximum size.
-    2.  For a good view, expand the window to ensure the line below does not wrap around to a second line.
-
-```{r}
-# _____________________________________________________________________________________
+<div style="font-size : 12; color: black; font-weight: normal;">  <!-- Base page -->
 ```
 
-2.  My approach to the project is to keep it as general as possible, so the code is dense and long. That is, there are a lot of complex details that rely on variables, including global variable used as constants, and functions. <strong>Consider Reading Appendix I: Introduction to StormCloud Development</strong> before you assess the code. It will explain some of the subtler details.
+# Synopsis
 
-3.  The index on the side of the document is useful for navigating the project. Please take advantage of it.
+This document is designed to assist emergency response organizations to prepare for severe weather events in the United States. Tornadoes in the Midwest, hurricanes in the Gulf Coast and Eastern Seaboard, severe winter storms in the Mountain West, and so on, require these organizations to deal with different relief needs in differing geographical areas. In particular, weather events can cause human HEALTH (injuries and deaths), economic losses (property or crop damage), or both. Using historical data provided by National Oceanographic and Atmospheric Agency (NOAA) Storm Events Database [a], we assessed the kinds of damages caused by each type of event. 
 
-# Introduction
 
-## The Purpose of StormCloud
+The document cleaned the historical data; removed data points that were either non-contributing, i.e., added no values to both HEALTH and losses; and ensured all of the event names conformed to the National Weather Service (NWS) Instruction 10-1605 [b]. 
 
-The purpose of StormCloud is, "to explore the NOAA Storm Database and answer some basic questions about severe weather events". The specific questions 
 
-1. "Across the United States, which types of events...are most harmful with respect to population health?"
-2. "Across the United States, which types of events have the greatest economic consequences?"
-
-To this end, StormCloud is designed to examine the Storm Database from different jursidicitional perspectives. Specifically, it can be used to examine the data nationwide, statewide, or countywide jurisdictions in any combination. This will allow any organization to examine how causalties and economic losses could be prioritized at any level.
+From this, the document creates a pair of tables showing the worst ten events in terms of human casualties and economic losses. With this data document generates and displays two images visualizing from the worst ten events tables. A final image is a plot of casualties versus economic losses, which visually shows the type of resources (medical or financial) a given event would need. 
 
 # Data Processing
-
-## Transformed Data
-
-To understand how StormCloud processes the data, it is best to start with a high level understanding of the data transformations that take place. The following list includes the major data sets only.
-
-1.  **sourceDF** is a data.frame used to store the data from the storm data file. The file 
-2.  **analysisDF** are the cleaned source data. These data are used to generate the Analysis Tables.
-3.  **analysisTable** are tables derived from the analysisDF and are used to generate the analysis Result Tables.
-4.  **resultTables** contain the results of the data analysis. These include between two and six tables depending on the analysis requested by the user. The tables list the casualties and economic Damages for each weather event. A pair of tables are prepared for nationwide, statewide and/or countywide jurisdictions. The pair consist of a table ordered by casualties and a table ordered by economic losses.
-
-## Processing Phases
-
-Given the complexity of StormCloud's intended use, the code is necessarily complex. To make the code easier to follow, I have divided it into the six phases listed below. Three of the phases are involved in some
-
-1.  **Setup Phase**. The purpose of the Setup Phase is to include the necessary libraries and to set the global "constants".
-2.  **Execute Phase**. The purpose of the Execute Phase is to start the transformation process by supplying the Results Generation Phase it the name of the data fileand ending with the **resultTables**. It also makes the **resultTables** avaliable for the Data Presentation Phase.
-3.  **Results Generation Phase**. The purpose of the Results Generation Phase is to coordinate the creation of the **resultTables** by invoking the Data Assembly Phase and the Data Analysis Phase.
-4.  **Data Assembly Phase**. The Data Assembly Phase reads the source data from the user defined data file, creates, and return the **analysisDF**.
-5.  **Data Analysis Phase**. The purpose of the Data Analysis Phase is to transform the **analysisDF** to a set of tables and images. This completes the Generation Phase.
-6.  **Data Presentation Phase**. The Data Presentation Phase is called after the Execute Phase finishes to give it access to the Analysis Data.
-
-```{r phases}
-# ==============================================================================
-# Phase level program flow
-# As shown in the figure below, the R code, StormCloud will 
-# 1) execute the Setup Phase to the load the required libraries and assign 
-#    values to the global constants then passes control to the Execution Phase;
-# 2) start the Execute Phase by passing control to the Results Generation Phase 
-#    with the data source file name
-#    1) the Results Generation Phase passes control to the Data Assembly Phase 
-#       with the name of the data source file named. The Data Assembly Phase  
-#       converts raw source data to the Analysis Tables. The Analysis Tables are 
-#       returned and control is passed back to the Results Generation Phase.
-#    2) the Results Generation Phase passes control to the Data Analysis Phase 
-#       with the Analysis Tables. The Data Analysis Phase converts it to a set 
-#       of Result Tables. The control is passed back to the Results Generation 
-#       Phase with the Result Tables.
-#    3) the Results Generation Phase passes control to the Execution Phase with
-#       the Result Tables.
-# 3) The Execution Phase stores the Result List and makes it globally available.
-# 4) The Results Generation Phase presents the Result List in an easy to read
-#    output.
-# 
-# ==============================================================================
-# The following diagram is a high level pictorial representation of StormCloud's 
-# phase level execution. It shows how control of the program is passed between
-# phases along with specific data sets.
-# ==============================================================================
-# 
-# 
-#   Start StormCloud 
-#   +-------------+
-#   | Setup Phase |
-#   +-------------+
-#   |                                  
-# Pass control to
-# Execution Phase
-#   |                                        return control to   
-#   |                                         Execution Phase 
-#   |                                      with the resultTables
-#   |     +>-------->+-----------------+--->--->--->--->--->--->--->+
-#   V     ^          | Data Generation |  resultTables              |
-#   |     |          |      Phase      |<---<---<---<---<---<--+    |
-#   |     |          |                 |  analysisTable       |    |
-#   |     ^          +--+--------------+<------------------+   |    V
-#   |     |          |  |                                  |   |    |
-#   |     |          |  Pass control to                    |   |    |
-#   V     |          |  Data Assembly                      |   |    |
-#   |     ^          V  Phase                              |   |    |
-#   |     |          |  |                                  |   |    |
-#   |     |          |  +>--->+---------------+            |   |    V
-#   |     |          |        | Data Assembly |            ^   ^    |
-#   |     *          |        |     Phase     |            |   |    |
-#   |     |          |        +---------------+--->--->--->+   |    V
-#   |     ^          |                          return         |    |
-#   V     |          | analysisTable                          |    |
-#   |     |          +--->--->--->--->+---------------+        ^    |
-#   |     |                           | Data Analysis |        |    |
-#   |     |                           |     Phase     |        |    V
-#   |     |                           +---------------+--->--->+    |
-#   |     Pass control to                               return      |
-#   |     Results Generation                                        |
-#   |     Phase                                                     |
-#   V     |                                                         |  
-#   +>--->+-----------------+              resultTables             V
-#         | Execution Phase |<---<---<---<---<--<---<---<---<---<---+
-#         +-----------------+
-#         |
-#         | Pass control 
-#         | and resultTables
-#         | to the R markdown 
-#   +<----+ document
-#   |         
-#   Pass control to
-#   Data Presentation Phase
-#   |
-#   V
-#   +-----+-------------------------+
-#         | Data Presentation Phase |
-#         +-------------------------+
-#         |
-#         |
-#         V
-#         Done
+```{=html}
+<div style="color: green;">
 ```
 
-## Setup Phase
+## Data Transformations
 
-The Setup Phase is divided into three sections: 
-1. loading the StormCloud library loading, 
-2. setting user constants, 
-3. setting program-defined constant.
+```{=html}
+</div> 
+<div style="color: black;">
 
-### Load StormCloud Libraries
+```
 
-StormCloud requires the following libraries
+The analysis is designed to answer two questions:
 
-```{r setup phase}
+1. **Across the United States, which types of events are most harmful with respect to population health?**
+2. **Across the United States, which types of events have the greatest economic consequences?**
+
+To answer these questions, select data fields must be transformed from its raw form to a form with the data grouped by the event type, *EVTYPE*, with data describing the effect of the event on public health and economic losses. The raw data is not structured in a way that would allow this analysis. 
+
+To get the data into an appropriate structure requires several transformations. Some of these transformations are complex and require detailed explanation. This section will describe why a change is needed, how it is done, and the consequences for the data structures.
+
+### Glossary
+Before describing the transformation, the reader needs some introductory nomenclature:
+
+<div style="color: red;">
+
+The *FATALITIES*, *INJURIES*, *PROPDMG*, *PROPDMGEXP*, *CROPDMG*, and *CROPDMGEXP* fields are required to produce numerical results for each *EVTYPE*. Though *PROPDMGEXP*, and *CROPDMGEXP* are string data, they will be converted to numeric data in the  transformations.
+
+```{=html}
+</div> 
+<div style="color: black;">
+
+```
+
+**initial data fields** are *EVTYPE*, *FATALITIES*, *INJURIES*, *PROPDMG*, *PROPDMGEXP*, *CROPDMG*, and *CROPDMGEXP*. These are the fields used to read the source data file.
+
+**categorical dependent field**  *EVTYPE*.
+
+**numeric fields**  *FATALITIES*, *INJURIES*, *PROPDMG*, and *CROPDMG*
+
+**exponent fields** are *PROPDMGEXP*, and *CROPDMGEXP*. The values are stored as character type and must be converted to numeric types before performing any computation. 
+
+**damage types** are *HEALTH*  and *ECONOMIC*. For this assignment, *HEALTH* is the sum of *FATALITIES* and *INJURIES*. *ECONOMIC* is the sum of *PROPDMG* * *PROPDMGEXP*, and *CROPDMG* * *CROPDMGEXP*.
+
+**unifying names** is the process ensuring all names used by the data collectors are replaced with the appropriate NWS type names.
+
+<hr style="background : #6D0500; height : 15px"/>
+
+
+### Transformation 0: No transformations
+
+**Goal**
+
+To provide a baseline for comparing the effect of each transformation on the memory size required to store the resulting data frame (or tibble) and its dimensions.
+
+**Why?**
+
+One part of understanding the impact of each transformation is understanding how it impacts memory use and how it changes the structure of the data frame. Since the first transformation happens when the data is read, so assessing the impact requires knowing the impact of the transforming read on the data before it is transformed.
+
+
+**How?**
+
+A block of code 
+
+Two "constants" are set before the code is evaluated. The first *VERBOSE* is used to print output when the document user wants to verify aspects of the analysis. The second *ALL_DATA*, ensures the code reads the entire data file. The later is only need to check the full file data and should not be used for analysis purposes.
+
+**Consequences**
+
+```{=html}
+<div style="font-size : 14;">
+
+<strong>Listing 0:</strong> The memory size required to store the data is 50601984, the dimesions of sourceDF are 902297 by 7 and the head of the data frame is shown below.
+
+<pre>
+## 494295216 bytes
+## [1] 902297     37
+##   STATE__           BGN_DATE BGN_TIME TIME_ZONE COUNTY COUNTYNAME STATE  EVTYPE
+## 1       1  4/18/1950 0:00:00     0130       CST     97     MOBILE    AL TORNADO
+## 2       1  4/18/1950 0:00:00     0145       CST      3    BALDWIN    AL TORNADO
+## 3       1  2/20/1951 0:00:00     1600       CST     57    FAYETTE    AL TORNADO
+## 4       1   6/8/1951 0:00:00     0900       CST     89    MADISON    AL TORNADO
+## 5       1 11/15/1951 0:00:00     1500       CST     43    CULLMAN    AL TORNADO
+## 6       1 11/15/1951 0:00:00     2000       CST     77 LAUDERDALE    AL TORNADO
+   .              .                   .         .       .      .        .     . 
+   .              .                   .         .       .      .        .     . 
+   .              .                   .         .       .      .        .     . 
+   
+##   BGN_RANGE BGN_AZI BGN_LOCATI END_DATE END_TIME COUNTY_END COUNTYENDN
+## 1         0    .         .         .       .      .       0         NA
+## 2         0    .         .         .       .      .       0         NA
+## 3         0    .         .         .       .      .       0         NA
+## 4         0    .         .         .       .      .       0         NA
+## 5         0    .         .         .       .      .       0         NA
+## 6         0    .         .         .       .      .       0         NA
+   .         .              .         .       .      .      .           . 
+   .         .              .         .       .      .      .           . 
+   .         .              .         .       .      .      .           . 
+   
+##   END_RANGE END_AZI END_LOCATI LENGTH WIDTH F MAG FATALITIES INJURIES PROPDMG
+## 1         0    .         .       14.0   100 3   0          0       15    25.0
+## 2         0    .         .        2.0   150 2   0          0        0     2.5
+## 3         0    .         .        0.1   123 2   0          0        2    25.0
+## 4         0    .         .        0.0   100 2   0          0        2     2.5
+## 5         0    .         .        0.0   150 2   0          0        2     2.5
+## 6         0    .         .        1.5   177 2   0          0        6     2.5
+   .         .    .         .         .     .  .   .          .        .      .
+   .         .    .         .         .     .  .   .          .        .      .
+   .         .    .         .         .     .  .   .          .        .      .
+
+##   PROPDMGEXP CROPDMG CROPDMGEXP WFO STATEOFFIC ZONENAMES LATITUDE LONGITUDE
+## 1          K       0      .      .       .        .          3040      8812
+## 2          K       0      .      .       .        .          3042      8755
+## 3          K       0      .      .       .        .          3340      8742
+## 4          K       0      .      .       .        .          3458      8626
+## 5          K       0      .      .       .        .          3412      8642
+## 6          K       0      .      .       .        .          3450      8748
+   .          .       .      .      .       .        .            .         .
+   .          .       .      .      .       .        .            .         .
+   .          .       .      .      .       .        .            .         .
+
+##   LATITUDE_E LONGITUDE_ REMARKS REFNUM
+## 1       3051       8806    .         1
+## 2          0          0    .         2
+## 3          0          0    .         3
+## 4          0          0    .         4
+## 5          0          0    .         5
+## 6          0          0    .         6 
+   .          .          .    .         .
+   .          .          .    .         .
+   .          .          .    .         .
+
+</pre>
+</div>
+```
+
+**Consequences**
+
+* The zero transformation requires roughly 500 MB, dimensions of 902297 rows by 37 columns.
+* There were 918 distinct event names at this point.
+
+<hr style="background : #F7261C; height : 15px"/>
+
+### Transformation 1: Reading the data file
+
+**Goal**
+
+The goal of this transformation is to create a data frame called *sourceDF* to store all rows and specific columns from the source file. 
+
+**Why?**
+
+The source file contains more data than what is needed for this project. By selecting the only the required columns, the *sourceDF* will have all of the data it requires and nothing more.  
+
+The required data, described in the **initial data fields** definition above, contains the numerical data needed to produce the results tables. These tables will provide the information necessary to answer the required questions.
+
+1. **Across the United States, which types of events are most harmful with respect to population health?**
+2. **Across the United States, which types of events have the greatest economic consequences?**
+
+
+**How?**
+
+The read.table function uses the colClasses argument to select the columns that make up the **initial data fields**. When the file is read, the requested data in the file is copied into *sourceDF*. 
+
+**Consequences**
+
+```{=html}
+
+<div style="font-size : 14;">
+
+<strong>Listing 1:</strong>  The memory size required to store the data is 50601984, the dimesions of sourceDF are 902297 by 7 and the head of the data frame is shown below.
+
+<pre>
+## 50601984 bytes
+## [1] 902297      7
+##    EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+## 1 TORNADO          0       15    25.0          K       0           
+## 2 TORNADO          0        0     2.5          K       0           
+## 3 TORNADO          0        2    25.0          K       0           
+## 4 TORNADO          0        2     2.5          K       0           
+## 5 TORNADO          0        2     2.5          K       0           
+## 6 TORNADO          0        6     2.5          K       0
+       .              .        .      .           .       .
+       .              .        .      .           .       .
+       .              .        .      .           .       .
+       
+ </pre>
+</div>
+
+```
+
+**Changes to data frame properties**
+
+* The zero transformation read the full file, which had a data frame of of roughly 500 MB, dimensions of 902297 rows by 37 columns.
+* The data frame *sourceDF* created by this transformation takes roughly 50 MB of memory and has dimensions of 902297 rows by 7 columns.
+* The change in memory size is about 450 MB and the and the *sourceDF* changes from 37 to 7 columns. 
+* There were 918 distinct event names at this point.
+
+These changes should improve the execution time of the code by reducing the number of operations required to complete the analysis.
+
+<hr style="background : #F7AB1C; height : 15px"/>
+
+### Transformation 2: Removing non-contributing data points
+
+**Goal**
+
+The goal of this transformation is to remove data points (rows) that do not contribute to the numerical results of the analysis.
+
+**Why?**
+
+The analysis will sum the values of the **numeric fields** but cursory examination of the data shows thousands of data points with *FATALITIES* = 0, *INJURIES* = 0, *PROPDMG* = 0, and *CROPDMG*= 0. None of these values will contribute to the sums, so there is no reason to include them.
+
+**How?**
+
+The data is copied from *sourceDF* to *sourceDF* excluding the non-contributing points. 
+
+NOTE: a side effect of this transformaion is several irrelevant data points are dropped from the data frame.
+
+**Consequences**
+
+
+```{=html}
+
+<div style="font-size : 14;">
+<strong>Listing 2a:</strong>  The output listing before transformation 2. Notice the rows after the tenth row. The rows 82, and 271399 do not make a contribution because their numerical fields are all zero. Row 246124 has an illegitimate event name, '?' but it still makes a contribution.
+<pre>
+
+## 50601984 bytes
+## [1] 902297      7
+##          EVTYPE          FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+##      1  TORNADO                   0       15    25.0          K       0      .           
+##      2  TORNADO                   0        0     2.5          K       0      .           
+##      3  TORNADO                   0        2    25.0          K       0      .           
+##      4  TORNADO                   0        2     2.5          K       0      .           
+##      5  TORNADO                   0        2     2.5          K       0      .           
+##      6  TORNADO                   0        6     2.5          K       0      .           
+##      7  TORNADO                   0        1     2.5          K       0      .           
+##      8  TORNADO                   0        0     2.5          K       0      .           
+##      9  TORNADO                   1       14    25.0          K       0      .           
+##     10  TORNADO                   0        0    25.0          K       0      .
+##      .     .                      .        .      .           .       .      .
+##      .     .                      .        .      .           .       .      .
+##      .     .                      .        .      .           .       .      .
+##     82     HAIL                   0        0       0                  0      .           
+##      .     .                      .        .      .           .       .      .
+##      .     .                      .        .      .           .       .      .
+## 246124        ?                   0        0       5          K       0      .           
+##      .     .                      .        .      .           .       .      .
+##      .     .                      .        .      .           .       .      .
+## 271399 Summary: Nov. 16           0        0       0                  0      .
+##      .     .                      .        .      .           .       .      .
+##      .     .                      .        .      .           .       .      .
+
+</pre>
+
+<strong>Listing 2b:</strong> The output listing after transformation 2. Notice the row with "Summary: Nov. 16" is not found in the transformed data frame. Even though "?" is an illegitimate name it still included in the data frame because it contributes to the calculation. The row with "HAIL" is included in the data frame, which might be unexpected, however, there are numerous rows with the event name "HAIL" that do contribute, so an instance of "HAIL" in the transformed data frame is expected.
+
+<pre>
+## 15315016 bytes
+## [1] 254633      7
+##    EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+## 1 TORNADO          0       15    25.0          K       0      .           
+## 2 TORNADO          0        0     2.5          K       0      .           
+## 3 TORNADO          0        2    25.0          K       0      .           
+## 4 TORNADO          0        2     2.5          K       0      .           
+## 5 TORNADO          0        2     2.5          K       0      .           
+## 6 TORNADO          0        6     2.5          K       0      .      
+## .     .            .        .      .           .       .      .
+## .     .            .        .      .           .       .      .
+## .     .            .        .      .           .       .      .
+
+
+## [1] "HAIL found"
+## [1] "? found"
+## [1] "Summary: Nov. 16 not found"
+</pre>
+
+
+```
+
+**Changes to data frame properties**
+
+* The *sourceDF* before the transformation required 50 MB of memory and had a dimension of 902297 rows by 7.
+* After the transformation, the *sourceDF* date frame requires 15 MB of storage and has a dimension of  254633 rows and 7.
+* The transformation reduced the data frame size by roughly 35 MB and reduced the dimensions by 647664 rows.
+
+<hr style="background : #F7F71C; height : 15px"/>
+
+### Transformation 3: Clear white spaces from strings
+
+**Goal**
+
+The goal is to change the string names to simplify comparisons that will have to be done to convert the data collectors names to NWS names.
+
+**Why?**
+
+This transformation is necessary for two reasons. First, white space at the beginning and ending of a string are included in string comparisons. When a name like "DUST" is compare to " DUST" the string will not match, even though they are expected to match. The second reason is the data collectors did not use consistent case usage. Names like *Black Ice* match the NWS naming convention, but *BLACK ICE* does not. Given the number of misspellings, inconsistent names, and other problems, all of the letters in a name are converted to lower case. Now, *Black Ice* and *BLACK ICE* are both spelled *black ice* and are compared to the NWS name, also all lower case letters.
+
+
+**How?**
+
+The data is copied from sourceDF back to sourceDF after triming the whitespace using *trimws* and converting all strings to lower case letters using *tolower*.
+
+**Consequences**
+
+```{=html}
+<strong>Listing 3a:</strong> The listing shows the output of the data before Transform 3. Notice that all the strings in <em>EVTYPE</em>, <em>PROPDMGEXP</em>, and <em>CROPDMGEXP</em> are all upper case letters. In addition to the head of the data frame, the output includes row 408333. Though it is not appearant, the event associated with this row is ' FLASH FLOOD'.
+
+<div style="font-size : 14; font-weight: bold;">
+<pre>
+## 15315016 bytes
+## [1] 254633      7
+##              EVTYPE  FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+##      1      TORNADO           0       15    25.0          K       0           
+##      2      TORNADO           0        0     2.5          K       0           
+##      3      TORNADO           0        2    25.0          K       0           
+##      4      TORNADO           0        2     2.5          K       0           
+##      5      TORNADO           0        2     2.5          K       0           
+##      6      TORNADO           0        6     2.5          K       0           
+##      7      TORNADO           0        1     2.5          K       0           
+##      8      TORNADO           0        0     2.5          K       0           
+##      9      TORNADO           1       14    25.0          K       0           
+##     10      TORNADO           0        0    25.0          K       0           
+      .           .              .        .       .          .       .
+      .           .              .        .       .          .       .
+## 408333  FLASH FLOOD           0        0      50          K       0
+      .           .              .        .       .          .       .
+      .           .              .        .       .          .       .
+      .           .              .        .       .          .       .
+
+</pre>
+
+<strong>Listing 3b:</strong> The listing shows the output of the after Transform 3. Also notice that all the strings in <em>EVTYPE</em>, <em>PROPDMGEXP</em>, and <em>CROPDMGEXP</em> have all lower case letters.
+<pre>
+## 15311912 bytes
+## [1] 254633      7
+##    EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+## 1 tornado          0       15    25.0          k       0           
+## 2 tornado          0        0     2.5          k       0           
+## 3 tornado          0        2    25.0          k       0           
+## 4 tornado          0        2     2.5          k       0           
+## 5 tornado          0        2     2.5          k       0           
+## 6 tornado          0        6     2.5          k       0           
+   .   .              .        .       .          .       .
+   .   .              .        .       .          .       .
+   .   .              .        .       .          .       .
+
+</pre>
+<strong>Listing 3c:</strong> The listing shows the output of the data after Transform 3. The results show the results of searching for four strings. No string with a space at the beginning was found and no string with all upper case letters was found. The only string that was found is the string with no space and all lower case.
+<pre>
+
+## [1] " FLASH FLOOD not found"
+## [1] "FLASH FLOOD not found"
+## [1] " flash flood not found"
+## [1] "flash flood found"
+</pre>
+</div>
+```
+
+
+**Changes to data frame properties**
+
+* The *sourceDF* before Transformation 3 the frame data required 15315016 Bytes (~15 MB) of memory and had 902297 rows by 7.
+* After Transformation 3 the data, date frame size was 15311912 Bytes with no changes to the dimensions.
+* The transformation reduces the data frame size by roughly 3 kB.
+* There were 918 distinct event names at this point.
+
+<hr style="background : #009E11; height : 15px"/>
+
+### Transformation 4: Fixing invalid names
+
+**Goal**
+
+The goal is to ensure any names that have no apparent relationship to the NWS names are accounted for.
+
+**Why?**
+
+Some of the data collector names have no apparent relationship to the NWS names. For example, the names, **?**, **apache county**, and **high** do not match the any name in the NWS. If they were removed from the data frame, then their impact would be lost, so their EVTYPE names are replaced with **Other**.
+
+**How?**
+
+Each *EVTYPE* name is compared to the invalid names. If a name matches one of the invalid names, the data frame's event name is replaced with the word "Other".
+
+**Consequences**
+
+```{=html}
+<strong>Listing 4a:</strong> The listing shows the output of the data before Transform 4. To demonstrate the change of invalid names, the location of the '?' event was identified by a two pass 
+
+<div style="font-size : 14; font-weight: bold;">
+<pre>
+## 15311912 bytes
+## [1] 254633      7
+##         EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+##      1 tornado          0       15    25.0          k       0           
+##      2 tornado          0        0     2.5          k       0           
+##      3 tornado          0        2    25.0          k       0           
+##      4 tornado          0        2     2.5          k       0           
+##      5 tornado          0        2     2.5          k       0           
+##      6 tornado          0        6     2.5          k       0           
+##      .    .             .        .      .           .       .
+##      .    .             .        .      .           .       .
+## 246124       ?          0        0       5          k       0           
+##      .    .             .        .      .           .       .
+##      .    .             .        .      .           .       .
+## [1] 52498
+
+</pre>
+
+<strong>Listing 4b:</strong> The listing shows the output of the data before Transform 4. 
+<pre>
+## 15311608 bytes
+## [1] 254633      7
+##         EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+##      1 tornado          0       15    25.0          k       0           
+##      2 tornado          0        0     2.5          k       0           
+##      3 tornado          0        2    25.0          k       0           
+##      4 tornado          0        2     2.5          k       0           
+##      5 tornado          0        2     2.5          k       0           
+##      6 tornado          0        6     2.5          k       0           
+##      .    .             .        .      .           .       .
+##      .    .             .        .      .           .       .
+##      .    .             .        .      .           .       .
+## 246124 Other            0        0       5          k       0
+##      .    .             .        .      .           .       .
+##      .    .             .        .      .           .       .
+
+</pre>
+
+</div>
+
+
+<strong>Listing XXXX: </strong>.
+
+<pre>
+ 15311608 bytes
+ [1] 254633      7
+
+         EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+      1 tornado          0       15    25.0          k       0           
+      2 tornado          0        0     2.5          k       0           
+      .   .              .        .       .          .       .       . 
+      .   .              .        .       .          .       .       . 
+      .   .              .        .       .          .       .       . 
+ 188990 Other            6        0     0.0               0.00           
+      .   .              .        .       .          .       .       . 
+      .   .              .        .       .          .       .       . 
+      .   .              .        .       .          .       .       . 
+ 435359 Other            0        4     0.0               0.00
+      .   .              .        .       .          .       .       . 
+      .   .              .        .       .          .       .       . 
+      .   .              .        .       .          .       .       . 
+</pre>
+</div>
+```
+
+
+**Changes to data frame properties**
+
+* The *sourceDF* before renaming the event names was 15311912 Bytes (~15 MB) of memory and had 254633 rows by 7 columns.
+* After renaming the event names, the *sourceDF* date frame size was 15311608 Bytes.
+* The *sourceDF* date frame has dimensions were unchanged.
+* The transformation reduces the data frame size by roughly 304 B.
+* The transformation affected 57 names, which accounts the small change in memory requirements.
+* There were 249 distinct event names at this point.
+
+<hr style="background : #004FEE; height : 15px"/>
+
+### Transformation 5:  Unify the event names
+
+**Why?**
+
+The data collectors did not use consistent names for single events. For example, the NWS event "Thunderstorm Wind" was reported by the following
+
+```{=html}
+  <div style="font-size : 8px; font-weight: bold;"> <!-- Thunder storm events -->
+```
+
+THUDERSTORM WINDS, THUNDEERSTORM WINDS, THUNDERESTORM WINDS, THUNDERSTORM, THUNDERSTORM  WINDS, Thunderstorm Wind, THUNDERSTORM WIND, THUNDERSTORM WIND (G40), THUNDERSTORM WIND 50, THUNDERSTORM WIND 52,  THUNDERSTORM WIND 56, THUNDERSTORM WIND 59, THUNDERSTORM WIND 59 MPH, THUNDERSTORM WIND 59 MPH., THUNDERSTORM WIND 60 MPH, THUNDERSTORM WIND 65 MPH, THUNDERSTORM WIND 65MPH, THUNDERSTORM WIND 69, THUNDERSTORM WIND 98 MPH,  THUNDERSTORM  THUNDERSTORM WIND G55, THUNDERSTORM WIND G60,  THUNDERSTORM WIND G61, THUNDERSTORM WIND TREES, THUNDERSTORM 
+WIND. THUNDERSTORM WIND/ TREE, THUNDERSTORM WIND/ TREES, THUNDERSTORM WIND/AWNING, THUNDERSTORM WINDS, THUNDERSTORM WINDS, THUNDERSTORM WINDS 13, THUNDERSTORM WINDS 2, THUNDERSTORM WINDS 50, THUNDERSTORM WINDS 52, THUNDERSTORM WINDS 53, THUNDERSTORM WINDS 60, THUNDERSTORM WINDS 61, THUNDERSTORM WINDS 62, THUNDERSTORM WINDS 63 MPH, THUNDERSTORM WINDS G, THUNDERSTORMWINDS G60, THUNDERSTORM WINDS., THUNDERSTORM WINDS53, THUNDERSTORMS WIND, THUNDERSTORMS WINDS, THUNDERSTORMW, THUNDERSTORMW 50, THUNDERSTORMW WINDS, THUNDERSTORMWINDS, THUNDERSTROM WIND, THUNDERSTROM WINDS, THUNDERTORM WINDS, THUNDERTSORM WIND,  THUNDESTORM WINDS, THUNERSTORM WINDS, TSTM, TSTM WIND, Tstm Wind, TSTM WIND,  TSTM WIND  (G45), TSTM WIND (41), TSTM WIND (G35), TSTM WIND (G40),  TSTM WIND (G45), TSTM WIND (G45), TSTM WIND 40, TSTM WIND 45, TSTM WIND 50, TSTM WIND 51, TSTM WIND 52, TSTM WIND 55, TSTM WIND 65), TSTM WIND DAMAGE, TSTM WIND G45, TSTM WIND G58, TSTM WINDS, TSTM WND, TSTMW
+```{=html}
+  </div> 
+```
+
+If these names are not changed to the single NWS name before the data is grouped, they will create dozens of groups and the analysis will produce invalid results for "Thunderstorm Wind". The analysis must unify the disparate names chosen by the data collectors to the NWS names.
+
+**How?**
+The UnifyNames function will check each name against a set of substrings. If the name matches a substring, the EVTYPE will be changed to the NWS type. The result will be stored in *validDF*.
+
+Prior to writing the code, a list of data collector event names was generated. Each name was assigned an NWS name using the National Weather Service Instruction 10-1605. From this list, each name was assigned a substring and the substrings were used to determine the correct NWS name.
+
+
+**Consequences**
+
+Listing 5 shows partial results of the unifying names Prior to unifing the first event name was "tornado". After unifying the names, the first eavent became "Tornado", which is the correct NWS name.
+
+In addition to the name changes, further analysis showed that the number of distinct event names went from 239 to 46. This is the result of unifying the names.
+
+```{=html}
+<strong>Listing 5: </strong>.
+
+<div style="font-size : 14; font-weight: bold;">
+<pre>
+ 15283600 bytes
+ [1] 254633      7
+    EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+ 1 Tornado          0       15    25.0          k       0           
+ 2 Tornado          0        0     2.5          k       0           
+ 3 Tornado          0        2    25.0          k       0           
+ 4 Tornado          0        2     2.5          k       0           
+ 5 Tornado          0        2     2.5          k       0           
+ 6 Tornado          0        6     2.5          k       0
+      .             .       .       .           .       .
+      .             .       .       .           .       .
+      .             .       .       .           .       .
+</pre>
+</div>
+```
+
+* There were 249 distinct event names at this point.
+
+**Changes to data frame properties**
+* The *sourceDF* before unifying names was 15311608 Bytes (~15 MB) of memory and had 254633 rows by 7 columns.
+* After unifying names, the *sourceDF* date frame size was 15283600 Bytes.
+* The *sourceDF* date frame has dimensions were unchanged.
+* The transformation reduces the data frame size by roughly 28 kB.
+* There were 46 distinct event names at this point.
+
+
+<hr style="background : #5C05FE; height : 15px"/>
+
+### Transformation 6: Set up the analysis data frame
+
+**Why?**
+
+The goal of this analysis is to establish two points: the weather events responsible for the worst publich health costs and the weather events responsible for the worse economic damage. To do this, the analysis must have a means of assessing the public health costs and economic damage. 
+
+The data provided by NOAA does not have public health or economic loss cost categories, so they must be created. Without explicit guidelines, the options for calculating the costs of the damage is extensive. For simplicity, the analysis uses the following algorithm:
+
+* public health (HEALTH) are FATALITIES + INJURIES
+* economic costs (ECONOMIC) are PROPDMG * PROPDMGEXP + CROPDMG * CROPDMGEXP
+
+**How?**
+
+The *validDF* is mutated to perform the calculations, the *EVTYPE*, **HEALTH**, and **ECONOMIC** events are selected and stored stored in *analysisDF*.
+
+**Consequences**
+
+```{=html}
+<strong>Listing XXXX: </strong>.
+
+<div style="font-size : 14; font-weight: bold;">
+<pre>
+ 7133720 bytes
+ [1] 254633      3
+    EVTYPE HEALTH ECONOMIC
+ 1 Tornado         15 0.0250
+ 2 Tornado          0 0.0025
+ 3 Tornado          2 0.0250
+ 4 Tornado          2 0.0025
+ 5 Tornado          2 0.0025
+ 6 Tornado          6 0.0025
+      .             .   .
+      .             .   .
+      .             .   .
+ </pre>
+</div>
+```
+
+
+**Changes to data frame properties**
+* The *validDF* before unifying names was 15283600 Bytes (~15 MB) of memory and had 254633 rows by 7 columns.
+* After unifying names, the *analysisDF* date frame size was 7133720 Bytes (~7MB).
+* The *analysisDF* date frame has dimensions changed to 254633 rows by 3 columns.
+* The transformation reduces the data frame size by roughly 8 MB.
+* There were 46 distinct event names at this point.
+
+
+<hr style="background : #6B4DA4; height : 15px"/>
+
+
+### Transformation 7: Group the data by EVTYPE
+
+**Why?**
+
+The goal of this project is to answer two questions: 
+
+1. **Across the United States, which types of events are most harmful with respect to population health?**
+2. **Across the United States, which types of events have the greatest economic consequences?**
+
+The emphasis of these questions is "which types of events?" In other words, the data organization has to group the data around events, not data points as they currently are. To create the target system, the casualty and economic losses for each data point associated with a given event type must be summed and assigned to the **HEALTH** and **ECONOMIC** columns for that event.
+
+For example, the *analysisDF* was written to a csv file and the file was opened in a spreadsheet. After sorting the data based on *EVTYPE*, the **HEALTH** and **ECONOMIC** all data points with *EVTYPE* equal to "Avalanche" were summed together. The result of the sums of the 269 "Avalanche" events is a total of 395 HEALTH and about $3.7 million in damages. 
+
+This result is an example of one grouped event type. However, the analysis relies on having the data for all events. This would be too diffcult to do by hand, so the computer needs to take care of it,
+
+**How?**
+
+The *analysisDF* is grouped by *EVTYPE* then piped to summarize_at(c("HEALTH", "ECONOMIC"), sum). The summarize_at() function sums the values of **HEALTH** and **ECONOMIC** respectivly. After the grouping and summing is complete, the data frame is ordered by *EVTYPE*. The result is stored in the *analysisTable* data frame.
+
+**Consequences**
+The results for the 
+
+```{=html}
+<strong>Listing XXXX: </strong>.
+
+<div style="font-size : 14; font-weight: bold;">
+<pre>
+ 5240 bytes
+ [1] 46  3
+ # A tibble: 46 × 3
+    EVTYPE                HEALTH    ECONOMIC
+    <chr>                      <dbl>     <dbl>
+  1 Astronomical Low Tide          0     0.32 
+  2 Avalanche                    395     3.72 
+  3 Blizzard                     959   777.   
+  4 Coastal Flood                 15   408.   
+  5 Cold/Wind Chill              228   100.   
+  6 Debris Flow                   99   347.   
+  7 Dense Fog                   1156    22.8  
+  8 Dense Smoke                    0     0.1  
+  9 Drought                        4 13519.   
+ 10 Dust Devil                    45     0.719
+         .                        .      .
+         .                        .      .
+         .                        .      .
+</pre>
+</div>
+```
+
+
+**Changes to data frame properties**
+* The *analysisDF* before unifying names was 7133720 Bytes (~7 MB) of memory and had 254633 rows by 3 columns.
+* After grouping the data, the *analysisTable* date frame size was 5240 Bytes.
+* The *analysisTable* date frame has dimensions changed to 46 rows by 3 columns.
+* The transformation reduces the data frame size by roughly 7 MB.
+* There were 46 distinct event names at this point.
+
+
+<hr style="background : #1B004D; height : 15px"/>
+
+
+### Transformation 8: Creating the "Damage Tables"
+
+**Why?**
+
+The goal of the project is to find the worst events in terms of public health and economics. However, the *analysisTable* cannot be ordered by both categories simultaneously. The only way to accomplish this is to create a copy of the *analysisTable* ans sort one table by **HEALTH** and the other by **ECONOMIC**. These tables provide the necessary information to complete the analysis.
+
+To provide additional understanding of what the tables mean, two additional rows are added to the tables. The first computes the percent damage for each damage type and the second is the accumulated percentdamage for each damage type. The tables are ordered by the greatest to least amount of damage, so the accumulated percentage is the amount of damage caused by the first n-events.
+
+Assuming the emergency response planners might want to focus on the worst 90% of weather events, this table will make it an easy task. Listing 8 will demonstrate this process. 
+
+**How?**
+
+To find the worst damages in term of public health and economic losses, the *analysisTable* must be separated into two data frames: one for **HEALTH**, and the other for **ECONOMIC**. Each table is ordered by their specific damage types from greatest to least. After the worst public health damage table is completed, the **PERCENT_CASUALTY** and the **ACC_PERCENT_CASUALTY** are computed for each event type. The same is done for **ECONOMIC**.
+
+**Consequences**
+
+The new damage tables, shown in Listing 8, are organized by damage type. The first table is organized by **HEALTH** as can be seen by the **HEALTH** column. The **ECONOMIC** column is not ordered making it easier to generate one of the images. This will be clearer when the images are generated. The second table is ordered by **ECONOMIC** and the **HEALTH** column is not ordered.
+
+In both tables, each event is assigned a percentage representing the amount of damage that event caused. The accumulated percentage column shows the amount of damage caused by the first n-events. 
+
+For example, if the user wants to know which events are responsible for 90% of the HEALTH, they can look down the **ACC_PERCENT_CASUALTY** column until they find the first number greater than or equal to 90. In this case, the number is 90.6 in the "High Wind" rows. This means, the "Tornado", "Excessive Heat", "Thunderstorm Wind", "Flood", "Lightning", "Winter Weather", "Flash Flood", "High Wind" account for approximately 90% of **HEALTH**.
+
+
+```{=html}
+<strong>Listing XXXX: </strong>.
+
+<div style="font-size : 14; font-weight: bold;">
+<pre>
+## 6224 bytes
+## [1] 46  5
+## # A tibble: 15 × 5
+##    EVTYPE            HEALTH  ECONOMIC PERCENT ACC_PERCENT
+##    <chr>                  <dbl>   <dbl>   <dbl>       <dbl>
+##  1 Tornado                96997 52057.   62.3          62.3
+##  2 Excessive Heat         12363   525.    7.94         70.2
+##  3 Thunderstorm Wind      10153 10939.    6.52         76.8
+##  4 Flood                   7280 28498.    4.68         81.4
+##  5 Lightning               6049   951.    3.89         85.3
+##  6 Winter Weather          3350  4225.    2.15         87.5
+##  7 Flash Flood             2944 17519.    1.89         89.4
+##  8 High Wind               1848  5388.    1.19         90.6
+##  9 Wildfire                1698  6360.    1.09         91.7
+## 10 Winter Storm            1584  1790.    1.02         92.7
+## 11 Hail                    1512 17334.    0.971        93.6
+## 12 Hurricane/Typhoon       1468 14963.    0.943        94.6
+## 13 Heavy Snow              1160  1071.    0.745        95.3
+## 14 Dense Fog               1156    22.8   0.743        96.1
+## 15 Rip Current             1107     0.2   0.711        96.8
+             .                        .      .      .            .
+             .                        .      .      .            .
+             .                        .      .      .            .
+</pre>
+<pre>
+## 6224 bytes
+## [1] 46  5
+## # A tibble: 15 × 5
+##    EVTYPE                  HEALTH ECONOMIC PERCENT ACC_PERCENT
+##    <chr>                        <dbl>  <dbl>   <dbl>       <dbl>
+##  1 Tornado                      96997 52057.  27.8          27.8
+##  2 Flood                         7280 28498.  15.2          43.1
+##  3 Flash Flood                   2944 17519.   9.37         52.5
+##  4 Hail                          1512 17334.   9.27         61.7
+##  5 Hurricane/Typhoon             1468 14963.   8.00         69.7
+##  6 Drought                          4 13519.   7.23         77.0
+##  7 Thunderstorm Wind            10153 10939.   5.85         82.8
+##  8 Wildfire                      1698  6360.   3.40         86.2
+##  9 High Wind                     1848  5388.   2.88         89.1
+## 10 Winter Weather                3350  4225.   2.26         91.4
+## 11 Tropical Storm                 449  3259.   1.74         93.1
+## 12 Frost/Freeze                     5  1816.   0.971        94.1
+## 13 Winter Storm                  1584  1790.   0.958        95.0
+## 14 Heavy Rain                     386  1525.   0.815        95.8
+## 15 Extreme Cold/Wind Chill        574  1463.   0.783        96.6
+             .                        .      .      .            .
+             .                        .      .      .            .
+             .                        .      .      .            .
+</pre>
+</div>
+```
+
+
+**Changes to data frame properties**
+* The *analysisDF* before unifying names was 7133720 Bytes (~7 MB) of memory and had 254633 rows by 3 columns.
+* After grouping the data, the *analysisTable* date frame size was 5240 Bytes.
+* The *analysisTable* date frame has dimensions changed to 46 rows by 3 columns.
+* The transformation reduces the data frame size by roughly 7 MB.
+* There were 46 distinct event names at this point.
+
+
+
+```{=html}
+</div>   <!-- Base page -->
+```
+
+## Processing Code
+
+### Required Libraries 
+
+```{r libraries}
 # Data Presentation Phase ======================================================
-# This code block takes the "worstCasualties" and the "worstLosses" tables from
+# This code block takes the "worstHEALTH" and the "worstLosses" tables from
 # the "resultTables" an converts them to knitr:Kable tables.
 # ==============================================================================
-# knitr      -- The stringr library has several string manipulation functions, 
-#               the str_to_title function that converts strings to a title 
-#               format. The format ensures the first letter of each word in a  
+# knitr      -- The stringr library has several string manipulation functions,
+#               the function that converts strings to a title
+#               format. The format ensures the first letter of each word in a
 #               string is converted to an upper case letter.
 #
 #               It is used in the Setup Phase: Program Constants section.
 library(knitr)
 
-# stringr    -- The stringr library has several string manipulation functions, 
-#               the str_to_title function that converts strings to a title 
-#               format. The format ensures the first letter of each word in a  
+# stringr    -- The stringr library has several string manipulation functions,
+#               the str_to_title function that converts strings to a title
+#               format. The format ensures the first letter of each word in a
 #               string is converted to an upper case letter.
 #
 #               It is used in the Setup Phase: Program Constants section.
 library(stringr)
 
-# dplyr      -- The dplyr library has several functions related to data 
-#               wrangling,and the %>% operator. These functions are used 
+# dplyr      -- The dplyr library has several functions related to data
+#               wrangling,and the %>% operator. These functions are used
 #               throughout the code.
 library(dplyr)
 
-# rlist      -- The rlist library has several functions to make list 
-#               manipulation easier. The list.append function is used through 
+# rlist      -- The rlist library has several functions to make list
+#               manipulation easier. The list.append function is used through
 #               the code.
 library(rlist)
 
-# kableExtra -- The kableExtra library adds to the functionality of knit::kable, 
+# kableExtra -- The kableExtra library adds to the functionality of knit::kable,
 #               the basic table generator in knitr. This functionality includes
 #               support for fonts, colors, table styles, and so on.
 #               The knitr::kable and the kableExtra functions are used in the
-#               Execute Phase to prepare the data for display. 
+#               Execute Phase to prepare the data for display.
 #
-#               Development Note: This should bem oved inside the Analysis 
+#               Development Note: This should bem oved inside the Analysis
 #               Phase: Construct Analysis Tables in the future.
 library(kableExtra)
 
@@ -216,1233 +825,84 @@ library(ggplot2)
 library(ggrepel)
 
 # cowplot    -- cowplot to make a create a multiple plot to allow the results of
-#               more than one jurisdiction to be display in plot. Since the 
-#               example in this demonstration includes only one jurisdiction, 
+#               more than one jurisdiction to be display in plot. Since the
+#               example in this demonstration includes only one jurisdiction,
 #               cowplot is not required. However, StormCloud supports multiple
 #               jurisdictions so it is included in the code.
-#               The cowplot code is used in the Make Bar Images and Make Human 
+#               The cowplot code is used in the Make Bar Images and Make Human
 #               vs. Economic Image.
 library(cowplot)
 
 ```
 
-```{r knitr setup}
+### "Constants"
 
-knitr::opts_chunk$set(echo = TRUE)
+```{r constants}
+# Strictly speaking, R does no support constants, so the following are all 
+# variables. However, these variables are treated as constants, i.e., there 
+# value should not be changed once set. They are written in all upper case 
+# letters to distinguish then from regular variables.
 
-```
-
-### User Defined Constants
-
-```{=html}
-<div style="font-size : 18px; font-weight: bold; color: blue;">
-NOTE to reader: All "constant" names are in uppercase letters. This helps 
-distinguish them from other variables.
-</div>
-```
-A StormCloud user can customize some aspects of processing data. Specifically, the user can
-
-1.  set the name of the data file and the URL of of the location of the data;
-2.  define the state and county if they choose to do so;
-3.  choose the jurisdiction(s) they want to explore.
-
-<!-- READER POINTS -->
-```{=html}
-<div style="font-size : 18px; font-weight: bold; color: blue;">
-```
-The important points:
-
-* the user must set the name of the data file and select it's location on the WWW.
-* the user must select the jurisdiction(s) they want to investigate
-* if the user wants to investigate a state, the must set the state's two letter designator. If they want to investigate a county, they must select both the state an county.
-
-```{=html}
-</div>
-```
-
-```{r user defined constants}
-# set the URL and file name of the desired data file. The DATAFILE variable 
-# must be set, the URL is optional because it is only used when the file is not
-# present in the working directory.
-  URL      = 
+URL      =
   "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 DATAFILE = "storm.csv.bz2"
 
-VERBOSE = TRUE
+HEALTH_IDX    = 1
+ECONOMIC_IDX        = 2
 
-# set the STATE_ and COUNTY_ if the user intends to include state and county
-# results for their analysis. 
+DAMAGE_IDX     = c(HEALTH_IDX, ECONOMIC_IDX)
+DAMAGE_NAMES   = c("HEALTH", "ECONOMIC")
+DAMAGE_SELECT  = c("c('EVTYPE', 'HEALTH')",
+                  "c('EVTYPE', 'ECONOMIC')")
+AXIS_NAMES     = c("c('EVTYPE', 'HEALTH')",
+                  "c('EVTYPE', 'ECONOMIC')")
+DAMAGE_REORDER = c("reorder(EVTYPE, -HEALTH)",
+                   "reorder(EVTYPE, -ECONOMIC)")
 
-# NOTE: if the user does not intend to use either of these jurisdictions, 
-# then these CONSTANTS are ignored.
-STATE_       <- "CA"
-COUNTY_      <- "SAN BERNARDINO"
-
-# These constants explicitly tell StormCloud which jurisdictions to use. These
-# constants are used by the Program Constants to ensure only the required 
-# jurisdictions are used.
-USE_NATIONAL_JURISDICTION  = TRUE
-USE_STATE_JURISDICTION     = FALSE
-USE_COUNTY_JURISDICTION    = FALSE
-
-```
-
-### Program Constants
-
-StormCloud is designed as a general analysis tool, which means the code is long and involved. For people reading the code, list and data.frame indices, and other aspects of the code can get confusing because each index refers to something specific. For example the following code converts a list into a data.frame, but without knowing what the variable "<em>index</em>" means, the code is harder to understand. NOTE: resultTables has been defined and will be defined later
-
-```{=html}
-<pre>
-       worstLosses   <- data.frame(resultTables[[1]][[index]]).
-</pre>
-
-Using the LOSSES_IDX makes it clearer what the list is.
-
-<pre>
-        worstLosses   <- data.frame(resultTables[[1]][[LOSSES_IDX]])
-</pre>
-```
-
-```{=html}
-<div style="font-size : 18px; font-weight: bold; color: green;">
-```
-READER POINTS
-
-```{=html}
-<div style="font-size : 14px; font-weight: normal;">
-```
-* the example in this demonstration focuses on national weather data. If the
-code is too confusing, ignore code used to support state and county data.
-* there are two analysis types: Casualties and Economic Losses and there 
-several constants to make the code more readable.
-* there are three jurisdictional regions: County, State, and National and 
-there several constants to make the code more readable.
-
-```{=html}
-</div>
-</div>
-```
-
-```{r program constants}
-
-# Constants for analysis type 
-
-# ANALYSIS TYPES ###############################################################
-#
-# These constants are used to identify whether a data structure is for casualty
-# or economic analyses.
-################################################################################
-
-# The CASUALTIES_IDX and LOSSES_IDX constants are used as indices for data 
-# structures. Rather than using 1 and 2 for indices, the code uses the 
-# constants to select an analysis type.
-CASUALTIES_IDX    = 1
-LOSSES_IDX        = 2
-
-# The AXIS_LABELS constants hold titles for graphs and tables corresponding to
-# the analysis type. So AXIS_LABELS[CASUALTIES_IDX] is the set of labels 
-# corresponding to the casualty labels.
-
-# JURISDICTIONS ################################################################
-# The data file separates data into three possible jurisdictions:
-# 1) National -- all of the data in the data files are national-wide weather
-# 2) State    -- all of the data in the data file are subdivided by state, so
-#                filtering on state allows the user to examine the data on a 
-#                state only basis.
-# 3) County   -- all of the state data is subdivided by county, so the user can
-#                explore county level data by filtering on both the state and
-#                the county.
-################################################################################
-# The county name strings in the data file are all-caps. The str_to_title
-# changes the string so each word starts with an upper case letter and the 
-# remaining letters in lower case. This will improve the look of tables and 
-# plots.
-COUNTY_TITLE <- str_to_title(COUNTY_)
-
-
-# The *_base_idx identifies jurisdiction of each member of jurisdiction based 
-# lists. 
-CNTY_BASE_IDX     = 1
-ST_BASE_IDX       = 2
-US_BASE_IDX       = 3
-
-#### Jurisdiction Lists ########################################################
-# The following set of lists are jurisdiction based lists. The purpose of each
-# list is as follows:
-#
-# DATA_INDICES store the *_base_idx of each jurisdiction. The code does not keep
-# track of a jurisdiction's index, so the DATA_INDICES. If the information is 
-# required, the data indices can provide it.
-# 
-# DATA_FIELDS store the information required by select funtionsl. They specify 
-# the data fields within a data.frame required by as specific jurisdiction
-# 
-# DATA_FILTERS are jurisdiction specific filters for states and counties. 
-# They filter data.frames for the jurisdictions requested by the user.
-#
-# JURISDICTION_LABELS are used in tables and plots to identify which 
-# jurisdiction is associated with each table and plot. It also ensures 
-# consistency within the data.
-DATA_INDICES         <- list()
-DATA_FIELDS          <- list()
-DATA_FILTERS         <- list()
-JURISDICTION_LABELS  <- list()
-
-# Conditional loading of Jurisdiction Lists ####################################
-if (USE_COUNTY_JURISDICTION)  {
-  DATA_INDICES <- list.append(DATA_INDICES, CNTY_BASE_IDX)
-  DATA_FIELDS  <- list.append(
-    DATA_FIELDS, "c('EVTYPE', 'COUNTY', 'STATE', 'CASUALTIES', 'LOSSES')")
-  DATA_FILTERS <- list.append(
-    DATA_FILTERS, ".$'COUNTY' == COUNTY_ & .$'STATE' == STATE_")
-  JURISDICTION_LABELS <- 
-    list.append(JURISDICTION_LABELS, paste0(COUNTY_TITLE, ", ", STATE_))
-} 
-
-if (USE_STATE_JURISDICTION) {
-  DATA_INDICES  <- list.append(DATA_INDICES, ST_BASE_IDX)
-  DATA_FIELDS   <- list.append(
-    DATA_FIELDS, "c('EVTYPE', 'STATE', 'CASUALTIES', 'LOSSES')")
-  DATA_FILTERS  <- list.append(DATA_FILTERS, ".$'STATE' == STATE_")
-  JURISDICTION_LABELS <- 
-    list.append(JURISDICTION_LABELS, 
-                paste0(state.name[grep(STATE_, state.abb)]))
-} 
-
-if (USE_NATIONAL_JURISDICTION) {
-  DATA_INDICES <- list.append(DATA_INDICES, US_BASE_IDX)
-  DATA_FIELDS   <- list.append(DATA_FIELDS, 
-                               "c('EVTYPE', 'CASUALTIES', 'LOSSES')")
-  DATA_FILTERS  <- list.append(DATA_FILTERS, "NATIONAL")
-  JURISDICTION_LABELS <- 
-    list.append(JURISDICTION_LABELS, paste0("United States"))
-}
-# N_JURISDICTIONS <- length(DATA_FIELDS)
-
-DATA_ASSEMBLY_SELECT   <- 
-  "c('EVTYPE', 'CASUALTIES', 'LOSSES')"
-
-
-
-
-
-
-  DAMAGE_IDX = c(CASUALTIES_IDX, LOSSES_IDX)
-  DAMAGE_NAMES = c("CASUALTIES", "LOSSES")
-
-  DAMAGE_IDX = c(CASUALTIES_IDX, LOSSES_IDX)
-  DAMAGE_NAMES = c("CASUALTIES", "LOSSES")
-  DAMAGE_SELECT = c("c('EVTYPE_C', 'CASUALTIES_C')", 
-                    "c('EVTYPE_L', 'LOSSES_L')")
-  TABLE_NAMES = c("c('EVTYPE', 'CASUALTIES')", 
-                    "c('EVTYPE', 'LOSSES')")
-  DAMAGE_REORDER = c("reorder(EVTYPE, -CASUALTIES)", 
-                     "reorder(EVTYPE, -LOSSES)")
-  
+TABLE_FIELDS <-  c("c('EVTYPE', 'HEALTH', 'PERCENT', 'ACC_PERCENT')",
+                  "c('EVTYPE', 'ECONOMIC', 'PERCENT', 'ACC_PERCENT')")
 AXIS_LABELS <- list(
-    c("Event Type", "Casualties", "Percent of Total", "Accumulated Percent"),
-    c("Event Type", "Losses (in millions)", 
+    c("Event Type", "HEALTH", "Percent of Total", "Accumulated Percent"),
+    c("Event Type", "Losses (in millions)",
       "Percent of Total", "Accumulated Percent"))
 
-```
-
-## Results Generation Phase
-
-```{=html}
-<!-- READER POINTS -->
-<p style="font-size : 18px; font-weight: bold; color: blue;">
-The important points:
-<ul>
-<li>the ResultGenerationPhase function calls two functions</li>
-<ul>
-<li>DataAssemblyPhase</li>
-<li></li>
-<li></li>
-</ul>
-</ul>
-</p>
-```
-
-```{r ResultGenerationPhase}
-# ResultGenerationPhase ========================================================
-# The Results Generation Phase is responsible for creating the "resultTables". 
-# These tables hold the final results of the data analysis.
-# ==============================================================================
-# Results Generation Phase flow
-# 
-# 1) The Execute Phase passes control to the Results Generation Phase.
-# 2) The Data Assembly Phase opens the storm data file process the raw file 
-#    data and returns a set of analysis data frames.
-# 3) The Results Generation Phase takes the returned data and passes it to the 
-#    Data Analysis Phase.
-# 4) The Data Analysis Phase takes the analysis data frames and converts it into
-#    a set of tables ordered by casualty damage and economic damage. 
-# 
-# ==============================================================================
-# The following diagram is a high level pictorial representation of the Data
-# Generation Phase. 
-# ==============================================================================
-#
-#  Get control from the   pass resultTables and
-#  the Execution Phase    return control to
-#     |                   the Execution Phase
-#     |                    ^
-#     V                    |  
-#     +--------------------+  
-#     | Results Generation | resultTables
-#     |      Phase         |<---<---<---<----<---+
-#     |                    | analysisTable      ^
-#     +---+----------------+<---<---<---<----+   |
-#     |   |                                  ^   |
-#     |   Pass control to                    |   ^
-#     V   Data Assembly                      ^   |
-#     |   Phase                              |   ^
-#     |   V                                  ^   |
-#     V   |                                  |   |
-#     |   +--->--->+----------------+        |   ^
-# Pass control to  | Data Assembly  |        ^   |
-# Data Analysis    |     Phase      |        |   |
-# Phase            +----------------+--->--->+   ^
-#     |                               return     |
-#     V         analysisTable                   |
-#     +--->--->+---------------+                 ^
-#              | Data Analysis |                 |
-#              |     Phase     |                 |
-#              +---------------+--->--->---->--->+ 
-#                                   return
-# 
-# ResultGenerationPhase function ===============================================
-#
-# THe Results Generation Phase is implemented by ResultGenerationPhase function. The
-# function will:
-# 1) pass control to the DataAssemblyPhase function which will
-#    1) cleans string data;
-#    2) removes "events" that do not contribute to the analysis, i.e., they are 
-#       have no numeric value, so they contribute nothing to final results;
-#    3) removes data not included in the NWS event types such as summary data 
-#       and  data with invalid names like "?", "high", and "others";
-#    4) consolidates misspellings, acronyms, abbreviated phrases, and other 
-#       invalid names into valid NWS weather event types;
-#    5) create a casualty (injury + fatalities) column and a economic losses 
-#       column (property and crop economic losses).
-#    6) create one or more jurisdiction data.frames based on the user needs;
-#    7) each jurisdiction data.frame is grouped by event type and sorted 
-#       alphabetically by event. These data.frames are the "analysisTable". 
-# 2) the "analysisTable" are returned to ResultGenerationPhase, which passes 
-#    control to DataAnalysisPhase function 
-#    1) create two data.frames for each jurisdiction data.frame, one for 
-#       casualty data, the other for economic losses. 
-#    2) the new frames are ordered by casualty damage or economic losses 
-#       depending on the contents of the tables;
-#    3) the ordered tables are used to generate a set of results tables and a 
-#       set of plots;
-#    4) the damage tables are named "analysisTable" and returned to the 
-#       ResultGenerationPhase;
-# 3) the ResultGenerationPhase function returns the "analysisTable" to the 
-#    execution phase.
-# 
-# ------------------------------------------------------------------------------
-# input variables
-# NONE
-# 
-# constants 
-# NONE
-#
-# LOCAL VARIABLES 
-# analysisTable--the "analysisTable" are the product of the Data Assembly 
-#                 Phase. This means the tables have been cleaned, 
-#                 non-contributing data has been removed, the event names are 
-#                 unified to the NWS names, and the data is divided into 
-#                 jurisdictions and each jurisdiction data.frame is grouped into
-#                 two damage tables, one for casualties, the other for economic
-#                 losses.
-# 
-#   resultTables--the "resultTables" are the result of the Data Analysis Phase. 
-#                 The main data in these tables is the "worstDamageTable" for 
-#                 each jurisdiction and each damage type. This data is used for 
-#                 presenting the analysis results.
-#
-# returns resultTables
-
- #          EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
- # 1       TORNADO          0       15   25.00          K       0           
- # 2       TORNADO          0        0    2.50          K       0   
-# ==============================================================================
-ResultGenerationPhase <- function() {
-
-  if (!file.exists(DATAFILE)) {
-    DownloadstormFileName(URL, DATAFILE)
-  }
-
-  sourceDF <- read.table(DATAFILE, stringsAsFactors = FALSE,
-                        sep = ",",
-                        colClasses = c(rep("NULL",7), NA,
-                                       rep("NULL",14), rep(NA, 6),
-                                       rep("NULL",9)),
-                        header = TRUE)
-  cleanDF            <- sourceDF
-  cleanDF$EVTYPE     <- trimws(cleanDF$EVTYPE, which = c("both"))
-  cleanDF$PROPDMGEXP <- trimws(cleanDF$PROPDMGEXP, which = c("both"))
-  cleanDF$CROPDMGEXP <- trimws(cleanDF$CROPDMGEXP, which = c("both"))
-  cleanDF$EVTYPE     <- tolower(cleanDF$EVTYPE)
-  cleanDF$PROPDMGEXP <- tolower(cleanDF$PROPDMGEXP)
-  cleanDF$CROPDMGEXP <- tolower(cleanDF$CROPDMGEXP)
-  
-  nonZeroDF <- cleanDF[
-    cleanDF$FATALITIES != 0 |
-      cleanDF$INJURIES != 0 |
-      cleanDF$PROPDMG != 0 |
-      cleanDF$CROPDMG != 0, ]
-  
-    validDF <- nonZeroDF[
-    nonZeroDF$EVTYPE != '?' &
-    nonZeroDF$EVTYPE != 'high' &
-    nonZeroDF$EVTYPE != 'marine accident' &
-    nonZeroDF$EVTYPE != 'marine mishap' &
-    nonZeroDF$EVTYPE != 'other'&
-    nonZeroDF$EVTYPE != 'apache county'
-    ,]
-
-  stormDF    <- UnifyTypes(validDF)
-  analysisDF <- stormDF %>% ungroup(.) %>%
-    mutate (PROPDMGEXP = 
-              ifelse(PROPDMGEXP == 'k', 1000.,
-                     ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
-            CROPDMGEXP = 
-              ifelse(CROPDMGEXP == 'k', 1000., 
-                     ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
-            PROPDMG       = PROPDMG * PROPDMGEXP,
-            CROPDMG       = CROPDMG * CROPDMGEXP,
-            CASUALTIES    = FATALITIES + INJURIES,
-            LOSSES     = (PROPDMG + CROPDMG)/1000000.0
-            ) %>%
-    select(EVTYPE, CASUALTIES, LOSSES)
-
-  colnames(analysisDF) <- c('EVTYPE', 'CASUALTIES', 'LOSSES')
-  # analysisTable = list()
-    analysisTable <- analysisDF %>% group_by(EVTYPE)
-    analysisTable <- analysisTable %>%
-      summarise_at(c("CASUALTIES", "LOSSES"), sum)
-
-    analysisTable <- analysisTable %>% arrange(.$EVTYPE, .by_group = TRUE)
-  damageTables = list()
-
-  DAMAGE_ORDERING = c("desc(.$CASUALTIES)", "desc(.$LOSSES)")
-
-  for (damage in CASUALTIES_IDX:LOSSES_IDX) {
-    table <- analysisTable %>%
-      arrange(eval(parse(text=DAMAGE_ORDERING[damage])), .by_group = TRUE)
-    totalValue <- sum(table[, damage + 1])
-
-    accumulator     <- 0
-    percentList     <- list()
-    accumulatorList <- list()
-    
-    # TODO: make this a lambda function
-    for (i in 1:length(table$EVTYPE)) {
-      percent <- table[i, damage + 1]/totalValue
-      accumulator <- accumulator + percent
-      percentList <- append(percentList, percent)
-      accumulatorList <- append(accumulatorList, accumulator)
-    }
-
-    if (damage == CASUALTIES_IDX) {
-       table$PERCENT_CASUALTY <- as.numeric(unlist(percentList))
-       table$ACC_PERCENT_CASUALTY <- as.numeric(unlist(accumulatorList))
-    } else if (damage == LOSSES_IDX) {
-       table$PERCENT_LOSSES <- as.numeric(unlist(percentList))
-       table$ACC_PERCENT_LOSSES <- as.numeric(unlist(accumulatorList))
-    }
-    
-    damageTables <- list.append(damageTables, table)
-  } # end of for loop
-
-  worstDamageTable <- cbind(damageTables[[1]], damageTables[[2]])
-  colnames(worstDamageTable) <- 
-    c('EVTYPE_C', 'CASUALTIES_C', 'LOSSES_C', 'PERCENT_CASUALTY', 
-      'ACC_PERCENT_CASUALTY', 'EVTYPE_L', 'CASUALTIES_L', 'LOSSES_L', 
-      'PERCENT_LOSSES', 'ACC_PERCENT_LOSSES')
-  
-  
-   for (damage in CASUALTIES_IDX:LOSSES_IDX)
-  {
-    table <- head(worstDamageTable, n=10) %>% 
-      select(eval(parse(text = DAMAGE_SELECT[[damage]])))
-    colnames(table) <- eval(parse(text = TABLE_NAMES[[damage]]))
-
-    table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
-
-    plt <- ggplot(table,
-                  aes(x = eval(parse(text=DAMAGE_REORDER[[damage]])),
-                      y = eval(parse(text=DAMAGE_NAMES[[damage]])))) +
-      ggtitle(paste0("Figure 1. United States Storm Related ",
-                     str_to_title(DAMAGE_NAMES[[damage]]))) +
-      xlab("Events") +
-      ylab(DAMAGE_NAMES[damage]) +
-      geom_bar(stat="identity", width=0.7, fill="steelblue") +
-      theme(plot.title = element_text(face="plain", color="black", size=12),
-            axis.text.x = element_text(size = 5, face="bold"),
-            axis.text.y = element_text(size = 5, face="bold"),
-            axis.title.x = element_text(size = 8, face="bold"),
-            axis.title.y = element_text(size = 8, face="bold"))
-    save_plot(paste0("imageBars0", damage, ".png"), plt) 
-   }
-  
-
-  set <- c(head(worstDamageTable$EVTYPE_C, n = 10),
-                head(worstDamageTable$EVTYPE_L, n = 10))
-  eventSet <- unique(set)
-
-  bigEvt <- analysisTable[analysisTable$EVTYPE %in% eventSet,  ]
-  # print (analysisTable$EVTYPE_C)
-  # print (bigEvt)
-  # print(analysisTable)
-  # 
-  # # print(paste0("Analysistable type ", class(analysisTable)))
-  # # print(head(analysisTable))
-  plt <- ggplot(analysisTable, aes(x = CASUALTIES, y = LOSSES)) +
-    ggtitle(
-      paste0("Figure 3. United States  Casualties vs. Economic Losses")) +
-    xlab("Event Type") + ylab("Losses ($ millions)") +
-    theme(plot.title = element_text(face="plain", color="black", size=28),
-          axis.title.x = element_text(face="bold", color="black", size=14),
-          axis.title.y = element_text(face="bold", color="black", size=14),
-          axis.text = element_text(size = 10, face="bold")) +
-    geom_point(data =
-                 analysisTable[!(analysisTable$EVTYPE %in% eventSet),  ],
-               aes(x = CASUALTIES, y = LOSSES, size = 3) +
-                 theme(legend.position="none")) +
-    geom_point(data = analysisTable[analysisTable$EVTYPE %in% eventSet,  ],
-           aes(x = CASUALTIES, y = LOSSES, color = EVTYPE, size = 3)) +
-    geom_smooth(method = lm) +
-    geom_text_repel (
-      data = bigEvt,
-      aes(x=CASUALTIES, y=LOSSES, label = EVTYPE, color = EVTYPE, fontface = "bold"),
-      min.segment.length = 0.0, nudge_y = 10.0, nudge_x = 100.0,
-      force = 40.0,
-      force_pull = 1.0
-    )
-
-  save_plot("imageSet.png", plt, ncol = 2, nrow = 2)
-    
-  # analysisTable <- DataAssemblyPhase()
-  # resultTables   <- DataAnalysisPhase(analysisTable)
-
-  return (worstDamageTable)
-}
+VERBOSE                   = TRUE    # list results of each transformation
+ALL_DATA                  = FALSE    # include all data points
+CONTRIBUTING_EVENTS       = TRUE    # include contributing events only
+CLEAR_EVENTS              = TRUE    # includes all cleared events only
+FIX_EVENTS                = TRUE    # excludes weird names    
+UNIFIED_EVENTS            = TRUE    # include all un-unified events
 
 ```
 
+### Unify Names
 
-### Data Assembly Phase
-```{=html}
-<!-- READER POINTS -->
-<p style="font-size : 18px; font-weight: bold; color: blue;">
-The important points:
-</p>
-<ul>
-  <li>the ResultGenerationPhase function calls two functions</li>
-    <ul>
-      <li>DataAssemblyPhase</li>
-      <li></li>
-      <li></li>
-    </ul>
-  </ul>
-
-<pre>
-Data Assembly Phase ============================================================
-The Data Assembly Phase is responsible for creating the "analysisTable".
-================================================================================
-Data Assembly Phase flow
-   1) read the data from the storm file;
-   2) clean the data, remove entries that do not contribute to the
-      analysis, and make all EVTYPE names conform to the National Weather
-      Service Instruction 10-1605 naming conventions.
-   3) divide the analysisDF into jurisdiction tables
-   4) group the jurisdiction tables by event type and store as
-      analysisTable;
-   5) return analysisTable
-==============================================================================
-The following diagram is a high level pictorial representation of the
-Data Assembly Phase.
-==============================================================================
-
- Get control from the Data Assembly Phase
-    |      
-    |                         return analysisTable to ResultGenerationPhase
-    |                            ^
-    V                            |
-    +-->---+---------------------+
-           | Data Assembly       |    analysisTable
-           |    Phase            |<---<---<---<--<---<---<---<--<---<---+
-           |                     |   analysisDF                         |
-           |                     |<---<---<---<---<---<----<---<---+    ^
-           |                     |  sourceDF                       ^    |
-           +---+---+-------------+<---<---<---<---<---<---<---+    |    |
-           |   |   |                                          ^    |    ^
-         Pass control to Read Storm File                      |    ^    |
-           | Pass control to Assemble Analysis Data           |    |    |
-           V   | Pass control to Assemble analysisTable      |    |    |
-           |   V   |                                          |    ^    |
-           --->|-->|-->--->+-------------+                    ^    |    ^
-               |   V       | Read Storm  |                    |    ^    |
-               |   |       |   File      |                    |    |    |
-               |   |       +-------------+--->--->--->--->--->+    |    ^
-               V   |                       return sourceDF         |    |
-               |   V                                               |    |
-               |   |        sourceDF                               |    ^
-               +---|-->--->+-------------------+                   ^    |
-                   |       | Assemble Analysis |                   |    |
-                   |       |       Data        |                   |    ^
-                   |       +-------------------+--->-->--->--->--->+    |
-                   |                             return analysisDF      |
-                   |                                                    ^
-                   |                                                    |
-                   |                                                    |
-                   +--->--->+-------------------+                       |
-                            | Assemble Analysis |                       ^
-                            |      Tables       |                       |
-                            +-------------------+--->--->--->-->--->--->+
-                                                  return analysisTable
-                                     
-</pre>
-```
-
-```{r DataAssemblyPhase}
-# DataAssemblyPhase function ===================================================
-#
-# The Data Assembly Phase is implemented by DataAssemblyPhase function. The
-# function will:
-# 1) pass control to the ReadStormFile function to read specific data columns 
-#    from data file required by the user. The data will be stored in a 
-#    data.frame "souceDF". The columns are COUNTYNAME, STATE, EVTYPE, 
-#    FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, and CROPDMGEXP.
-# 2) return the "souceDF" and control to DataAssemblyPhase;
-# 3) will return "sourceDF" to DataAssemblyPhase;
-# 4) pass control and "sourceDF" to AssembleAnalysisData, which will transform
-#    the "sourceDF" to the "analysisDF" by cleaning and reducing the data set;
-# 3) return the "analysisDF" and control to the DataAssemblyPhase;
-# 4) pass the "analysisDF" and control to the AssembleanalysisTable function;
-# 5) process the data to create tables consisting of data.frames ordered by
-#    casualties or economic losses. These tables are stored in the 
-#    "analysisTable", 
-# 6) return the "analysisTable" and control to AssembleanalysisTable;
-# 7) return control to ResultGenerationPhase
-# 
-# ------------------------------------------------------------------------------
-# input variables
-# NONE
-# 
-# constants 
-# NONE
-#
-# LOCAL VARIABLES 
-#       sourceDF--the "sourceData" is the raw data read from the user specified
-#                 DATAFILE with the columns required for the StormCloud  
-#                 analysis.
-#     analysisDF--the "analysisDF" is the final transformation of the raw data
-#                 to clean, complete, and unified data required for analysis,
-#                 it still has to be organized by jurisdiction and event type.
-# analysisTable--the "analysisTable" are the product of the Data Assembly 
-#                 Phase. This means the tables have been cleaned, 
-#                 non-contributing data has been removed, the event names are 
-#                 unified to the NWS names, and the data is divided into 
-#                 jurisdictions and each jurisdiction data.frame is grouped into
-#                 two damage tables, one for casualties, the other for economic
-#                 losses.
-#
-# returns analysisTable
-# ==============================================================================
-DataAssemblyPhase <- function()  {
-  if (!file.exists(DATAFILE)) {
-    DownloadstormFileName(URL, DATAFILE)
-  }
-
-  sourceDF <- read.table(DATAFILE, stringsAsFactors = FALSE,
-                        sep = ",",
-                        colClasses = c(rep("NULL",7), NA,
-                                       rep("NULL",14), rep(NA, 6),
-                                       rep("NULL",9)),
-                        header = TRUE)
-  cleanDF            <- sourceDF
-  cleanDF$EVTYPE     <- trimws(cleanDF$EVTYPE, which = c("both"))
-  cleanDF$PROPDMGEXP <- trimws(cleanDF$PROPDMGEXP, which = c("both"))
-  cleanDF$CROPDMGEXP <- trimws(cleanDF$CROPDMGEXP, which = c("both"))
-  cleanDF$EVTYPE     <- tolower(cleanDF$EVTYPE)
-  cleanDF$PROPDMGEXP <- tolower(cleanDF$PROPDMGEXP)
-  cleanDF$CROPDMGEXP <- tolower(cleanDF$CROPDMGEXP)
-  
-  nonZeroDF <- cleanDF[
-    cleanDF$FATALITIES != 0 |
-      cleanDF$INJURIES != 0 |
-      cleanDF$PROPDMG != 0 |
-      cleanDF$CROPDMG != 0, ]
-  
-    validDF <- nonZeroDF[
-    nonZeroDF$EVTYPE != '?' &
-    nonZeroDF$EVTYPE != 'high' &
-    nonZeroDF$EVTYPE != 'marine accident' &
-    nonZeroDF$EVTYPE != 'marine mishap' &
-    nonZeroDF$EVTYPE != 'other'&
-    nonZeroDF$EVTYPE != 'apache county'
-    ,]
-
-  stormDF    <- UnifyTypes(validDF)
-  analysisDF <- stormDF %>% ungroup(.) %>%
-    mutate (PROPDMGEXP = 
-              ifelse(PROPDMGEXP == 'k', 1000.,
-                     ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
-            CROPDMGEXP = 
-              ifelse(CROPDMGEXP == 'k', 1000., 
-                     ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
-            PROPDMG       = PROPDMG * PROPDMGEXP,
-            CROPDMG       = CROPDMG * CROPDMGEXP,
-            CASUALTIES    = FATALITIES + INJURIES,
-            LOSSES     = (PROPDMG + CROPDMG)/1000000.0
-            ) %>%
-    select(EVTYPE, CASUALTIES, LOSSES)
-
-  colnames(analysisDF) <- c('EVTYPE', 'CASUALTIES', 'LOSSES')
-  analysisTable = list()
-    analysisTable <- analysisDF %>% group_by(EVTYPE)
-    analysisTable <- analysisTable %>%
-      summarise_at(c("CASUALTIES", "LOSSES"), sum)
-
-    analysisTable <- analysisTable %>% arrange(.$EVTYPE, .by_group = TRUE)
-
-  # sourceDF       <- ReadStormFile()
-  # analysisDF     <- AssembleAnalysisData(sourceDF)
-  # analysisTable <- AssembleanalysisTable(analysisDF)
-
-  return (analysisTable)
-}  ## End of DataAssemblyPhase function
-
-```
-
-#### Read Storm File
-
-```{r ReadStormFile}
-# ReadStormFile ================================================================
-# The ReadStormFile function reads the contents of the storm data file 
-# selecting only the fields of interest.
-# STATE, COUNTYNAME, PROPDMGEXP, CROPDMGEXP, PROPDMG, CROPDMG, FATALITIES,
-# and INJURIES.
-#
-# returns sourceDF
-#
-# Format of "sourceDF"
-#          EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
-# 1       TORNADO          0       15   25.00          K       0           
-# 2       TORNADO          0        0    2.50          K       0           
-# 3       TORNADO          0        2   25.00          K       0           
-# 
-# ==============================================================================
-ReadStormFile <- function()
-{
-  sourceDF <- read.table(DATAFILE, stringsAsFactors = FALSE,
-                        sep = ",",
-                        colClasses = c(rep("NULL",7), NA,
-                                       rep("NULL",14), rep(NA, 6),
-                                       rep("NULL",9)),
-                        header = TRUE)
-
-  if (VERBOSE) {
-    print(paste0("sourceDF ", dim(sourceDF)))
-    print(head(sourceDF))
-  }
-
-  return (sourceDF)
-} ## End of ReadStormFile function
-
-```
-
-#### Assemble Analysis Data
-
-```{=html}
-<p style="font-size : 18px; font-weight: bold; color: green;">
-READER POINTS
-</p>
-<p style="font-size : 12px;">
-The important points:
-</p>
-<ul>
-  <li>the ResultGenerationPhase function calls two functions</li>
-    <ul>
-      <li>DataAssemblyPhase</li>
-      <li></li>
-      <li></li>
-    </ul>
-  </ul>
-
-<pre>
-Assemble Analysis Data =======================================================
-The Assemble Analysis Data is responsible for producing "analysisDF".
-==============================================================================
-Assemble Analysis Data flow
-   1) receive the sourceDF from the Data Assembly Phase;
-   2) clean the data;
-   3) remove "non-contributing" rows from the cleaned data; 
-   4) remove event names that do not correlate to the NWS naming convention;
-   5) convert all event names in the cleaned data to consistently formatted event names;
-   6) add columns for the total number of casualties and total economic loss the the data.frame, this is the "analysisDF";
-   7) return the"analysisDF" to the Data Assembly Phase.
-================================================================================
-The following diagram is a high level pictorial representation of the
-Assemble Analysis Data
-================================================================================
-
- Get control and sourceDF from DataAssemblyPhase
-  |
-  |                         return analysisDF to DataAssemblyPhase
-  |                            ^
-  V                            |
-  +-->-->+---------------------+  analysisDF
-         |                     |<---<---<---<---<---<---<---<---<---<---<---+
-         |                     |  stormDF                                   |
-         |  Assemble Analysis  |<---<---<---<----<---<---<---<---<---<--+   |
-         |                     |  validDF                               ^   |
-         |       Data          |<---<---<---<---<---<---<---<---<---+   |   |
-         |                     |  nonZeroDF                         ^   ^   |
-         |                     |<---<---<---<---<---<---<---<---+   |   |   |
-         |                     |  cleanDF                       |   ^   |   |
-         +--+--+--+--+----+<---<---<---<---<---<---<---<---+    ^   |   ^   |
-         |  |  |  |  |                                     |    |   |   |   |
-         Pass control to CleanData                         |    |   ^   |   |
-         |  Pass control to RemoveZeroData                 |    |   |   |   |
-         V  |  Pass control to RemoveInvalidEvents         |    ^   |   ^   |
-         |  V  |  Pass control to UnifyTypes               ^    |   |   |   |
-         |  |  |  |  Pass control to FinishAnalysisDataset |    |   |   |   |
-         |  |  V  |  |                                     |    |   |   ^   |
-         V  |  |  V  |        receive sourceDF             |    |   |   |   |
-         +--|->|--|--|--->--->+-----------+                |    |   |   |   |
-            V  |  |  |        | CleanData |                |    ^   ^   |   |
-            |  V  |  |        +-----------+--->--->--->--->+    |   |   ^   |
-            V  |  |  V                        return cleanDF    |   |   |   |
-            |  |  |  |                                          |   |   |   |
-            |  |  V  |        receive cleanDF                   |   |   ^   |
-            +--|>-|->|--->--->+-------------+                   |   |   |   |
-               V  |  |        | Remove Zero |                   |   ^   |   |
-               |  V  |        |     Data    |                   |   |   |   |
-               |  |  V        +-------------+--->--->--->-->--->+   |   ^   |
-               |  V  |                        return nonZeroDF      |   |   |
-               |  |  |                                              |   |   |
-               V  |  |        receive nonZeroDF                     |   ^   |
-               +->|->|--->--->+----------------+                    ^   |   |
-                  V  |        | Remove Invalid |                    |   |   |
-                  |  |        |    Events      |                    |   |   |
-                  |  |        +----------------+--->--->--->--->--->+   ^   |
-                  |  V                        return validDF            |   |
-                  |  V                                                  |   |
-                  V  |         receive validDF                          ^   |
-                  +--|--->--->+-------------+                           |   |
-                     |        | Unify Types |                           |   |
-                     |        +-------------+--->--->--->--->--->--->-->+   |
-                     |                        return stormDF                |
-                     |                                                      |
-                     |         receive stormDF                              |
-                     +--->--->+----------------+                            |
-                              |Finish Analysis |                            |
-                              |   Dataset      |                            |
-                              +----------------+--->--->--->--->--->--->--->+
-                                              return analysisDF
-
-================================================================================
-```
-
-```{r AssembleAnalysisData}
-# AssembleAnalysisData function ================================================
-# Assemble Analysis Data  flow
-# 1) get control and "sourceDF" from DataAssemblyPhase;
-# 2) pass control and "sourceDF" to cleanData; 
-#    1) trim white space from "sourceData" text columns;
-#    2) convert all strings in "sourceData" to lower case;
-#    3) store in "cleanDF";
-#    4) return "cleanDF" to AssembleAnalysisData 
-# 3) AssembleAnalysisData passes control and "cleanDF" to RemoveZeroData; 
-#    1) create "nonZeroDF";
-#    2) store all the rows of "cleanDF" in "nonZeroDF" where at least one of the 
-#       following is true: FATALITIES == 0, INJURIES == 0, PROPDMG == 0, and 
-#       CROPDMG == 0;
-#    3) return "nonZeroDF" to AssembleAnalysisData 
-# 4) AssembleAnalysisData passes control and "nonZeroDF" to RemoveInvalidEvents; 
-#    1) create "validDF";
-#    2) store all the rows of "nonZeroDF" in "validDF" where the events are 
-#       related to the events found in the NWS Instruction 10-1005 [b]. The raw
-#       data contains events like "?", "high", and "other". There is no 
-#       equvalent for these events.
-#    3) return "validDF" to AssembleAnalysisData 
-# 5) AssembleAnalysisData passes control and "validDF" to UnifyTypes; 
-#    1) rename "validDF" to "stormDF";
-#    2) loop through each event to
-#       1) determine the NWS event type for each event in "stormDF";
-#       2) replace the event with the correct NWS event type;
-#    3) return "stormDF" to AssembleAnalysisData
-# 6) AssembleAnalysisData passes control and "stormDF" to FinishAnalysisDataset; 
-#    1) for each row of "stormDF" perform the following modifications
-#       1) convert PROPDMGEXP and CROPDMGEXP to numeric values;
-#       2) multiply PROPDMGEXP by PROPDMG, and CROPDMG by CROPDMGEXP
-#       3) add the adjusted values of PROPDMG and CROPDMG then store the result 
-#          in a new column called LOSSES. These are the economic losses;
-#       4) FATALITIES to INJURIES and store the result in a new column called 
-#          CASUALTIES;
-#    2) select the EVTYPE, COUNTYNAME, STATE, CASUALTIES, and LOSSES columns and
-#       store them in "analysisDF";
-#    3) return "analysisDF" to AssembleAnalysisData
-#  7) return "analysisDF" and control to DataAssemblyPhase; 
-# 
-# ------------------------------------------------------------------------------
-# input variables
-#       sourceDF--the "sourceData" is the raw data read from the user specified
-#                 DATAFILE with the columns required for the StormCloud
-#                 analysis. The "sourceData" has dimension (902297, 9)
-# 
-# constants
-# NONE
-# 
-# LOCAL VARIABLES
-#        cleanDF--"cleanDF" is the "sourceDF" after removing all of the leading  
-#                 and trailing white space and all string were changes to all 
-#                 lower-case letters. The "cleanDF" has dimension (902297, 9);
-#      nonZeroDF--"nonZeroDF" is the "cleanDF"  after rows with all numerical 
-# `               values equal to zero are removed. The "nonZeroDF" has 
-#                 dimension (254633, 9); 
-#        validDF--"validDF" is the "nonZeroDF" after invalid event names such as 
-#                 "other", and "apache county". The "validDF" has dimension 
-#                 (254592, 9);
-#        stormDF--"stormDF" is the "validDF" after every storm event name is 
-#                 converted to the NWS Instruction 10-1005 [b] storm type naming 
-#                 convention. The "stormDF" has dimension (254592, 9);
-#     analysisDF--"analysisDF" is the "stormDF" after consolidating casualties 
-#                 and economic losses and selecting specific columns. The 
-#                 "analysisDF" has dimension (254592, 5).
-# 
-# returns analysisDF
-# ==============================================================================
-# AssembleAnalysisData <- function(sourceDF)  {
-#   
-#   cleanDF            <- sourceDF
-#   cleanDF$EVTYPE     <- trimws(cleanDF$EVTYPE, which = c("both"))
-#   cleanDF$PROPDMGEXP <- trimws(cleanDF$PROPDMGEXP, which = c("both"))
-#   cleanDF$CROPDMGEXP <- trimws(cleanDF$CROPDMGEXP, which = c("both"))
-#   cleanDF$EVTYPE     <- tolower(cleanDF$EVTYPE)
-#   cleanDF$PROPDMGEXP <- tolower(cleanDF$PROPDMGEXP)
-#   cleanDF$CROPDMGEXP <- tolower(cleanDF$CROPDMGEXP)
-#   
-#   nonZeroDF <- cleanDF[
-#     cleanDF$FATALITIES != 0 |
-#       cleanDF$INJURIES != 0 |
-#       cleanDF$PROPDMG != 0 |
-#       cleanDF$CROPDMG != 0, ]
-#   
-#     validDF <- nonZeroDF[
-#     nonZeroDF$EVTYPE != '?' &
-#     nonZeroDF$EVTYPE != 'high' &
-#     nonZeroDF$EVTYPE != 'marine accident' &
-#     nonZeroDF$EVTYPE != 'marine mishap' &
-#     nonZeroDF$EVTYPE != 'other'&
-#     nonZeroDF$EVTYPE != 'apache county'
-#     ,]
-# 
-#   stormDF    <- UnifyTypes(validDF)
-#   analysisDF <- stormDF %>% ungroup(.) %>%
-#     mutate (PROPDMGEXP = 
-#               ifelse(PROPDMGEXP == 'k', 1000.,
-#                      ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
-#             CROPDMGEXP = 
-#               ifelse(CROPDMGEXP == 'k', 1000., 
-#                      ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
-#             PROPDMG       = PROPDMG * PROPDMGEXP,
-#             CROPDMG       = CROPDMG * CROPDMGEXP,
-#             CASUALTIES    = FATALITIES + INJURIES,
-#             LOSSES     = (PROPDMG + CROPDMG)/1000000.0
-#             ) %>%
-#     select(EVTYPE, CASUALTIES, LOSSES)
-# 
-#   colnames(analysisDF) <- c('EVTYPE', 'CASUALTIES', 'LOSSES')
-# 
-#   return (analysisDF)
-# }  ## End of AssembleAnalysisData function
-# AssembleAnalysisData <- function(sourceDF)  {
-#   
-#   cleanDF    <- CleanData(sourceDF)
-#   nonZeroDF  <- RemoveZeroData(cleanDF)
-#   validDF    <- RemoveInvalidEvents(nonZeroDF)
-#   stormDF    <- UnifyTypes(validDF)
-#   analysisDF <- FinishAnalysisDataset(stormDF)
-# 
-#   return (analysisDF)
-# }  ## End of AssembleAnalysisData function
-
-```
-
-##### Clean Data
-
-```{=html}
-<div style="font-size : 18px; font-weight: bold; color: green;">
-READER POINTS
-
-<div style="font-size : 12px; font-weight: normal;">
-```
-
-The important points:
-* All strings are converted to lower-case letters for two reasons;
-
-1. the contributors to the data set use mixes of upper- and lower-case which makes comparisons complex and time consuming. For example, "THUNDERSTORM WINDS", and "thunderstorm winds" are two ways contributors will write "Thunderstorm Winds". To compare all of the events to every possible combination of upper and lower case would take slow down the program.
-
-2. the UnifyTypes function converts the "validDF" event names (lower case) to the NWS event names. If the converted name is was still lower case, then there is a possible chance that it could match a different event type. By converting all events to lower case to the proper NWS name, there is no chance of mismatch.
-
-```{=html}
-head(cleanDF, n=2)
-Notice that the event "TORNADO" in sourceDF is now "tornado" in "cleanDF".
-<pre>
-<div style="font-size : 10px; color: green; ">
-  COUNTYNAME STATE  EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
-1     MOBILE    AL tornado          0       15    25.0          k       0          1
-2    BALDWIN    AL tornado          0        0     2.5          k       0          2 
-</div>
-</pre>
-</div>
-</div>
-```
-
-```{r CleanData}
-# CleanData =====================================================================
-# 1) copy "sourceDF" into "cleanDF";
-# 2) trim all of the columns with string data. That is, remove the leading and
-#    trailing white space. For example, the string " TORNADO " becomes "TORNADO"
-#    after removing the leading and trailing white spaces.
-# 3) change all string to lower-case letters. 
-# ------------------------------------------------------------------------------
-# input variables
-#       sourceDF--the "sourceData" is the raw data read from the user specified
-#                 DATAFILE with the columns required for the StormCloud
-#                 analysis. The "sourceData" has dimension (902297, 9)
-# 
-# constants
-# NONE
-# 
-# LOCAL VARIABLES
-#        cleanDF--"cleanDF" is the "sourceDF" after removing all of the leading  
-#                 and trailing white space and all string were changes to all 
-#                 lower-case letters. The "cleanDF" has dimension (902297, 9);
-# 
-# returns cleanDF
-# ==============================================================================
-CleanData <- function(sourceDF)
-{
-  cleanDF            <- sourceDF
-  cleanDF$EVTYPE     <- trimws(cleanDF$EVTYPE, which = c("both"))
-  cleanDF$PROPDMGEXP <- trimws(cleanDF$PROPDMGEXP, which = c("both"))
-  cleanDF$CROPDMGEXP <- trimws(cleanDF$CROPDMGEXP, which = c("both"))
-  cleanDF$EVTYPE     <- tolower(cleanDF$EVTYPE)
-  cleanDF$PROPDMGEXP <- tolower(cleanDF$PROPDMGEXP)
-  cleanDF$CROPDMGEXP <- tolower(cleanDF$CROPDMGEXP)
-
-  if (VERBOSE) {
-    print(paste0("cleanDF ", dim(cleanDF)))
-    print(head(cleanDF))
-  }
-
-  return (cleanDF)
-}  ## End of CleanRawData function
-
-```
-
-##### Remove Zero Data
-
-```{=html}
-<div style="font-size : 18px; font-weight: bold; color: green;">
-READER POINTS
-
-  <div style="font-size : 12;">
-The important points:
-    <ul>
-      <li>The analysis of the storm data relies on the summing the FATALITIES, INJURIES, PROPDMG, and CROPDMG columns;</li>
-      <li>if any row has at least one of these columns with a non-zero value, the row will contribute to one of the value of the column;</li>
-      <li>if a row has no non-zero values in any of these columns that row will not contribute to the value of any column. Therefore, that row is a non-contributor and does no matter to the analysis so it can be eliminated.</li>
-    </ul>
-  </div>
-  <h6>Size change in nonZeroDF<h6>
-  Notice the size of the data reduces the size of the data.frame by 647664 rows.
-</div>
-```
-
-```{r}
-# RemoveZeroData ===============================================================
-# 1) copy rows of "cleanDF" to "nonZeroDF" if the row has at least one non-zero 
-#    value in FATALITIES, INJURIES, PROPDMG, and CROPDMG then it is included in
-#    "nonZeroDF". 
-# ------------------------------------------------------------------------------
-# input variables
-#        cleanDF--the "cleanDF" is the original "sourceDF" after trimming white 
-#                 space. The dimension of "cleanDF" is (902297, 9)
-# 
-# constants
-# NONE
-# 
-# LOCAL VARIABLES
-#      nonZeroDF--"nonZeroDF" is the "sourceDF" after cleaning it and removing
-#                 all zero values. The dimension of "nonZeroDF" is (254633, 9). 
-#                 In other words, by removing the zero data reduce the number of 
-#                 rows by 647664.
-# 
-# returns nonZeroDF
-# ==============================================================================
-RemoveZeroData <- function(cleanDF)
-{
-  # remove rows with
-  nonZeroDF <-
-    cleanDF[
-      cleanDF$FATALITIES != 0 |
-      cleanDF$INJURIES != 0 |
-      cleanDF$PROPDMG != 0 |
-      cleanDF$CROPDMG != 0, ]
-
-  if (VERBOSE) {
-    print(paste0("nonZeroDF ", dim(nonZeroDF)))
-    print(head(nonZeroDF))
-  }
-
-  return (nonZeroDF)
-}  ## End of LoadStormDamageData function
-```
-
-##### Remove Invalid Events
-
-```{=html}
-<div style="font-size : 18px; font-weight: bold; color: green;">
-<!-- READER POINTS -->
-  <div style="font-size : 12;">
-The important points:
-    <ul>
-      <li>during the investigation of the source file I found the following 
-      events that do not correspond any event in the NATIONAL WEATHER SERVICE INSTRUCTION 10-1605 [b]: '?', 'high', 'marine accident', 'marine mishap', 'other', and 'apache county'</li>
-    </ul>
-    The dimension of "nonZeroDF" is (254633, 9) and the "validDF" is (254592, 9). In other words, by removing the zero data reduce the number of rows  by 647664.
-  <h6>Size change in nonZeroDF<h6>
-  Notice the size of the data reduces the size of the data.frame by 647664 rows.
-  </div>
-</div>
-```
-
-```{r}
-# RemoveInvalidEvents ==========================================================
-# 1) copy rows of "nonZeroDF" to "validDF";
-# 2) during the copy, exclude the following events:
-#    '?', 'high', 'marine accident', 'marine mishap', 'other', and 
-#    'apache county'
-# 3) return "validDF"
-# ------------------------------------------------------------------------------
-# input variables
-#      nonZeroDF--the "nonZeroDF" is the original "sourceDF" after trimming white 
-#                 space, and excluding rows that do not contribute. 
-# 
-# constants
-# NONE
-# 
-# LOCAL VARIABLES
-#        validDF--"validDF" is the "sourceDF" after cleaning, removing all non- 
-#                  contributing values, and removing all invalid events. 
-# validDF
-# returns validDF
-# ==============================================================================
-RemoveInvalidEvents <- function(nonZeroDF) {
-
-  validDF <- nonZeroDF[
-    nonZeroDF$EVTYPE != '?' &
-    nonZeroDF$EVTYPE != 'high' &
-    nonZeroDF$EVTYPE != 'marine accident' &
-    nonZeroDF$EVTYPE != 'marine mishap' &
-    nonZeroDF$EVTYPE != 'other'&
-    nonZeroDF$EVTYPE != 'apache county'
-    ,]
-
-  if (VERBOSE) {
-    print(paste0("validDF ", dim(validDF)))
-    print(head(validDF))
-  }
-
-  return (validDF)
-}
-
-```
-
-##### Unify Types
-
-
-
-```{=html}
-<div style="font-size : 18px; font-weight: bold; color: green;">
-<!-- READER POINTS -->
-
-  <div style="font-size : 10; font-weight: normal;">
-The important points:
-    <ul>
-      <li>The event reporters use different names for the same event type.<br>
-If these types are not consisted , the report will end up with 
-the following events, all of which correspond to the NWS event
-"Thunderstorm Winds":<br>
-THUDERSTORM WINDS, THUNDEERSTORM WINDS, THUNDERESTORM WINDS, 
-THUNDERSTORM, THUNDERSTORM  WINDS, Thunderstorm Wind, 
-THUNDERSTORM WIND, THUNDERSTORM WIND (G40), THUNDERSTORM WIND 
-50, THUNDERSTORM WIND 52,  THUNDERSTORM WIND 56, THUNDERSTORM 
-WIND 59, THUNDERSTORM WIND 59 MPH, THUNDERSTORM WIND 59 MPH., 
-THUNDERSTORM WIND 60 MPH, THUNDERSTORM WIND 65 MPH, THUNDERSTORM 
-WIND 65MPH, THUNDERSTORM WIND 69, THUNDERSTORM WIND 98 MPH, 
-THUNDERSTORM  THUNDERSTORM WIND G55, THUNDERSTORM WIND G60, 
-THUNDERSTORM WIND G61, THUNDERSTORM WIND TREES, THUNDERSTORM 
-WIND. THUNDERSTORM WIND/ TREE, THUNDERSTORM WIND/ TREES, 
-THUNDERSTORM WIND/AWNING, THUNDERSTORM WINDS, THUNDERSTORM WINDS, 
-THUNDERSTORM WINDS 13, THUNDERSTORM WINDS 2, THUNDERSTORM WINDS 
-50, THUNDERSTORM WINDS 52, THUNDERSTORM WINDS 53, THUNDERSTORM 
-WINDS 60, THUNDERSTORM WINDS 61, THUNDERSTORM WINDS 62, 
-THUNDERSTORM WINDS 63 MPH, THUNDERSTORM WINDS G, THUNDERSTORM 
-WINDS G60, THUNDERSTORM WINDS., THUNDERSTORM WINDS53, 
-THUNDERSTORMS WIND, THUNDERSTORMS WINDS, THUNDERSTORMW, 
-THUNDERSTORMW 50, THUNDERSTORMW WINDS, THUNDERSTORMWINDS, 
-THUNDERSTROM WIND, THUNDERSTROM WINDS, THUNDERTORM WINDS, 
-THUNDERTSORM WIND,  THUNDESTORM WINDS, THUNERSTORM WINDS, 
-TSTM, TSTM WIND, Tstm Wind, TSTM WIND,  TSTM WIND  (G45), TSTM 
-WIND (41), TSTM WIND (G35), TSTM WIND (G40),  TSTM WIND (G45), 
-TSTM WIND (G45), TSTM WIND 40, TSTM WIND 45, TSTM WIND 50, TSTM
-WIND 51, TSTM WIND 52, TSTM WIND 55, TSTM WIND 65), TSTM WIND
-DAMAGE, TSTM WIND G45, TSTM WIND G58, TSTM WINDS, TSTM WND, TSTMW</li>
-    </ul>
-  </div>
-  <h6>Size change in nonZeroDF<h6>
-       COUNTYNAME STATE  EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
- 1     MOBILE    AL Tornado          0       15    25.0          k       0              1
- 2    BALDWIN    AL Tornado          0        0     2.5          k       0              2
-
-</div>
-```
-
-
-```{r Unify Types}
-# UnifyTypes ===================================================================
-# 1) rename "validDF" to "stormDF"
+```{r Unify Names}
+# UnifyNames ===================================================================
+# 1) rename "validDF" to "sourceDF"
 # 2) based on the an extensive study of the event names in the data file and the
 #    NWS event names and classifications, I developed a mapping from the file
 #    names to the NWS names;
 # 3) the file to NWS mappings were turned in to gsub statements
-# 4) each event name in "stormDF" is converted from the file name to the NWS name.
+# 4) each event name in "sourceDF" is converted from the file name to the NWS name.
 # ------------------------------------------------------------------------------
 # input variables
-#        validDF--renamed to "stormDF". The "validDF" is the original "sourceDF"
-#                 after trimming white space, excluding rows that do not 
-#                 contribute, 
-# 
+#        validDF--renamed to "sourceDF". The "validDF" is the original "sourceDF"
+#                 after trimming white space, excluding rows that do not
+#                 contribute,
+#
 # constants
 # NONE
-# 
+#
 # LOCAL VARIABLES
-#        stormDF--"validDF" is the "sourceDF" after cleaning, removing all non- 
-#                  contributing values, and removing all invalid events. 
-# 
-# returns stormDF
+#        sourceDF--"validDF" is the "sourceDF" after cleaning, removing all non-
+#                  contributing values, and removing all invalid events.
+#
+# returns sourceDF
 # ==============================================================================
-UnifyTypes <- function(stormDF) {
-  stormDF$EVTYPE <-
+
+UnifyNames <- function(sourceDF) {
+  sourceDF$EVTYPE <-
     gsub("^marine hail$", "Marine Hail",
     gsub("^marine high wind$", "Marine High Wind",
     gsub("^marine strong wind$", "Marine Strong Wind",
@@ -1456,9 +916,9 @@ UnifyTypes <- function(stormDF) {
     gsub("^tropical depression$", "Tropical Depression",
     gsub("^tropical storm.*$", "Tropical Storm",
     gsub("^drowning$", "Rip Current",
-    stormDF$EVTYPE)))))))))))))
+    sourceDF$EVTYPE)))))))))))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^.*coastal.*$", "Coastal Flood",
     gsub("^.*erosion.*$", "High Surf",
     gsub("^.*tidal.*$", "Coastal Flood",
@@ -1466,47 +926,47 @@ UnifyTypes <- function(stormDF) {
     gsub("^storm surge.*$", "Storm Tide",
     gsub("^high.+(tides|waves).*$", "Storm Tide",
     gsub("^rogue.+$", "Storm Tide",
-    stormDF$EVTYPE)))))))
+    sourceDF$EVTYPE)))))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^lake.*snow$", "Lake-Effect Snow",
     gsub("^lake.*$", "Lakeshore Flood",
-    stormDF$EVTYPE))
+    sourceDF$EVTYPE))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^(dam break|ice floes|ice jam( flood.+|))$", "Flash Flood",
     gsub("^.+small stream urban$", "Flash Flood",
     gsub("^urban.+(small|stream).*$", "Flash Flood",
     gsub("^(small|minor).+flood.*$", "Flash Flood",
     gsub("^flood.+flash.*$", "Flash Flood",
     gsub("^flash.*$", "Flash Flood",
-    stormDF$EVTYPE))))))
+    sourceDF$EVTYPE))))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^fog and cold temperatures$", "Freezing Fog",
     gsub("^freezing fog$", "Freezing Fog",
     gsub("^.*freezing (drizzle|rain|spray).*$", "Winter Weather",
-    stormDF$EVTYPE)))
+    sourceDF$EVTYPE)))
 
   # # must come after marine
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^hail.*$", "Hail",
     gsub("^small hail$", "Hail",
     gsub("^thunderstorm.+hail$", "Hail",
     gsub("^.*tstm.+hail$", "Hail",
     gsub("^(wind|gusty).+hail$", "Hail",
-    stormDF$EVTYPE)))))
+    sourceDF$EVTYPE)))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^(wind|non|gusty).+wind.*$", "High Wind",
     gsub("^(strong|gusty).*$", "Strong Wind",
     gsub("^(rain.+wind|wind.+rain)$", "High Wind",
     gsub("^wind.*$", "High Wind",
     gsub("^gradient wind$", "Rip Current",
     gsub("^rip current.*$", "Rip Current",
-    stormDF$EVTYPE))))))
+    sourceDF$EVTYPE))))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^(wind|gusty).+rain$", "Heavy Rain",
     gsub("^(unseasonal|hvy|high.+heavy).+rain.*$", "Heavy Rain",
     gsub("^rain(.*|fall)$", "Heavy Rain",
@@ -1514,9 +974,9 @@ UnifyTypes <- function(stormDF) {
     gsub("^heavy.(rain|rains)$", "Heavy Rain",
     gsub("^heavy rain/severe weather$", "Heavy Rain",
     gsub("^(torrential|record|excessive) rainfall$", "Heavy Rain",
-    stormDF$EVTYPE)))))))
+    sourceDF$EVTYPE)))))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^heavy rain/lightning", "Lightning",
     gsub("^thunderstorm.+lightning", "Lightning",
     gsub("^tstm.+lightning", "Lightning",
@@ -1524,9 +984,9 @@ UnifyTypes <- function(stormDF) {
     gsub("^lighting$", "Lightning",
     gsub("^ligntning+rain$", "Heavy Rain",
     gsub("^lightning.*$", "Lightning",
-    stormDF$EVTYPE)))))))
+    sourceDF$EVTYPE)))))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^thunderstorm.+flood($|ing$)", "Flood",
     gsub("^high.+water$", "Flood",
     gsub("^(flood|river|rural|major|break).+$", "Flood",
@@ -1536,9 +996,9 @@ UnifyTypes <- function(stormDF) {
     gsub("^flood$", "Flood",
     gsub("^heavy rain(s/flooding| and flood)$", "Flood",
     gsub("^heavy snow/high winds & flood$", "Flood",
-    stormDF$EVTYPE)))))))))
+    sourceDF$EVTYPE)))))))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^thunder.+$", "Thunderstorm Wind",
     gsub("^tstm.+$", "Thunderstorm Wind",
     gsub("^.+burst.*$", "Thunderstorm Wind",
@@ -1546,96 +1006,96 @@ UnifyTypes <- function(stormDF) {
     gsub("^severe turb.+$", "Thunderstorm Wind",
     gsub("^whirlwind$", "Thunderstorm Wind",
     gsub("^(thude|thune|tund|thundeer).+$", "Thunderstorm Wind",
-    stormDF$EVTYPE)))))))
+    sourceDF$EVTYPE)))))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^(cold air torn|torn).+$", "Tornado",
     gsub("^(gustnado|landspout)$", "Tornado",
-    stormDF$EVTYPE))
+    sourceDF$EVTYPE))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^.*heavy snow$", "Heavy Snow",
     gsub("^(excessive|high|heavy).+snow$", "Heavy Snow",
     gsub("^record snow$", "Winter Weather",
-    stormDF$EVTYPE)))
+    sourceDF$EVTYPE)))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^extreme.+chill$|^(extended|extreme|record) cold$", "Extreme Cold/Wind Chill",
     gsub("^hypo.+$", "Extreme Cold/Wind Chill",
-    stormDF$EVTYPE))
+    sourceDF$EVTYPE))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^high.+blizzard.*$", "Blizzard",
     gsub("^.*blowing snow$", "Blizzard",
     gsub("^.*blizzard.*$", "Blizzard",
     gsub("^high.+wind.*$", "High Wind",
     gsub("^snow/high winds$", "Blizzard",
-    stormDF$EVTYPE)))))
+    sourceDF$EVTYPE)))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^heavy.+ice$", "Winter Storm",
     gsub("^heavy.+storm$", "Winter Storm",
     gsub("^heavy.+winds$", "Winter Storm",
     gsub("^heavy.+snow.*$", "Winter Storm",
     gsub("^winter.+storm$", "Winter Storm",
     gsub("^.*winter storm.+$", "Winter Storm",
-    stormDF$EVTYPE))))))
+    sourceDF$EVTYPE))))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^.*sl(ide|ump).*$", "Debris Flow",
     gsub("^(snow|sleet|glaze).+ice storm$", "Winter Weather",
     gsub("^glaze.*$", "Winter Weather",
-    stormDF$EVTYPE)))
+    sourceDF$EVTYPE)))
 
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^cool and wet$", "Winter Weather",
     gsub("^(late|light).+snow.*$", "Winter Weather",
     gsub("^.*winter storm.+$", "Winter Storm",
     gsub("^(rain.snow|snow.rain)$", "Winter Weather",
     gsub("^falling snow/ice$", "Winter Weather",
     gsub("^wint.+$", "Winter Weather",
-    stormDF$EVTYPE))))))
+    sourceDF$EVTYPE))))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^.*drought.*$", "Drought",
     gsub("^.*heat.*$", "Excessive Heat",
     gsub("^hyper.+$", "Excessive Heat",
     gsub("^.*warm.*$", "Heat",
-    stormDF$EVTYPE))))
+    sourceDF$EVTYPE))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^dust storm.*$", "Dust Storm",
     gsub("^blowing dust$", "Dust Storm",
     gsub("^.*waterspout.*$", "Waterspout",
     gsub("^.*dust devil.*$", "Dust Devil",
-    stormDF$EVTYPE))))
+    sourceDF$EVTYPE))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^.*(frost|freeze).*$", "Frost/Freeze",
-    stormDF$EVTYPE)
+    sourceDF$EVTYPE)
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^ice storm$", "Ice Storm",
     gsub("^ic(e|y).*$", "Winter Weather",
     gsub("^.*mix.*$", "Winter Weather",
-    stormDF$EVTYPE)))
+    sourceDF$EVTYPE)))
 
-stormDF$EVTYPE <-
+sourceDF$EVTYPE <-
   gsub("^snow.*$", "Winter Weather",
   gsub("^sleet$", "Winter Weather",
   gsub("^.*cold.*$", "Cold/Wind Chill",
   gsub("^low.*$", "Cold/Wind Chill",
-  stormDF$EVTYPE))))
+  sourceDF$EVTYPE))))
 
-stormDF$EVTYPE <-
+sourceDF$EVTYPE <-
   gsub("^cold.*(.*|temperature|wave|winds|wind chill)$", "Cold/Wind Chill",
   gsub("^high.+cold$", "Cold/Wind Chill",
   gsub("^.*cold.*$", "Cold/Wind Chill",
   gsub("^low.*$", "Cold/Wind Chill",
-  stormDF$EVTYPE))))
+  sourceDF$EVTYPE))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^(high|heavy|rough|hazardous).+surf.*$", "High Surf",
     gsub("^avalanc.*$", "Avalanche",
     gsub("^seiche$", "Seiche",
@@ -1647,735 +1107,383 @@ stormDF$EVTYPE <-
     gsub("^heavy precipitation$", "Heavy Rain",
     gsub("^(dense|.*)fog$", "Dense Fog",
     gsub("^falling snow/ice$", "Winter Weather",
-    stormDF$EVTYPE)))))))))))
+    sourceDF$EVTYPE)))))))))))
 
-  stormDF$EVTYPE <-
+  sourceDF$EVTYPE <-
     gsub("^.*fire.*$", "Wildfire",
     gsub("^.*funnel.*$", "Funnel Cloud",
     gsub("^.*smoke$", "Dense Smoke",
-    stormDF$EVTYPE)))
-
+    sourceDF$EVTYPE)))
   if (VERBOSE) {
-    print(paste0("stormDF ", dim(stormDF)))
-    print(head(stormDF))
+    print(paste0("sourceDF ", dim(sourceDF)))
+    print(head(sourceDF))
   }
 
-  return (stormDF)
+  return (sourceDF)
 }
 
 ```
 
-##### Finish Analysis Dataset
+```{r processing}
 
-```{=html}
-
-<!-- READER POINTS -->
-<p style="font-size : 18px; font-weight: bold; color: blue;">
-The important points:
-<ul>
-<li>this function uses the "DATA_ASSEMBLY_SELECT" constant described in the Setup Phase -> Program Constants block. The constant is a string dexcribing a list of strings. Each of these strings is the name of a column in the "stormDF" data.frame. </li>
-<li>By itself, the "DATA_ASSEMBLY_SELECT" constant is a string so the colname function cannot accept it. To make it acceptable, the function uses a parse and evaluate pair.
-This changes the string to a column of strings, which can be used by the colnames function.</li>
-</ul>
-</p>
-   EVTYPE  COUNTY STATE CASUALTIES LOSSES
- 1 Tornado  MOBILE    AL         15 0.0250
- 2 Tornado BALDWIN    AL          0 0.0025
-```
-
-```{r}
-# FinishAnalysisDataset ========================================================
-# The FinishAnalysisDataset function receives the "stormDF" 
-# and stores it in "analysisDF" after:
-# 1) it converts the exponents to numeric values
-# 2) sets the PROPDMG to the product of PROPDMG and  PROPDMGEXP
-# 3) sets the CROPDMG to the product of CROPDMG and  CROPDMGEXP
-# 4) adds the CASUALTIES column to "analysisDF". This is the sum of 
-#    FATALITIES and INJURIES;
-# 4) adds the LOSSES column to "analysisDF". This is the sum of 
-#    PROPDMG and CROPDMG. LOSSES are divided by 1,000,000 so the 
-#    display is easier to read.
-#
-# returns analysisDF
-# ==============================================================================
-FinishAnalysisDataset <- function(stormDF) {
-
-  analysisDF <- stormDF %>% ungroup(.) %>%
-    mutate (PROPDMGEXP = 
-              ifelse(PROPDMGEXP == 'k', 1000.,
-                     ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
-            CROPDMGEXP = 
-              ifelse(CROPDMGEXP == 'k', 1000., 
-                     ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
-            PROPDMG       = PROPDMG * PROPDMGEXP,
-            CROPDMG       = CROPDMG * CROPDMGEXP,
-            CASUALTIES    = FATALITIES + INJURIES,
-            LOSSES     = (PROPDMG + CROPDMG)/1000000.0
-            ) %>%
-    select(EVTYPE, CASUALTIES, LOSSES)
-
-  colnames(analysisDF) <- c('EVTYPE', 'CASUALTIES', 'LOSSES')
-
-  if (VERBOSE) {
-    print(paste0("analysisDF ", dim(analysisDF)))
-    print(head(analysisDF))
-  }
-
-  return(analysisDF)
-}  ## End of MakeJurisStormList function
-
-```
-
-#### Assemble Analysis Tables
-
-```{r}
-# AssembleanalysisTable =======================================================
-# The AssembleanalysisTable function receives the 
-# "analysisDF" and converts it to a set of tables grouped one 
-# table for each jurisdiction and each table is grouped by 
-# EVTYPE.
-# ==============================================================================
-# Assemble Analysis Tables  flow
-# 1) AssembleAnalysisData receives the "analysisDF" data.frame 
-#    from the DataAssemblyPhase;
-## 2) the "analysisDF" is passed to the MakeJurisanalysisTable function,
-#    which will divide the set into 1, 2, or 3 sets depending on the 
-#    number of sets required by the user. NOTE: if the user wants the
-#    national set, then they get the entirety of the"analysisDF".
-#    otherwise, sets will include only the state and county data if that
-#    is required. The function returns the "jurisanalysisTable". 
-# 2) the "jurisanalysisTable". is passed to the GroupTables function,
-#    which groups each table by event type and stores the result in the
-#    "analysisTable".
-# 3) return "analysisTable".
-#
-# ==============================================================================
-# The following diagram is a high level pictorial representation of the 
-# Data Assembly Phase. 
-# ==============================================================================
-# 
-#                           return analysisTable
-# analysisDF
-#     |                            |
-#     V                            |
-#     +-->---+---------------------+  analysisTable 
-#            |  Assemble Analysis  |<---<--<--<--<--<--+
-#            |     Tables          |jurisanalysisTable   |
-#            +---+-----------------+<---<---<---<---+  ^
-#            |   |                                  |  ^
-#            V   V    analysisDF                  |  |
-#            |   +-->+----------------------+       |  |
-#            |       | MakeJurisanalysisTable |       ^  ^
-#            |       +----------------------+--->-->+  |
-#            V         jurisanalysisTable             |
-#            +--->-->+-----------------+               |
-#                    | GroupTables|               |
-#                    +-----------------+--->--->--->-->+
-#
-# ==============================================================================
-AssembleanalysisTable <- function(analysisDF)
-{
-  # jurisanalysisTable <- MakeJurisanalysisTable(analysisDF)
-  analysisTable      <- GroupTables(analysisDF)
-
-  return (analysisTable)
-}  ## End of AssembleanalysisTable function
-
-```
-
-##### Make Jurisidiction Analysis Set
-<p style="font-size : 18px; font-weight: bold; color: blue;">
-The important points:
-<ul>
-<li>this function uses the "DATA_FIELDS" and "DATA_FILTERS" constants described in the Setup Phase -> Program Constants block. The "DATA_FIELDS" constant is a list of strings each string is a list of "analysisDF" fields required by a specific jurisdiction. When it is parsed and evaluated, the select function will return the appropriate fields for the specified jurisdiction.</li>
-<li>By itself, the "DATA_FILTERS" constants select the filters the data.frame for the appropriate jurisdiction. .</li>
-</ul>
-</p>
-
-```{r MakeJurisanalysisTable}
-# MakeJurisanalysisTable ======================================================
-# The MakeJurisanalysisTable function accepts the "analysisDF"
-# and generates one table for each jurisdiction specified by
-# the user. Each jurisdiction table is filtered so only the 
-# the required fields are stored in the table.
-#
-# returns jurisanalysisTable
-# ==============================================================================
-# MakeJurisanalysisTable <- function(analysisDF) {
-#   jurisanalysisTable = list()
-# 
-#   for (i in 1:N_JURISDICTIONS) {
-# 
-#    jurisAnalysisDF <- analysisDF %>%
-#       select(eval(parse(text = DATA_FIELDS[i])))
-# 
-#     if (DATA_FILTERS[[i]] != "NATIONAL") {
-#       jurisAnalysisDF <- jurisAnalysisDF %>%
-#         filter(eval(parse(text = DATA_FILTERS[[i]])))
-#     }
-# 
-#     jurisanalysisTable <- 
-#       list.append(jurisanalysisTable, jurisAnalysisDF)
-#   }
-# 
-#   return(jurisanalysisTable)
-# }  ## End of MakeJurisStormList function
-
-```
-
-##### Group Jurisidiction Tables
-
-```{r}
-
-# GroupTables =============================================================
-# The GroupTables function accepts the 
-# "jurisanalysisTable" and groups each table by EVTYPE and 
-# each event type is assigned the sum of the group's CASUALTIES,
-# and LOSSES.
-#
-# returns analysisTable
-# ==============================================================================
-GroupTables <- function(analysisDF)
-{
-  analysisTable = list()
-    analysisTable <- analysisDF %>% group_by(EVTYPE)
-    analysisTable <- analysisTable %>%
-      summarise_at(c("CASUALTIES", "LOSSES"), sum)
-
-    analysisTable <- analysisTable %>% arrange(.$EVTYPE, .by_group = TRUE)
-
-
-  if (VERBOSE) {
-    print(paste0("analysisTable ", dim(analysisTable)))
-    print(head(analysisTable))
-  }
-    
-  return(analysisTable)
-} ## End of GroupJurisDamage function
-
-```
-
-### Data Analysis Phase
-
-```{r DataAnalysisPhase, include=FALSE}
-# ==============================================================================
-# Data Analysis Phase flow
-# As shown in the figure below, the R code will:
-# 1) 
-# 2) 
-# 3) 
-# 4) 
-#    1) 
-#    2) 
-# ==============================================================================
-# The following diagram is a high level pictorial representation of the Data
-# Analysis Phase. 
-# ==============================================================================
-# 
-#                       
-#                   return resultTables
-#  stormFileName name        ^
-#     |                 |
-#     V                 |  
-#     +-----------------+  resultTables
-#     | Data Analysis |<----<---<---<---<--+
-#     |      Phase      |                    |
-#     |                 | analysisTable     |
-#     +---+-------------+<----<---<---<---+  ^
-#     |   |                               ^  |
-#     |   |                               |  |
-#     V   V          stormFileName name        |  |
-#     +   +-->-+---------------+      |  |
-#     |        | Data Assembly |      ^  ^
-#     |        |     Phase     |      |  |
-#     |        +---------------+->--->+  ^
-#     V                                  |
-#     +->--Analysis Data-->+-------------+
-#         | Data Analysis |        ^
-#         |     Phase     |        |
-#         +---------------+--->--->+ 
-#
-
-# DataAnalysisPhase ============================================================
-# The GroupTables function accepts the 
-# "jurisanalysisTable" and groups each table by EVTYPE and 
-# each event type is assigned the sum of the group's CASUALTIES,
-# and LOSSES.
-#
-# returns analysisTable
-# ==============================================================================
-DataAnalysisPhase <- function(analysisTable)
-{
-  damageTables = list()
-
-  DAMAGE_ORDERING = c("desc(.$CASUALTIES)", "desc(.$LOSSES)")
-
-  for (damage in CASUALTIES_IDX:LOSSES_IDX) {
-    table <- analysisTable %>%
-      arrange(eval(parse(text=DAMAGE_ORDERING[damage])), .by_group = TRUE)
-    totalValue <- sum(table[, damage + 1])
-
-    accumulator     <- 0
-    percentList     <- list()
-    accumulatorList <- list()
-    
-    # TODO: make this a lambda function
-    for (i in 1:length(table$EVTYPE)) {
-      percent <- table[i, damage + 1]/totalValue
-      accumulator <- accumulator + percent
-      percentList <- append(percentList, percent)
-      accumulatorList <- append(accumulatorList, accumulator)
-    }
-
-    if (damage == CASUALTIES_IDX) {
-       table$PERCENT_CASUALTY <- as.numeric(unlist(percentList))
-       table$ACC_PERCENT_CASUALTY <- as.numeric(unlist(accumulatorList))
-    } else if (damage == LOSSES_IDX) {
-       table$PERCENT_LOSSES <- as.numeric(unlist(percentList))
-       table$ACC_PERCENT_LOSSES <- as.numeric(unlist(accumulatorList))
-    }
-    
-    damageTables <- list.append(damageTables, table)
-  } # end of for loop
-
-  worstDamageTable <- cbind(damageTables[[1]], damageTables[[2]])
-  colnames(worstDamageTable) <- 
-    c('EVTYPE_C', 'CASUALTIES_C', 'LOSSES_C', 'PERCENT_CASUALTY', 
-      'ACC_PERCENT_CASUALTY', 'EVTYPE_L', 'CASUALTIES_L', 'LOSSES_L', 
-      'PERCENT_LOSSES', 'ACC_PERCENT_LOSSES')
-  
-  
-   for (damage in CASUALTIES_IDX:LOSSES_IDX)
-  {
-    table <- head(worstDamageTable, n=10) %>% 
-      select(eval(parse(text = DAMAGE_SELECT[[damage]])))
-    colnames(table) <- eval(parse(text = TABLE_NAMES[[damage]]))
-
-    table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
-
-    plt <- ggplot(table,
-                  aes(x = eval(parse(text=DAMAGE_REORDER[[damage]])),
-                      y = eval(parse(text=DAMAGE_NAMES[[damage]])))) +
-      ggtitle(paste0("Figure 1. United States Storm Related ",
-                     str_to_title(DAMAGE_NAMES[[damage]]))) +
-      xlab("Events") +
-      ylab(DAMAGE_NAMES[damage]) +
-      geom_bar(stat="identity", width=0.7, fill="steelblue") +
-      theme(plot.title = element_text(face="plain", color="black", size=12),
-            axis.text.x = element_text(size = 5, face="bold"),
-            axis.text.y = element_text(size = 5, face="bold"),
-            axis.title.x = element_text(size = 8, face="bold"),
-            axis.title.y = element_text(size = 8, face="bold"))
-    save_plot(paste0("imageBars0", damage, ".png"), plt) 
-   }
-  
-
-  set <- c(head(worstDamageTable$EVTYPE_C, n = 10),
-                head(worstDamageTable$EVTYPE_L, n = 10))
-  eventSet <- unique(set)
-
-  bigEvt <- analysisTable[analysisTable$EVTYPE %in% eventSet,  ]
-  # print (analysisTable$EVTYPE_C)
-  # print (bigEvt)
-  # print(analysisTable)
-  # 
-  # # print(paste0("Analysistable type ", class(analysisTable)))
-  # # print(head(analysisTable))
-  plt <- ggplot(analysisTable, aes(x = CASUALTIES, y = LOSSES)) +
-    ggtitle(
-      paste0("Figure 3. United States  Casualties vs. Economic Losses")) +
-    xlab("Event Type") + ylab("Losses ($ millions)") +
-    theme(plot.title = element_text(face="plain", color="black", size=28),
-          axis.title.x = element_text(face="bold", color="black", size=14),
-          axis.title.y = element_text(face="bold", color="black", size=14),
-          axis.text = element_text(size = 10, face="bold")) +
-    geom_point(data =
-                 analysisTable[!(analysisTable$EVTYPE %in% eventSet),  ],
-               aes(x = CASUALTIES, y = LOSSES, size = 3) +
-                 theme(legend.position="none")) +
-    geom_point(data = analysisTable[analysisTable$EVTYPE %in% eventSet,  ],
-           aes(x = CASUALTIES, y = LOSSES, color = EVTYPE, size = 3)) +
-    geom_smooth(method = lm) +
-    geom_text_repel (
-      data = bigEvt,
-      aes(x=CASUALTIES, y=LOSSES, label = EVTYPE, color = EVTYPE, fontface = "bold"),
-      min.segment.length = 0.0, nudge_y = 10.0, nudge_x = 100.0,
-      force = 40.0,
-      force_pull = 1.0
-    )
-
-  save_plot("imageSet.png", plt, ncol = 2, nrow = 2)
-
-  # MakeBarImages(worstDamageTable)
-  # MakeCvLImages(worstDamageTable, eventSet)
-
-  return(worstDamageTable)
-} # end of DataAnalysisPhase
-
-```
-
-#### Make Worst Damage Tables
-
-```{r MakeworstDamageTables}
-# MakeworstDamageTables ==========================================================
-# MakeworstDamageTables accepts the "analysisTable" and "analysisIndex" and 
-#                     orders each of the analysis tables by the corresponding 
-#                     analysis type. This sets up tables ordered by either 
-#                     Casualties or Losses for each Jurisdiction. It also 
-#                     creates two new columns for each table, PERCENT_* and
-#                     ACC_PERCENT_*, where * is either CASUALTIES or LOSSES.
-# 
-# The PERCENT_* value is the percentage each weather event contributes to the 
-# Damage of the overall Damage of all weather events. ACC_PERCENT_* accumulates the 
-# percentages of each event from the highest to lowest values. Each value 
-# represents the percentage the events and the previous events Damage. 
-#
-# Input analysisTable are a set of data.frames contained in a list. Each 
-#       data.frame stores data for a given Jurisdiction/Analysis Type.
-# 
-#       analysisIndex is the analysis type (casualties or economic losses).
-#
-# return worstDamageTables
-#
-# ==============================================================================
-# Example of a worstDamageTable
-# 
-#              EVTYPE CASUALTIES    LOSSES PERCENT_CASUALTY ACC_PERCENT_CASUALTY
-# 1           Tornado      96997 52057.005       0.62316578            0.6231658
-# 2    Excessive Heat      12363   524.795       0.07942718            0.7025930
-# ==============================================================================
-MakeworstDamageTables <- function(analysisTable) {
-  damageTables = list()
-
-  DAMAGE_ORDERING = c("desc(.$CASUALTIES)", "desc(.$LOSSES)")
-
-  for (damage in CASUALTIES_IDX:LOSSES_IDX) {
-    table <- analysisTable %>%
-      arrange(eval(parse(text=DAMAGE_ORDERING[damage])), .by_group = TRUE)
-    totalValue <- sum(table[, damage + 1])
-
-    accumulator     <- 0
-    percentList     <- list()
-    accumulatorList <- list()
-    
-    # TODO: make this a lambda function
-    for (i in 1:length(table$EVTYPE)) {
-      percent <- table[i, damage + 1]/totalValue
-      accumulator <- accumulator + percent
-      percentList <- append(percentList, percent)
-      accumulatorList <- append(accumulatorList, accumulator)
-    }
-
-    if (damage == CASUALTIES_IDX) {
-       table$PERCENT_CASUALTY <- as.numeric(unlist(percentList))
-       table$ACC_PERCENT_CASUALTY <- as.numeric(unlist(accumulatorList))
-    } else if (damage == LOSSES_IDX) {
-       table$PERCENT_LOSSES <- as.numeric(unlist(percentList))
-       table$ACC_PERCENT_LOSSES <- as.numeric(unlist(accumulatorList))
-    }
-    
-    damageTables <- list.append(damageTables, table)
-  } # end of for loop
-
-  table <- cbind(damageTables[[1]], damageTables[[2]])
-  colnames(table) <- 
-    c('EVTYPE_C', 'CASUALTIES_C', 'LOSSES_C', 'PERCENT_CASUALTY', 
-      'ACC_PERCENT_CASUALTY', 'EVTYPE_L', 'CASUALTIES_L', 'LOSSES_L', 
-      'PERCENT_LOSSES', 'ACC_PERCENT_LOSSES')
-
-  return (table)
-}
-
-```
-
-#### Make Bar Images
-
-```{r MakeBarImages}
-# MakeBarImages ================================================================
-# MakeBarImages accepts the "worstDamageTables" and the "analysisIndex" and 
-#               creates a bar plot for each jurisdiction using the analysis
-#               based on "analysisIndex". The plots use the first ten entries
-#               in the "worstDamageTable".
-# 
-#               Each plot has all of the specified jurisdictions and is saved as 
-#               a png file. They are also returned as list of images.
-#
-# Input worstDamageTables are a set of data.frames listing the weather events for
-#       each analysis type from the highest amount of damage (casualties or 
-#       economic losses) ot the least.
-# 
-#       analysisIndex is the analysis type (casualties or economic losses).
-#
-# return imageList
-#
-# ==============================================================================
-MakeBarImages <- function(worstDamageTables) {
-  
-  for (damage in CASUALTIES_IDX:LOSSES_IDX)
-  {
-    table <- head(worstDamageTables, n=10) %>% 
-      select(eval(parse(text = DAMAGE_SELECT[[damage]])))
-    colnames(table) <- eval(parse(text = TABLE_NAMES[[damage]]))
-
-    table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
-
-    plt <- ggplot(table,
-                  aes(x = eval(parse(text=DAMAGE_REORDER[[damage]])),
-                      y = eval(parse(text=DAMAGE_NAMES[[damage]])))) +
-      ggtitle(paste0("Figure 1. United States Storm Related ",
-                     str_to_title(DAMAGE_NAMES[[damage]]))) +
-      xlab("Events") +
-      ylab(DAMAGE_NAMES[damage]) +
-      geom_bar(stat="identity", width=0.7, fill="steelblue") +
-      theme(plot.title = element_text(face="plain", color="black", size=12),
-            axis.text.x = element_text(size = 5, face="bold"),
-            axis.text.y = element_text(size = 5, face="bold"),
-            axis.title.x = element_text(size = 8, face="bold"),
-            axis.title.y = element_text(size = 8, face="bold"))
-    save_plot(paste0("imageBars0", damage, ".png"), plt)
-  } # end of for loop
-}
-
-```
-
-#### Make Casualties vs. Economic Loss Image
-
-```{r MakeCvLImages}
-  
-# MakeCvLImages ================================================================
-# MakeCvLImages accepts the "analysisTable" and the "eventSet". This function
-#               will create a scatterplot of casualties vs. economic losses for
-#               all of the weather events. Each event is a point the plot and
-#               a regression line is drawn, separating the points that are 
-#               are donminated by casualties from those domintaed by losses. 
-# 
-#               The "eventSet" is a list the ten worst events from both the 
-#               casualty and the economic losses data. After removing 
-#               duplicate events the eventSet contains thirteen weather events. 
-#               The plot represents this points by colored dots and a label 
-#               showing which event type corresponds to each of the thirteen
-#               events.
-# 
-#               The plot compares the trade-off between the human and economic 
-#               Damages of severe weather. 
-#
-# Input analysisTable are a set of data.frames listing the analysis types, 
-#       and their respective Damages.
-# 
-#       analysisIndex is the analysis type (casualties or economic losses).
-#
-# return imageSet
-#
-# ==============================================================================
-MakeCvLImages <- function(analysisTable, eventSet) {
-  analysisTable$EVFACTOR_C <- factor(analysisTable$EVTYPE_C, 
-                             levels = analysisTable$EVTYPE_C)
-
-  bigEvt <- analysisTable[analysisTable$EVTYPE_C %in% eventSet,  ]
-
-  print(paste0("Analysistable type ", class(analysisTable)))
-  print(head(analysisTable))
-  plt <- ggplot(analysisTable, aes(x = CASUALTIES_C, y = LOSSES_C)) +
-    ggtitle(
-      paste0("Figure 3. United States  Casualties vs. Economic Losses")) +
-    xlab("Event Type") + ylab("Losses ($ millions)") +
-    theme(plot.title = element_text(face="plain", color="black", size=28),
-          axis.title.x = element_text(face="bold", color="black", size=14),
-          axis.title.y = element_text(face="bold", color="black", size=14),
-          axis.text = element_text(size = 10, face="bold")) +
-    geom_point(data = 
-                 analysisTable[!(analysisTable$EVTYPE_C %in% eventSet),  ],
-               aes(x = CASUALTIES_C, y = LOSSES_C, size = 3) +
-                 theme(legend.position="none")) +
-    geom_point(data = analysisTable[analysisTable$EVTYPE_C %in% eventSet,  ],
-           aes(x = CASUALTIES_C, y = LOSSES_C, color = EVTYPE_C, size = 3)) +
-    geom_smooth(method = lm) +
-    geom_text_repel (
-      data = bigEvt,
-      aes(x=CASUALTIES_C, y=LOSSES_C, label = EVTYPE_C, color = EVTYPE_C, fontface = "bold"),
-      min.segment.length = 0.0, nudge_y = 10.0, nudge_x = 100.0,
-      force = 40.0,
-      force_pull = 1.0
-    )
-
-  save_plot("imageSet.png", plt, ncol = 2, nrow = 2)
-}
-
-```
-
-#### Download Data File
-
-```{r}
-# DownloadDataFile =============================================================
-# DownloadDataFile accepts a url and a dataFileName and attempts to download the
-#                  file from the internet. If the download succeeds the function
-#                  returns. If the download fails, StormCloud will stop.
-#
-# Input "url" is the location of the target file. It contains the storm data for
-#       this project. The URL is set by the user in Setup Phase -> User Defined
-#       Constants.
-# 
-#       "dataFileName" is the name of the of the storm data file. The 
-#       dataFileName is set by the user in Setup Phase -> User Defined 
-#       Constants. 
-#
-# no return value
-#
-# ==============================================================================
-DownloadDataFile <- function(url, stormFileName)
-{
-  retrieve = download.file(url, stormFileName, mode = "wb")
-
-  if (is.null(retrieve)) {
-    print("ERROR: could not access ", url)
-    stop()
-  }
-}  ## End of DownloadDataFile function
-
-```
-
-## Execute Phase
-
-```{r execute phase}
-# Execute Phase ================================================================
-# The execute phase has to responsiblities: call the ResultGenerationPhase 
-# passing the url and stormFileName, and store the result as a global variable 
-# accessible all subsequent code blocks.
-#
-# ==============================================================================
   if (!file.exists(DATAFILE)) {
-    DownloadstormFileName(URL, DATAFILE)
+    retrieve = download.file(URL, DATAFILE, mode = "wb")
+
+    if (is.null(retrieve)) {
+      print("ERROR: could not access ", url)
+      stop()
+    }
   }
 
-  sourceDF <- read.table(DATAFILE, stringsAsFactors = FALSE,
-                        sep = ",",
-                        colClasses = c(rep("NULL",7), NA,
-                                       rep("NULL",14), rep(NA, 6),
-                                       rep("NULL",9)),
-                        header = TRUE)
-  cleanDF            <- sourceDF
-  cleanDF$EVTYPE     <- trimws(cleanDF$EVTYPE, which = c("both"))
-  cleanDF$PROPDMGEXP <- trimws(cleanDF$PROPDMGEXP, which = c("both"))
-  cleanDF$CROPDMGEXP <- trimws(cleanDF$CROPDMGEXP, which = c("both"))
-  cleanDF$EVTYPE     <- tolower(cleanDF$EVTYPE)
-  cleanDF$PROPDMGEXP <- tolower(cleanDF$PROPDMGEXP)
-  cleanDF$CROPDMGEXP <- tolower(cleanDF$CROPDMGEXP)
+```
+
+### Transformation 0:  No transformations
+
+```{r}
+# This code is used to measure the size of a data.frame with the entire contents
+# of the data file.
+
+if (VERBOSE & ALL_DATA) {
+  sourceDF <- read.table(DATAFILE, sep = ",", header = TRUE)
+
+  print(object.size(sourceDF))
+  print(dim(sourceDF))
+  print(head(sourceDF))
   
-  nonZeroDF <- cleanDF[
-    cleanDF$FATALITIES != 0 |
-      cleanDF$INJURIES != 0 |
-      cleanDF$PROPDMG != 0 |
-      cleanDF$CROPDMG != 0, ]
-  
-    validDF <- nonZeroDF[
-    nonZeroDF$EVTYPE != '?' &
-    nonZeroDF$EVTYPE != 'high' &
-    nonZeroDF$EVTYPE != 'marine accident' &
-    nonZeroDF$EVTYPE != 'marine mishap' &
-    nonZeroDF$EVTYPE != 'other'&
-    nonZeroDF$EVTYPE != 'apache county'
-    ,]
+  knitr::knit_exit()
+}
 
-  stormDF    <- UnifyTypes(validDF)
-  analysisDF <- stormDF %>% ungroup(.) %>%
-    mutate (PROPDMGEXP = 
-              ifelse(PROPDMGEXP == 'k', 1000.,
-                     ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
-            CROPDMGEXP = 
-              ifelse(CROPDMGEXP == 'k', 1000., 
-                     ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
-            PROPDMG       = PROPDMG * PROPDMGEXP,
-            CROPDMG       = CROPDMG * CROPDMGEXP,
-            CASUALTIES    = FATALITIES + INJURIES,
-            LOSSES     = (PROPDMG + CROPDMG)/1000000.0
-            ) %>%
-    select(EVTYPE, CASUALTIES, LOSSES)
 
-  colnames(analysisDF) <- c('EVTYPE', 'CASUALTIES', 'LOSSES')
-  # analysisTable = list()
-    analysisTable <- analysisDF %>% group_by(EVTYPE)
-    analysisTable <- analysisTable %>%
-      summarise_at(c("CASUALTIES", "LOSSES"), sum)
+```
 
-    analysisTable <- analysisTable %>% arrange(.$EVTYPE, .by_group = TRUE)
-  damageTables = list()
+### Transformation 1: Reading the data file
 
-  DAMAGE_ORDERING = c("desc(.$CASUALTIES)", "desc(.$LOSSES)")
+```{r transformations}
+sourceDF <- read.table(DATAFILE, stringsAsFactors = FALSE, sep = ",",
+                       colClasses = c(rep("NULL",7), NA, rep("NULL",14),
+                                      rep(NA, 6), rep("NULL",9)), header = TRUE)
+if (VERBOSE) {
+  print(object.size(sourceDF))
+  print(dim(sourceDF))
+  print(head(sourceDF))
+}
 
-  for (damage in CASUALTIES_IDX:LOSSES_IDX) {
-    table <- analysisTable %>%
-      arrange(eval(parse(text=DAMAGE_ORDERING[damage])), .by_group = TRUE)
-    totalValue <- sum(table[, damage + 1])
+```
 
-    accumulator     <- 0
-    percentList     <- list()
-    accumulatorList <- list()
-    
-    # TODO: make this a lambda function
-    for (i in 1:length(table$EVTYPE)) {
-      percent <- table[i, damage + 1]/totalValue
-      accumulator <- accumulator + percent
-      percentList <- append(percentList, percent)
-      accumulatorList <- append(accumulatorList, accumulator)
-    }
+### Transformation 2: Removing non-contributing data points
 
-    if (damage == CASUALTIES_IDX) {
-       table$PERCENT_CASUALTY <- as.numeric(unlist(percentList))
-       table$ACC_PERCENT_CASUALTY <- as.numeric(unlist(accumulatorList))
-    } else if (damage == LOSSES_IDX) {
-       table$PERCENT_LOSSES <- as.numeric(unlist(percentList))
-       table$ACC_PERCENT_LOSSES <- as.numeric(unlist(accumulatorList))
+```{r}
+
+if (CONTRIBUTING_EVENTS) {
+    sourceDF <- sourceDF[sourceDF$FATALITIES != 0 | sourceDF$INJURIES != 0 |
+                         sourceDF$PROPDMG != 0 | sourceDF$CROPDMG != 0, ]
+
+  if (VERBOSE) {
+    print(object.size(sourceDF))
+    print(dim(sourceDF))
+    print(head(sourceDF))
+
+    if ('HAIL' %in% sourceDF$EVTYPE){
+      print("HAIL found")
+    } else {
+      print("HAIL not found")
     }
     
-    damageTables <- list.append(damageTables, table)
-  } # end of for loop
+    if ('?' %in% sourceDF$EVTYPE){
+      print("? found")
+    } else {
+      print("? not found")
+    }
+    
+    if ('Summary: Nov. 16' %in% sourceDF$EVTYPE){
+      print("Summary: Nov. 16 found")
+    } else {
+      print("Summary: Nov. 16 not found")
+    }
+  }
 
-  worstDamageTable <- cbind(damageTables[[1]], damageTables[[2]])
-  colnames(worstDamageTable) <- 
-    c('EVTYPE_C', 'CASUALTIES_C', 'LOSSES_C', 'PERCENT_CASUALTY', 
-      'ACC_PERCENT_CASUALTY', 'EVTYPE_L', 'CASUALTIES_L', 'LOSSES_L', 
-      'PERCENT_LOSSES', 'ACC_PERCENT_LOSSES')
+} else {
+  write.csv(sourceDF, "./all_evts.csv")
+
+  if (VERBOSE) {
+    print(object.size(sourceDF))
+    print(dim(sourceDF))
+    print(head(sourceDF, n=10))
+    print(sourceDF[82,])
+    print(sourceDF[246124,])
+    print(sourceDF[271399,])
+    print(sourceDF[278098,])
+    # knitr::knit_exit()
+  }
+}
+
+if (VERBOSE) {
+  print(object.size(sourceDF))
+  print(dim(sourceDF))
+  print(head(sourceDF))
+}
+
+```
+
+### Transformation 3: Clear white spaces from strings
+
+```{r}
+
+if (CLEAR_EVENTS) {
+  sourceDF$EVTYPE     <- trimws(sourceDF$EVTYPE, which = c("both"))
+  sourceDF$PROPDMGEXP <- trimws(sourceDF$PROPDMGEXP, which = c("both"))
+  sourceDF$CROPDMGEXP <- trimws(sourceDF$CROPDMGEXP, which = c("both"))
+  sourceDF$EVTYPE     <- tolower(sourceDF$EVTYPE)
+  sourceDF$PROPDMGEXP <- tolower(sourceDF$PROPDMGEXP)
+  sourceDF$CROPDMGEXP <- tolower(sourceDF$CROPDMGEXP)
   
+  if (VERBOSE) {
+    print(object.size(sourceDF))
+    print(dim(sourceDF))
+    print(head(sourceDF))
+    if (' FLASH FLOOD' %in% sourceDF$EVTYPE){
+      print(" FLASH FLOOD found")
+    } else {
+      print(" FLASH FLOOD not found")
+    }
+    if ('FLASH FLOOD' %in% sourceDF$EVTYPE){
+      print("FLASH FLOOD found")
+    } else {
+      print("FLASH FLOOD not found")
+    }
+    if (' flash flood' %in% sourceDF$EVTYPE){
+      print(" flash flood found")
+    } else {
+      print(" flash flood not found")
+    }
+    if ('flash flood' %in% sourceDF$EVTYPE){
+      print("flash flood found")
+    } else {
+      print("flash flood not found")
+    }
+  }
+} else {
+  if (VERBOSE) {
+    print(object.size(sourceDF))
+    print(dim(sourceDF))
+    print(head(sourceDF, n=10))
+    print(sourceDF[sourceDF$EVTYPE == " FLASH FLOOD",])
+    # knitr::knit_exit()
+  }
+}
+
+```
+
+### Transformation 4: Fixing invalid names
+
+```{r}
+
+if (FIX_EVENTS) {
+  sourceDF$EVTYPE <-
+    gsub("\\?", "Other",
+    gsub("^high$", "Other",
+    gsub("^marine accident$", "Other",
+    gsub("^marine mishap$", "Other",
+    gsub("^other$", "Other",
+    gsub("^apache county$", "Other",
+    sourceDF$EVTYPE))))))
   
-   for (damage in CASUALTIES_IDX:LOSSES_IDX)
-  {
-    table <- head(worstDamageTable, n=10) %>% 
-      select(eval(parse(text = DAMAGE_SELECT[[damage]])))
-    colnames(table) <- eval(parse(text = TABLE_NAMES[[damage]]))
+  if (VERBOSE) {
+    print(object.size(sourceDF))
+    print(dim(sourceDF))
+    print(head(sourceDF))
+    print(sourceDF[52498, ])
+  }
+} else {
+  print(object.size(sourceDF))
+  print(dim(sourceDF))
+  print(head(sourceDF))
+  print(sourceDF[sourceDF$EVTYPE == "?", ])
+  print(which(rownames(sourceDF) == 246124))
+  knitr::knit_exit()
+}
 
-    table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
+```
 
-    plt <- ggplot(table,
-                  aes(x = eval(parse(text=DAMAGE_REORDER[[damage]])),
-                      y = eval(parse(text=DAMAGE_NAMES[[damage]])))) +
-      ggtitle(paste0("Figure 1. United States Storm Related ",
-                     str_to_title(DAMAGE_NAMES[[damage]]))) +
-      xlab("Events") +
-      ylab(DAMAGE_NAMES[damage]) +
-      geom_bar(stat="identity", width=0.7, fill="steelblue") +
-      theme(plot.title = element_text(face="plain", color="black", size=12),
-            axis.text.x = element_text(size = 5, face="bold"),
-            axis.text.y = element_text(size = 5, face="bold"),
-            axis.title.x = element_text(size = 8, face="bold"),
-            axis.title.y = element_text(size = 8, face="bold"))
-    save_plot(paste0("imageBars0", damage, ".png"), plt) 
-   }
-  
 
-  set <- c(head(worstDamageTable$EVTYPE_C, n = 10),
-                head(worstDamageTable$EVTYPE_L, n = 10))
+### Transformation 5: Unify the event names
+
+```{r}
+
+validDF    <- UnifyNames(sourceDF)
+
+
+if (VERBOSE) {
+  print(object.size(validDF))
+  print(dim(validDF))
+  print(head(validDF))
+}
+
+```
+
+### Transformation 6: Set up the analysis data frame
+
+```{r}
+
+analysisDF <- validDF %>% ungroup(.) %>%
+  mutate (PROPDMGEXP = ifelse(PROPDMGEXP == 'k', 1000.,
+                              ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
+          CROPDMGEXP = ifelse(CROPDMGEXP == 'k', 1000.,
+                              ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
+          PROPDMG       = PROPDMG * PROPDMGEXP,
+          CROPDMG       = CROPDMG * CROPDMGEXP,
+          HEALTH    = FATALITIES + INJURIES,
+          ECONOMIC     = (PROPDMG + CROPDMG)/1000000.0
+          ) %>%
+  select(EVTYPE, HEALTH, ECONOMIC)
+
+colnames(analysisDF) <- c('EVTYPE', 'HEALTH', 'ECONOMIC')
+
+
+if (VERBOSE) {
+  print("This is the complete analysis table before it is divided into ")
+  print("tables for damage types ")
+  print(object.size(analysisDF))
+  print(dim(analysisDF))
+  print(head(analysisDF))
+  # write.csv(analysisDF, "./analysis.csv")
+
+}
+
+```
+
+### Transformation 7: Group the data by EVTYPE
+
+```{r}
+
+analysisTable <- analysisDF %>% group_by(EVTYPE) %>% 
+  summarise_at(c("HEALTH", "ECONOMIC"), sum) %>% 
+  arrange(.$EVTYPE, .by_group = TRUE)
+
+if (VERBOSE) {
+  print("This is the complete analysis table before it is divided into ")
+  print("tables for damage types ")
+  analysisDF <- data.frame(analysisTable)
+  print(object.size(analysisTable))
+  print(dim(analysisTable))
+  print(head(analysisTable, n=46))
+}
+
+```
+
+### Transformation 8:  Creating the "Damage Tables"
+
+```{r}
+
+damageTables = list()
+
+DAMAGE_ORDERING = c("desc(.$HEALTH)", "desc(.$ECONOMIC)")
+
+for (damage in HEALTH_IDX:ECONOMIC_IDX) {
+  table <- analysisTable %>%
+    arrange(eval(parse(text=DAMAGE_ORDERING[damage])), .by_group = TRUE)
+  totalValue <- sum(table[, damage + 1])
+
+
+  if (VERBOSE) {
+    print(paste0("Damage table ", damage))
+    print(object.size(table))
+    print(dim(table))
+    print(head(table))
+  }
+
+  accumulator     <- 0
+  percentList     <- list()
+  accumulatorList <- list()
+
+  for (i in 1:length(table$EVTYPE)) {
+    percent <- table[i, damage + 1]*100/totalValue
+    accumulator <- accumulator + percent
+    percentList <- append(percentList, percent)
+    accumulatorList <- append(accumulatorList, accumulator)
+  }
+   table$PERCENT <- as.numeric(unlist(percentList))
+   table$ACC_PERCENT <- as.numeric(unlist(accumulatorList))
+
+  if (damage == HEALTH_IDX) {
+     worstHEALTH <- table
+  } else if (damage == ECONOMIC_IDX) {
+     worstLosses <- table
+  }
+
+  if (VERBOSE) {
+    print(paste0("Damage table with percentage ", damage))
+    print(object.size(table))
+    print(dim(table))
+    print(head(table, n=15))
+  }
+
+  damageTables <- list.append(damageTables, table)
+
+  if (VERBOSE) {
+    print(paste0("Damage table with percentage ", damage))
+    print(object.size(table))
+    print(dim(table))
+    print(damageTables)
+  }
+} # end of for loop
+```
+
+
+```{r}
+barPlot <- function (damageTable, damageType)
+{
+  if (VERBOSE) {
+    print(paste0("Damage table with percentage ", damageType))
+    print(paste0("DAMAGE_SELECT[[damageType] ", DAMAGE_SELECT[[damageType]]))
+    print(object.size(damageTable))
+    print(dim(damageTable))
+    print(damageTable)
+  }
+  table <- head(damageTable, n=10) %>%
+    # select(EVTYPE, HEALTH)
+  select(eval(parse(text = DAMAGE_SELECT[[damageType]])))
+  colnames(table) <- eval(parse(text = AXIS_NAMES[[damageType]]))
+  table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
+  if (VERBOSE) {
+    print(paste0("Damage table with percentage ", damageType))
+    print(object.size(table))
+    print(dim(table))
+    print(table)
+  }
+
+  plt <- ggplot(table,
+                aes(x = eval(parse(text=DAMAGE_REORDER[[damageType]])),
+                    y = eval(parse(text=DAMAGE_NAMES[[damageType]])))) +
+    ggtitle(paste0("Figure ", damageType,". United States Storm Related ",
+                   str_to_title(DAMAGE_NAMES[[damageType]]))) +
+    xlab("Events") +
+    ylab(DAMAGE_NAMES[damageType]) +
+    geom_bar(stat="identity", width=0.7, fill="steelblue") +
+    theme(plot.title = element_text(face="plain", color="black", size=12),
+          axis.text.x = element_text(size = 5, face="bold"),
+          axis.text.y = element_text(size = 5, face="bold"),
+          axis.title.x = element_text(size = 8, face="bold"),
+          axis.title.y = element_text(size = 8, face="bold"))
+  save_plot(paste0("EVTYPE_v_HEALTH-0", damageType, ".png"), plt)
+}
+
+```
+
+```{r}
+scatterPlot <- function (damageTables, damageType)
+{
+
+  set <- c(head(damageTables[[1]]$EVTYPE, n = 10),
+                head(damageTables[[2]]$EVTYPE, n = 10))
   eventSet <- unique(set)
+  
 
   bigEvt <- analysisTable[analysisTable$EVTYPE %in% eventSet,  ]
-  # print (analysisTable$EVTYPE_C)
-  # print (bigEvt)
-  # print(analysisTable)
-  # 
-  # # print(paste0("Analysistable type ", class(analysisTable)))
-  # # print(head(analysisTable))
-  plt <- ggplot(analysisTable, aes(x = CASUALTIES, y = LOSSES)) +
+  
+  plt <- ggplot(analysisTable, aes(x = HEALTH, y = ECONOMIC)) +
     ggtitle(
-      paste0("Figure 3. United States  Casualties vs. Economic Losses")) +
+      paste0("Figure 3. United States  HEALTH vs. Economic Losses")) +
     xlab("Event Type") + ylab("Losses ($ millions)") +
     theme(plot.title = element_text(face="plain", color="black", size=28),
           axis.title.x = element_text(face="bold", color="black", size=14),
@@ -2383,114 +1491,125 @@ DownloadDataFile <- function(url, stormFileName)
           axis.text = element_text(size = 10, face="bold")) +
     geom_point(data =
                  analysisTable[!(analysisTable$EVTYPE %in% eventSet),  ],
-               aes(x = CASUALTIES, y = LOSSES, size = 3) +
+               aes(x = HEALTH, y = ECONOMIC, size = 3) +
                  theme(legend.position="none")) +
     geom_point(data = analysisTable[analysisTable$EVTYPE %in% eventSet,  ],
-           aes(x = CASUALTIES, y = LOSSES, color = EVTYPE, size = 3)) +
+           aes(x = HEALTH, y = ECONOMIC, color = EVTYPE, size = 3)) +
     geom_smooth(method = lm) +
     geom_text_repel (
       data = bigEvt,
-      aes(x=CASUALTIES, y=LOSSES, label = EVTYPE, color = EVTYPE, fontface = "bold"),
+      aes(x=HEALTH, y=ECONOMIC, label = EVTYPE, color = EVTYPE, fontface = "bold"),
       min.segment.length = 0.0, nudge_y = 10.0, nudge_x = 100.0,
       force = 40.0,
       force_pull = 1.0
     )
-
-  save_plot("imageSet.png", plt, ncol = 2, nrow = 2)
-    # resultTable <- ResultGenerationPhase()
+  
+  save_plot("HEALTH_v_ECONOMIC.png", plt, ncol = 2, nrow = 2)
+}
 
 ```
+
+```{r}
+
+getTable <- function (damageTable, damageType)
+{
+  damageTable <- damageTable %>%
+    select(eval(parse(text = TABLE_FIELDS[[damageType]])))
+
+  resTable <- knitr::kable(head(damageTable, n = 50), "html",
+    caption = paste0("<center><strong><font size='1'>",
+                     "Table ", damageType,". United States ",
+                     AXIS_LABELS[[damageType]][2],
+                     "</font><center></strong>"),
+    digits = 3, align = "lrrr",
+    col.names = c(AXIS_LABELS[[damageType]]), row.names = TRUE
+    ) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"),
+                  full_width = F,
+                  position = "left",
+                  font_size = 10) %>%
+    column_spec(column=1, width="1cm") %>%
+    column_spec(column=2, width="3cm") %>%
+    column_spec(column=3, width="2cm") %>%
+    column_spec(column=4, width="2cm") %>%
+    kable_classic_2()
+
+  if (VERBOSE) {
+    print(paste0("Damage table with percentage ", damageType))
+    print(object.size(damageTable))
+    print(dim(damageTable))
+    print(damageTable)
+  }
+
+  return (resTable)
+
+}
+
+```
+
+
+
+```{r images}
+
+barPlot(damageTables[[HEALTH_IDX]], HEALTH_IDX)
+barPlot(damageTables[[ECONOMIC_IDX]], ECONOMIC_IDX)
+scatterPlot(damageTables)
+
+casualtyTable <- getTable(damageTables[[HEALTH_IDX]], HEALTH_IDX)
+lossesTable   <- getTable(damageTables[[ECONOMIC_IDX]], ECONOMIC_IDX)
+
+```
+
+
 
 <hr style="background: DarkOrchid; height: 3px"/>
 
 # Results
 
 ```{r}
-# Data Presentation Phase ======================================================
-# This code block takes the "worstCasualties" and the "worstLosses" tables from
-# the "resultTables" an converts them to knitr:Kable tables.
-# ==============================================================================
 
-# worstCasualties <- resultTables[1]
-# worstLosses   <- resultTables[2]
-
-tbl = list()
-
-# print(class(resultTable))
-# print(resultTable)
-# #       worstList <- resultTable %>%
-# #         select(EVTYPE_C)
-# #       
-# # print(worstList)
-
-for (damage in CASUALTIES_IDX:LOSSES_IDX) {
-    switch(damage,
-      worstList <- worstDamageTable %>%
-        select(EVTYPE_C, CASUALTIES_C, PERCENT_CASUALTY, ACC_PERCENT_CASUALTY),
-      worstList <- worstDamageTable %>%
-        select(EVTYPE_L, LOSSES_L, PERCENT_LOSSES, ACC_PERCENT_LOSSES)
-      )
-
-    resTable <- knitr::kable(head(worstList, n = 10), "html",
-      caption = paste0("<center><strong><font size='1'>",
-                       "Table ", damage,". United States ",
-                       AXIS_LABELS[[damage]][2],
-                       "</font><center></strong>"),
-      digits = 3, align = "lrrr",
-      col.names = c(AXIS_LABELS[[damage]]), row.names = TRUE) %>%
-      kable_styling(bootstrap_options = c("striped", "hover"),
-                    full_width = F,
-                    position = "left",
-                    font_size = 10) %>%
-      column_spec(column=1, width="1cm") %>%
-      column_spec(column=2, width="3cm") %>%
-      column_spec(column=3, width="2cm") %>%
-      column_spec(column=4, width="2cm") %>%
-      kable_classic_2()
-    tbl <- list.append(tbl, resTable)
-}
 
 ```
 
-The United States has a variety of weather events ranging from the extreme cold and extreme heat, extreme precipitation and lack of precipitation, tornadoes, hurricanes, etc. To understand the impact of these events, the National Oceanographic and Atmospheric Administration (NOAA) collects and analyzes weather data from all over the country. The data are restricted to forty-eight "significant weather phenomena[1]" and associated data. Part of the collected information induces the number of casualties (deaths and injuries) and the amount of damage to property including crop damage.
+The United States has a variety of weather events ranging from the extreme cold and extreme heat, extreme precipitation and lack of precipitation, tornadoes, hurricanes, etc. To understand the impact of these events, the National Oceanographic and Atmospheric Administration (NOAA) collects and analyzes weather data from all over the country. The data are restricted to forty-eight "significant weather phenomena[1]" and associated data. Part of the collected information induces the number of HEALTH (deaths and injuries) and the amount of damage to property including crop damage.
 
 StormCloud was produced to provide emergency services planners information regarding the damage to human life and the financial losses of specific weather events. Using this information, planners can help mitigate the damage by understanding the damages of these events. To this end, StormCloud presents presents the damages for storm damage as independent sets of data, one describing the human damage, and the other describing the financial damage.
 
-In Table 1a, the list of weather related casualties from 1950 to approximately 2012. The numbers range from 0 \~ 97,000 deaths or injuries. From the data in Table 1a, tornadoes are the leading cause of weather related casualties in the United States with 96,907 dead or injured followed by "Excessive Heat" with \~12,363 dead or injured. Comparing the relative seriousness of weather events, tornadoes represent 62% of all casualties. In fact, 90% of all US weather related casualties happen with the eight worst weather events and 99% happen with the worst 21 events.
+In Table 1a, the list of weather related HEALTH from 1950 to approximately 2012. The numbers range from 0 \~ 97,000 deaths or injuries. From the data in Table 1a, tornadoes are the leading cause of weather related HEALTH in the United States with 96,907 dead or injured followed by "Excessive Heat" with \~12,363 dead or injured. Comparing the relative seriousness of weather events, tornadoes represent 62% of all HEALTH. In fact, 90% of all US weather related HEALTH happen with the eight worst weather events and 99% happen with the worst 21 events.
 
-Table 1b is a list of weather related financial losses. Again, tornadoes are the biggest economic with approximately \$52 billion in losses from 1950 to 2012. This amounts to 27% of all weather related losses, which is significantly less proportion of casualties caused by tornadoes. The first nine events from Table 1b account for 90% of weather related financial losses compared to eight for casualties. The 99% level for financial losses happens in the first 19 events compared to 21 for casualties.
+Table 1b is a list of weather related financial losses. Again, tornadoes are the biggest economic with approximately \$52 billion in losses from 1950 to 2012. This amounts to 27% of all weather related losses, which is significantly less proportion of HEALTH caused by tornadoes. The first nine events from Table 1b account for 90% of weather related financial losses compared to eight for HEALTH. The 99% level for financial losses happens in the first 19 events compared to 21 for HEALTH.
 
-The weather events tables 1a and 1b show the number of casualties and the financial losses due to those events gives an overall picture of the damage caused by severe weather, but the dramatic differences between event types and types of damage within an event type are difficult to discern. Figure 1 shows an eight-fold difference in casualties between "Excessive Heat" and "Tornado". In contrast, Figure 2 shows a two-fold difference between in economic loss between "Flood" and "Tornado". The second event type differs between casualties and economic loss, which raises an interesting question. Since the worst events associated with public health are different then the events associated with economic losses, how should planners adapt their emergency response to based on the resources required by these different emergencies. Figure 3 is a plot of casualties versus economic losses. As with all of the data in this study, tornadoes are far worst than any other weather event, but which event is the second worst? This is a judgment call for the planners, but StormCloud the plot in Figure 3, gives planners a tool to help assess how to distribute resources and to request resources from government agencies.
+The weather events tables 1a and 1b show the number of HEALTH and the financial losses due to those events gives an overall picture of the damage caused by severe weather, but the dramatic differences between event types and types of damage within an event type are difficult to discern. Figure 1 shows an eight-fold difference in HEALTH between "Excessive Heat" and "Tornado". In contrast, Figure 2 shows a two-fold difference between in economic loss between "Flood" and "Tornado". The second event type differs between HEALTH and economic loss, which raises an interesting question. Since the worst events associated with public health are different then the events associated with economic losses, how should planners adapt their emergency response to based on the resources required by these different emergencies. Figure 3 is a plot of HEALTH versus economic losses. As with all of the data in this study, tornadoes are far worst than any other weather event, but which event is the second worst? This is a judgment call for the planners, but StormCloud the plot in Figure 3, gives planners a tool to help assess how to distribute resources and to request resources from government agencies.
 
-The U.S. Federal Emergency Management Agency (FEMA) places the Valuation of Statistical Life (VSL) at \$12.5 million [2] based on a U.S. Department of Transportation memo [3]. With this information, emergency planners could monetize the value of a human life. In addition to the VSL, FEMA also uses the Abbreviated Injury Scale (AIS) to monetize the damage of injuries based on their seriousness. By monetizing deaths and injuries, the Casualties versus Economic Loss plot could include a line dividing the amount of given resources required by an emergency response.
+The U.S. Federal Emergency Management Agency (FEMA) places the Valuation of Statistical Life (VSL) at \$12.5 million [2] based on a U.S. Department of Transportation memo [3]. With this information, emergency planners could monetize the value of a human life. In addition to the VSL, FEMA also uses the Abbreviated Injury Scale (AIS) to monetize the damage of injuries based on their seriousness. By monetizing deaths and injuries, the HEALTH versus Economic Loss plot could include a line dividing the amount of given resources required by an emergency response.
 
 ## Weather Related Damages
 ```{r, message=TRUE, echo = TRUE}
-  tbl[[1]]
+casualtyTable
 ```
 
 ```{r, message=TRUE, echo = TRUE}
-  tbl[[2]]
+lossesTable
 ```
 
 ## Graphs
 
-## Worst Weather Related Causes of Casualties
+## Worst Weather Related Causes of HEALTH
 
 ```{r, message=TRUE, echo = TRUE}
-    knitr::include_graphics("imageBars01.png")
+    knitr::include_graphics("EVTYPE_v_HEALTH-01.png")
 ```
 
 ## Worst Weather Related Causes of Economic Losses
 
 ```{r, message=TRUE, echo = TRUE}
-    knitr::include_graphics("imageBars02.png")
+    knitr::include_graphics("EVTYPE_v_HEALTH-02.png")
 ```
 
 ## Comparison of Causalties and Economic Losses
 
 ```{r, message=TRUE, echo = TRUE}
-    knitr::include_graphics("imageSet.png")
+    knitr::include_graphics("HEALTH_v_ECONOMIC.png")
 ```
 
 <hr style="background:#36013F; height:30px"/>
@@ -2506,241 +1625,7 @@ The U.S. Federal Emergency Management Agency (FEMA) places the Valuation of Stat
 
 # Appendicies
 
-## Appendix I: Introduction to StormCloud Development
-
-Functions "Constants" Generality -- Jurisdictions Code Standards Including all code, including code comments
-
-## Appendix II: Significant Constants/Variables
-
-<table>
-<tr>
-<th>Name</th>
-<th>Purpose</th>
-<th>Used</th>
-</tr>
-
-<tr><td>AXIS_LABELS</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>CASUALTIES_IDX</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>CNTY_BASE_IDX</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>COUNTY_TITLE</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>DATAFILE</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>DATA_INDICES</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>DATA_FIELDS</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>DATA_FILTERS</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>DATA_ASSEMBLY_SELECT</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>JURISDICTION_LABELS</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>LOSSES_IDX</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>N_JURISDICTIONS</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>ST_BASE_IDX</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>URL</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>USE_NATIONAL_JURISDICTION</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>USE_STATE_JURISDICTION</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>USE_COUNTY_JURISDICTION</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>US_BASE_IDX</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>URL</td>
-<td></td>
-<td></td>
-</tr>
-</table>
-
-
-<table>
-<tr>
-<th>Name</th>
-<th>Purpose</th>
-<th>Used</th>
-</tr>
-
-<tr><td>analysisDF</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>analysisTable</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>cleanDF</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>nonZeroDF</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>eventSet</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>juris</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>jurisAnalysisDF</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>jurisanalysisTable</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>resultTables</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>resultTables</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>sourceDF</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>stormDF</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>stormFileName</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>tbl</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>validDF</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>worstCasualtiesTables</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>worstCasualtiesDF</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>worstLossesDF</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>worstLossesTables</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>worstDamageTables</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>worstCasualties</td>
-<td></td>
-<td></td>
-</tr>
-<tr><td>worstLosses</td>
-<td></td>
-<td></td>
-</tr>
-</table>
-
-## Appendix III: Complete Damage Tables
-
-```{r}
-# 
-# tbl = list()
-# 
-# for (j in CASUALTIES_IDX:LOSSES_IDX) {
-#   for (i in 1:N_JURISDICTIONS) {
-#     switch(j,
-#       worstList <- data.frame(worstCasualties) %>%
-#         select(EVTYPE, CASUALTIES, PERCENT_CASUALTY, ACC_PERCENT_CASUALTY),
-#       worstList <- data.frame(worstLosses) %>%
-#         select(EVTYPE, LOSSES, PERCENT_LOSSES, ACC_PERCENT_LOSSES)
-#       )
-# 
-#     resTable <- knitr::kable(worstList, "html",
-#       caption = paste0("<center><strong><font size='1'>",
-#                        "Table ", j, ". ", JURISDICTION_LABELS[DATA_INDICES[[i]]], " ",
-#                        AXIS_LABELS[[j]][2],
-#                        "</font><center></strong>"),
-#       digits = 3, align = "lrrr",
-#       col.names = c(AXIS_LABELS[[j]]), row.names = TRUE) %>%
-#       kable_styling(bootstrap_options = c("striped", "hover"),
-#                     full_width = F,
-#                     position = "left",
-#                     font_size = 10) %>%
-#       column_spec(column=1, width="1cm") %>%
-#       column_spec(column=2, width="4cm") %>%
-#       column_spec(column=3, width="2cm") %>%
-#       column_spec(column=4, width="2cm") %>%
-#       kable_classic_2()
-#     tbl <- list.append(tbl, resTable)
-#   }
-# }
-
-```
-
-```{r, message=TRUE, echo = TRUE}
-  # tbl[[1]]
-```
-
-```{r, message=TRUE, echo = TRUE}
-  # tbl[[2]]
-```
-
-## Appendix IV: Improvements
+## Appendix I: Improvements
 
 1. Actuarial data Time series data (analysis, we have the data) 
 2. Complete reports regarding injury types and seriousness 
