@@ -26,58 +26,46 @@ options(max.print = 1000000)
 
 # Synopsis
 
-This document is designed to assist emergency response organizations to prepare for severe weather events in the United States. Tornadoes in the Midwest, hurricanes in the Gulf Coast and Eastern Seaboard, severe winter storms in the Mountain West, and so on, require these organizations to deal with different relief needs in differing geographical areas. In particular, weather events can cause human HEALTH (injuries and deaths), economic losses (property or crop damage), or both. Using historical data provided by National Oceanographic and Atmospheric Agency (NOAA) Storm Events Database [a], we assessed the kinds of damages caused by each type of event. 
+This document is designed to assist emergency response organizations to prepare for severe weather events in the United States. With tornadoes in the Midwest, hurricanes in the Gulf Coast and Eastern Seaboard, severe winter storms in the Mountain West, etc., require these organizations to deal with different relief needs in differing geographical areas. In particular, weather events can cause human casualties (injuries and deaths), economic losses (property or crop damage), or both. Using historical data provided by National Oceanographic and Atmospheric Agency (NOAA) Storm Events Database [1], the project can assess some damages caused by each type of event. 
 
 
-The document cleaned the historical data; removed data points that were either non-contributing, i.e., added no values to both HEALTH and losses; and ensured all of the event names conformed to the National Weather Service (NWS) Instruction 10-1605 [b]. 
+To analyze the Storm Events Database, the historical data was cleaned the; data making no contribution to the analysis were removed; and all of the event names conformed to the National Weather Service (NWS) Instruction 10-1605 [2]. This data set generates a pair of data frames, one with the events ordered by casualties and the other by economic losses. The data frames are presented to the user through tables and images. 
 
+These presentations will provide the user with information about the potential for damage due to individual weather events, in addition which events cause the most damage. The user can set priorities, set resource staging requirements, and prepare ahead of time for severe weather events.
 
-From this, the document creates a pair of tables showing the worst ten events in terms of human casualties and economic losses. With this data document generates and displays two images visualizing from the worst ten events tables. A final image is a plot of casualties versus economic losses, which visually shows the type of resources (medical or financial) a given event would need. 
 
 # Data Processing
-```{=html}
-<div style="color: green;">
-```
 
 ## Data Transformations
-
-```{=html}
-</div> 
-<div style="color: black;">
-
-```
 
 The analysis is designed to answer two questions:
 
 1. **Across the United States, which types of events are most harmful with respect to population health?**
 2. **Across the United States, which types of events have the greatest economic consequences?**
 
-To answer these questions, select data fields must be transformed from its raw form to a form with the data grouped by the event type, *EVTYPE*, with data describing the effect of the event on public health and economic losses. The raw data is not structured in a way that would allow this analysis. 
+To answer these questions, specific data fields must be copied from the storm events file and the analysis eventually groups the data by the event type and stored in a data frame. The grouped data is copied into two data frames, one ordered by casualties (population health) and the other by economic losses (economic consequences). This data will provide emergency planners with information about the severity of each weather event.
 
-To get the data into an appropriate structure requires several transformations. Some of these transformations are complex and require detailed explanation. This section will describe why a change is needed, how it is done, and the consequences for the data structures.
+To get the data into an appropriate structure requires several transformations. Some of these transformations are complex and require detailed explanation others should be straightforward. This section will describe why a change is needed, how it is done, and the impact on the data frames.
+
+The code will follow the transformation descriptions. The code is divided into three categories: the set up blocks, the transformation blocks and the output blocks. The set up blocks include the libraries required by the code and a set of "constant" variables; the transformation blocks convert the storm file data into complete tables ready for the analysis; the output blocks generate the tables and images required by the presentation.
 
 ### Glossary
-Before describing the transformation, the reader needs some introductory nomenclature:
+Before describing the transformations, planners need to familiarize themselves with some of the nomenclature used in the document.
 
-<div style="color: red;">
+**NWS Names** are the type names found in National Weather Service (NWS) Instruction 10-1605 [2]. 
 
-The *FATALITIES*, *INJURIES*, *PROPDMG*, *PROPDMGEXP*, *CROPDMG*, and *CROPDMGEXP* fields are required to produce numerical results for each *EVTYPE*. Though *PROPDMGEXP*, and *CROPDMGEXP* are string data, they will be converted to numeric data in the  transformations.
+**initial data fields** -- *EVTYPE*, *FATALITIES*, *INJURIES*, *PROPDMG*, *PROPDMGEXP*, *CROPDMG*, and *CROPDMGEXP*. These fields, read directly from the file, include all of the information required to perform the analysis.
 
-```{=html}
-</div> 
-<div style="color: black;">
+**numeric fields**  *FATALITIES*, *INJURIES*, *PROPDMG*, and *CROPDMG* hold the numeric values required by the analysis.
 
-```
+**exponent fields** *PROPDMGEXP* and *CROPDMGEXP* are character values representing numerical values. The letter 'k' represents 1,000, and the letter 'M' represents 1,000,000.
 
-**initial data fields** are *EVTYPE*, *FATALITIES*, *INJURIES*, *PROPDMG*, *PROPDMGEXP*, *CROPDMG*, and *CROPDMGEXP*. These are the fields used to read the source data file.
+**independent field** -- *EVTYPE* identifies a specific set of numeric fields each data frame.   
 
-**categorical dependent field**  *EVTYPE*.
+**damage types** are *casualties* and *economic losses*. Casualties represent the harm done by each weather event and ecoonomic losses represent the economic consequences. For this analysis:
 
-**numeric fields**  *FATALITIES*, *INJURIES*, *PROPDMG*, and *CROPDMG*
-
-**exponent fields** are *PROPDMGEXP*, and *CROPDMGEXP*. The values are stored as character type and must be converted to numeric types before performing any computation. 
-
-**damage types** are *HEALTH*  and *ECONOMIC*. For this assignment, *HEALTH* is the sum of *FATALITIES* and *INJURIES*. *ECONOMIC* is the sum of *PROPDMG* * *PROPDMGEXP*, and *CROPDMG* * *CROPDMGEXP*.
+1. *CASUALTIES* = *FATALITIES* + *INJURIES*,
+2. *ECONOMIC LOSSES* = (*PROPDMG* * *PROPDMGEXP*) + (*CROPDMG* * *CROPDMGEXP*).
 
 **unifying names** is the process ensuring all names used by the data collectors are replaced with the appropriate NWS type names.
 
@@ -88,92 +76,109 @@ The *FATALITIES*, *INJURIES*, *PROPDMG*, *PROPDMGEXP*, *CROPDMG*, and *CROPDMGEX
 
 **Goal**
 
-To provide a baseline for comparing the effect of each transformation on the memory size required to store the resulting data frame (or tibble) and its dimensions.
+The goal for Transformation 0, is to provide a baseline for analyzing the effect of each transformation on the data frame (or tibble).
 
 **Why?**
 
-One part of understanding the impact of each transformation is understanding how it impacts memory use and how it changes the structure of the data frame. Since the first transformation happens when the data is read, so assessing the impact requires knowing the impact of the transforming read on the data before it is transformed.
-
+Reading the complete data set from the storm file, will provide state information regarding the memory required to store the data, the dimensions of the data, the number of unique events and the first ten rows of the data frame.
 
 **How?**
 
-A block of code 
-
-Two "constants" are set before the code is evaluated. The first *VERBOSE* is used to print output when the document user wants to verify aspects of the analysis. The second *ALL_DATA*, ensures the code reads the entire data file. The later is only need to check the full file data and should not be used for analysis purposes.
+The Transformation 0 block is only used to get baseline data, so the entire computation is enclosed by an if statement, it block executes when two "constants", *VERBOSE* and *ALL_DATA*, are TRUE. When it executes, it reads the entire storm data file into a data frame and prints out the state data. Since the only point of this code block is to print the state of the data frame, it terminates once the statement is done.
 
 **Consequences**
 
 ```{=html}
 <div style="font-size : 14;">
 
-<strong>Listing 0:</strong> The memory size required to store the data is 50601984, the dimesions of sourceDF are 902297 by 7 and the head of the data frame is shown below.
+<strong>Output Listing 0</strong> The Transform 0 block output shows the full data frame is 902297 by 37, it requires 494 MB of memory, and there are 985 different event types. It is important to note, the NWS naming conventions have 47 distinct event types.  
 
 <pre>
-## 494295216 bytes
-## [1] 902297     37
-##   STATE__           BGN_DATE BGN_TIME TIME_ZONE COUNTY COUNTYNAME STATE  EVTYPE
-## 1       1  4/18/1950 0:00:00     0130       CST     97     MOBILE    AL TORNADO
-## 2       1  4/18/1950 0:00:00     0145       CST      3    BALDWIN    AL TORNADO
-## 3       1  2/20/1951 0:00:00     1600       CST     57    FAYETTE    AL TORNADO
-## 4       1   6/8/1951 0:00:00     0900       CST     89    MADISON    AL TORNADO
-## 5       1 11/15/1951 0:00:00     1500       CST     43    CULLMAN    AL TORNADO
-## 6       1 11/15/1951 0:00:00     2000       CST     77 LAUDERDALE    AL TORNADO
-   .              .                   .         .       .      .        .     . 
-   .              .                   .         .       .      .        .     . 
-   .              .                   .         .       .      .        .     . 
-   
-##   BGN_RANGE BGN_AZI BGN_LOCATI END_DATE END_TIME COUNTY_END COUNTYENDN
-## 1         0    .         .         .       .      .       0         NA
-## 2         0    .         .         .       .      .       0         NA
-## 3         0    .         .         .       .      .       0         NA
-## 4         0    .         .         .       .      .       0         NA
-## 5         0    .         .         .       .      .       0         NA
-## 6         0    .         .         .       .      .       0         NA
-   .         .              .         .       .      .      .           . 
-   .         .              .         .       .      .      .           . 
-   .         .              .         .       .      .      .           . 
-   
-##   END_RANGE END_AZI END_LOCATI LENGTH WIDTH F MAG FATALITIES INJURIES PROPDMG
-## 1         0    .         .       14.0   100 3   0          0       15    25.0
-## 2         0    .         .        2.0   150 2   0          0        0     2.5
-## 3         0    .         .        0.1   123 2   0          0        2    25.0
-## 4         0    .         .        0.0   100 2   0          0        2     2.5
-## 5         0    .         .        0.0   150 2   0          0        2     2.5
-## 6         0    .         .        1.5   177 2   0          0        6     2.5
-   .         .    .         .         .     .  .   .          .        .      .
-   .         .    .         .         .     .  .   .          .        .      .
-   .         .    .         .         .     .  .   .          .        .      .
+## [1] "Transformation 0"
+## [1] "Number of unique event names         985"
+## [1] "The data frame memory requirement is 494295216"
+## [1] "The data frame dimensions are        902297"
+## [2] "The data frame dimensions are        37"    
 
-##   PROPDMGEXP CROPDMG CROPDMGEXP WFO STATEOFFIC ZONENAMES LATITUDE LONGITUDE
-## 1          K       0      .      .       .        .          3040      8812
-## 2          K       0      .      .       .        .          3042      8755
-## 3          K       0      .      .       .        .          3340      8742
-## 4          K       0      .      .       .        .          3458      8626
-## 5          K       0      .      .       .        .          3412      8642
-## 6          K       0      .      .       .        .          3450      8748
-   .          .       .      .      .       .        .            .         .
-   .          .       .      .      .       .        .            .         .
-   .          .       .      .      .       .        .            .         .
-
-##   LATITUDE_E LONGITUDE_ REMARKS REFNUM
-## 1       3051       8806    .         1
-## 2          0          0    .         2
-## 3          0          0    .         3
-## 4          0          0    .         4
-## 5          0          0    .         5
-## 6          0          0    .         6 
-   .          .          .    .         .
-   .          .          .    .         .
-   .          .          .    .         .
-
+##    STATE__           BGN_DATE BGN_TIME TIME_ZONE COUNTY COUNTYNAME STATE
+## 1        1  4/18/1950 0:00:00     0130       CST     97     MOBILE    AL
+## 2        1  4/18/1950 0:00:00     0145       CST      3    BALDWIN    AL
+## 3        1  2/20/1951 0:00:00     1600       CST     57    FAYETTE    AL
+## 4        1   6/8/1951 0:00:00     0900       CST     89    MADISON    AL
+## 5        1 11/15/1951 0:00:00     1500       CST     43    CULLMAN    AL
+## 6        1 11/15/1951 0:00:00     2000       CST     77 LAUDERDALE    AL
+## 7        1 11/16/1951 0:00:00     0100       CST      9     BLOUNT    AL
+## 8        1  1/22/1952 0:00:00     0900       CST    123 TALLAPOOSA    AL
+## 9        1  2/13/1952 0:00:00     2000       CST    125 TUSCALOOSA    AL
+## 10       1  2/13/1952 0:00:00     2000       CST     57    FAYETTE    AL
+## .        .       .       .          .         .      .        .        .
+## .        .       .       .          .         .      .        .        .
+## .        .       .       .          .         .      .        .        .
+##     EVTYPE BGN_RANGE BGN_AZI BGN_LOCATI END_DATE END_TIME COUNTY_END COUNTYENDN
+## 1  TORNADO         0     .       .          .        .             0         NA
+## 2  TORNADO         0     .       .          .        .             0         NA
+## 3  TORNADO         0     .       .          .        .             0         NA
+## 4  TORNADO         0     .       .          .        .             0         NA
+## 5  TORNADO         0     .       .          .        .             0         NA
+## 6  TORNADO         0     .       .          .        .             0         NA
+## 7  TORNADO         0     .       .          .        .             0         NA
+## 8  TORNADO         0     .       .          .        .             0         NA
+## 9  TORNADO         0     .       .          .        .             0         NA
+## 10 TORNADO         0     .       .          .        .             0         NA
+## .     .            .     .       .          .        .             .         .
+## .     .            .     .       .          .        .             .         .
+## .     .            .     .       .          .        .             .         .
+##    END_RANGE END_AZI END_LOCATI LENGTH WIDTH F MAG FATALITIES INJURIES PROPDMG
+## 1          0    .       .         14.0   100 3   0          0       15    25.0
+## 2          0    .       .          2.0   150 2   0          0        0     2.5
+## 3          0    .       .          0.1   123 2   0          0        2    25.0
+## 4          0    .       .          0.0   100 2   0          0        2     2.5
+## 5          0    .       .          0.0   150 2   0          0        2     2.5
+## 6          0    .       .          1.5   177 2   0          0        6     2.5
+## 7          0    .       .          1.5    33 2   0          0        1     2.5
+## 8          0    .       .          0.0    33 1   0          0        0     2.5
+## 9          0    .       .          3.3   100 3   0          1       14    25.0
+## 10         0    .       .          2.3   100 3   0          0        0    25.0
+## .          .    .       .          .         .      .        .        .     .
+## .          .    .       .          .         .      .        .        .     .
+## .          .    .       .          .         .      .        .        .     .
+##    PROPDMGEXP CROPDMG CROPDMGEXP WFO STATEOFFIC ZONENAMES LATITUDE LONGITUDE
+## 1           K       0      .            .         .           3040      8812
+## 2           K       0      .            .         .           3042      8755
+## 3           K       0      .            .         .           3340      8742
+## 4           K       0      .            .         .           3458      8626
+## 5           K       0      .            .         .           3412      8642
+## 6           K       0      .            .         .           3450      8748
+## 7           K       0      .            .         .           3405      8631
+## 8           K       0      .            .         .           3255      8558
+## 9           K       0      .            .         .           3334      8740
+## 10          K       0      .            .         .           3336      8738
+## .           .       .      .            .         .             .         .
+## .           .       .      .            .         .             .         .
+## .           .       .      .            .         .             .         .
+##    LATITUDE_E LONGITUDE_ REMARKS REFNUM
+## 1        3051       8806              1
+## 2           0          0              2
+## 3           0          0              3
+## 4           0          0              4
+## 5           0          0              5
+## 6           0          0              6
+## 7           0          0              7
+## 8           0          0              8
+## 9        3336       8738              9
+## 10       3337       8737             10
+## .          .          .               .
+## .          .          .               .
+## .          .          .               .
 </pre>
 </div>
 ```
 
 **Consequences**
 
-* The zero transformation requires roughly 500 MB, dimensions of 902297 rows by 37 columns.
-* There were 918 distinct event names at this point.
+* The zero transformation requires roughly 500 MB
+* The data frame has dimensions 902297 rows by 37 columns.
+* There were 985 distinct event names at this point.
 
 <hr style="background : #F7261C; height : 15px"/>
 
@@ -181,21 +186,17 @@ Two "constants" are set before the code is evaluated. The first *VERBOSE* is use
 
 **Goal**
 
-The goal of this transformation is to create a data frame called *sourceDF* to store all rows and specific columns from the source file. 
+The goal of this transformation is read select fields from the storm data file into a the *sourceDF* data frame.
 
 **Why?**
 
 The source file contains more data than what is needed for this project. By selecting the only the required columns, the *sourceDF* will have all of the data it requires and nothing more.  
 
-The required data, described in the **initial data fields** definition above, contains the numerical data needed to produce the results tables. These tables will provide the information necessary to answer the required questions.
-
-1. **Across the United States, which types of events are most harmful with respect to population health?**
-2. **Across the United States, which types of events have the greatest economic consequences?**
-
+The data analysis requires the numerical data for each event type *EVTYPE* need to calculate the harm done to the public and the economic losses. The required data is the **initial data fields** described in the Glossary Section.
 
 **How?**
 
-The read.table function uses the colClasses argument to select the columns that make up the **initial data fields**. When the file is read, the requested data in the file is copied into *sourceDF*. 
+The Transformation 2 code block reads the storm data file selecting the required columnsusing the colClasses argument and stores the result in *sourceData*.
 
 **Consequences**
 
@@ -203,22 +204,29 @@ The read.table function uses the colClasses argument to select the columns that 
 
 <div style="font-size : 14;">
 
-<strong>Listing 1:</strong>  The memory size required to store the data is 50601984, the dimesions of sourceDF are 902297 by 7 and the head of the data frame is shown below.
+<strong>Output Listing 1:</strong> The Transform 1 block output shows the full data frame is 902297 by 7, it requires 51 MB of memory, and there are 985 different event types.
 
 <pre>
-## 50601984 bytes
-## [1] 902297      7
-##    EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
-## 1 TORNADO          0       15    25.0          K       0           
-## 2 TORNADO          0        0     2.5          K       0           
-## 3 TORNADO          0        2    25.0          K       0           
-## 4 TORNADO          0        2     2.5          K       0           
-## 5 TORNADO          0        2     2.5          K       0           
-## 6 TORNADO          0        6     2.5          K       0
-       .              .        .      .           .       .
-       .              .        .      .           .       .
-       .              .        .      .           .       .
-       
+## [1] "Transformation 1"
+## [1] "Number of unique event names 985"
+## [1] "The data frame memory requirement is 50601984"
+## [1] "The data frame dimensions are        902297"
+## [2] "The data frame dimensions are        7"     
+##     EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+## 1  TORNADO          0       15    25.0          K       0      .          
+## 2  TORNADO          0        0     2.5          K       0      .
+## 3  TORNADO          0        2    25.0          K       0      .           
+## 4  TORNADO          0        2     2.5          K       0      .    
+## 5  TORNADO          0        2     2.5          K       0      .    
+## 6  TORNADO          0        6     2.5          K       0      .    
+## 7  TORNADO          0        1     2.5          K       0      .
+## 8  TORNADO          0        0     2.5          K       0      .
+## 9  TORNADO          1       14    25.0          K       0      .    
+## 10 TORNADO          0        0    25.0          K       0      .
+##  .    .             .        .      .           .       .      .
+##  .    .             .        .      .           .       .      .
+##  .    .             .        .      .           .       .      .
+##       
  </pre>
 </div>
 
@@ -226,12 +234,11 @@ The read.table function uses the colClasses argument to select the columns that 
 
 **Changes to data frame properties**
 
-* The zero transformation read the full file, which had a data frame of of roughly 500 MB, dimensions of 902297 rows by 37 columns.
-* The data frame *sourceDF* created by this transformation takes roughly 50 MB of memory and has dimensions of 902297 rows by 7 columns.
-* The change in memory size is about 450 MB and the and the *sourceDF* changes from 37 to 7 columns. 
-* There were 918 distinct event names at this point.
+* After Transformation 1, *sourceDF* requires roughly 51 MB, or a decrease of 453 MB from the complete data frame
+* The data frame has dimensions 902297 rows by 7 columns, or a reduction of 30 columns.
+* There are 985 distinct event names at this point, which is the same as the complete data set.
 
-These changes should improve the execution time of the code by reducing the number of operations required to complete the analysis.
+The drop in memory usage is due to the reduction in the number of columns in the transformed data frame. This reduction should improve the execution time of the code.
 
 <hr style="background : #F7AB1C; height : 15px"/>
 
@@ -239,11 +246,11 @@ These changes should improve the execution time of the code by reducing the numb
 
 **Goal**
 
-The goal of this transformation is to remove data points (rows) that do not contribute to the numerical results of the analysis.
+The goal of Transformation 2 is to remove data points (rows) that do not contribute to the numerical results of the analysis.
 
 **Why?**
 
-The analysis will sum the values of the **numeric fields** but cursory examination of the data shows thousands of data points with *FATALITIES* = 0, *INJURIES* = 0, *PROPDMG* = 0, and *CROPDMG*= 0. None of these values will contribute to the sums, so there is no reason to include them.
+The analysis will sum the values of the **numeric fields** but cursory examination of the data shows thousands of data points with *FATALITIES* = 0, *INJURIES* = 0, *PROPDMG* = 0, and *CROPDMG*= 0. None of these values will contribute change the values of the sums, so there is no reason in including them.
 
 **How?**
 
@@ -255,59 +262,64 @@ NOTE: a side effect of this transformaion is several irrelevant data points are 
 
 
 ```{=html}
-
 <div style="font-size : 14;">
-<strong>Listing 2a:</strong>  The output listing before transformation 2. Notice the rows after the tenth row. The rows 82, and 271399 do not make a contribution because their numerical fields are all zero. Row 246124 has an illegitimate event name, '?' but it still makes a contribution.
+<strong>Output Listing 2a:</strong>Before the execution of Transformation 2, the <em>sourceDF</em> data frame has several unusual values. Three of the values are shown in the listing, each will demonstrate the changes made by the tranformation. 
+
+<ol>
+<li>In line 82, "HAIL" is non-contributing because *FATALITIES* = 0, *INJURIES* = 0, *PROPDMG* = 0, and *CROPDMG*= 0, so it will not change the value of any sums. However, there are several "Hail" events, so there should be at least one instance after the transformation</li>
+<li>In line 246124, "?" is an invalid event name, but *PROPDMG* = 5, so it contributes to a sum.</li>
+<li>In line 271399, "Summary: Nov. 16" is an invalid event name, and it is non-contributing.</li>
+</ol>
+
 <pre>
 
-## 50601984 bytes
-## [1] 902297      7
-##          EVTYPE          FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
-##      1  TORNADO                   0       15    25.0          K       0      .           
-##      2  TORNADO                   0        0     2.5          K       0      .           
-##      3  TORNADO                   0        2    25.0          K       0      .           
-##      4  TORNADO                   0        2     2.5          K       0      .           
-##      5  TORNADO                   0        2     2.5          K       0      .           
-##      6  TORNADO                   0        6     2.5          K       0      .           
-##      7  TORNADO                   0        1     2.5          K       0      .           
-##      8  TORNADO                   0        0     2.5          K       0      .           
-##      9  TORNADO                   1       14    25.0          K       0      .           
-##     10  TORNADO                   0        0    25.0          K       0      .
-##      .     .                      .        .      .           .       .      .
-##      .     .                      .        .      .           .       .      .
-##      .     .                      .        .      .           .       .      .
-##     82     HAIL                   0        0       0                  0      .           
-##      .     .                      .        .      .           .       .      .
-##      .     .                      .        .      .           .       .      .
-## 246124        ?                   0        0       5          K       0      .           
-##      .     .                      .        .      .           .       .      .
-##      .     .                      .        .      .           .       .      .
-## 271399 Summary: Nov. 16           0        0       0                  0      .
-##      .     .                      .        .      .           .       .      .
-##      .     .                      .        .      .           .       .      .
+## [1] "Before Transformation 2"
+##                  EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+##     82             HAIL          0        0       0          .       0          .
+##      .                .          .        .       .          .       .          .
+##      .                .          .        .       .          .       .          .
+## 246124                ?          0        0       5          K       0          .
+##      .                .          .        .       .          .       .          .
+##      .                .          .        .       .          .       .          .
+## 271399 Summary: Nov. 16          0        0       0                  0          .
+##      .                .          .        .       .          .       .          .
+##      .                .          .        .       .          .       .          .
+##      .                .          .        .       .          .       .          .
 
 </pre>
 
-<strong>Listing 2b:</strong> The output listing after transformation 2. Notice the row with "Summary: Nov. 16" is not found in the transformed data frame. Even though "?" is an illegitimate name it still included in the data frame because it contributes to the calculation. The row with "HAIL" is included in the data frame, which might be unexpected, however, there are numerous rows with the event name "HAIL" that do contribute, so an instance of "HAIL" in the transformed data frame is expected.
+<strong>Listing 2b:</strong> The output listing after transformation 2 shows several changes to the data frame's state. The memory requirement has decreased, the number of the rows has decreased and the number of unique event names has decreased. 
+
+The changes to the events in 2a are as follows:
+
+<ol>
+<li>There is at least on instance of "HAIL" left in the data frame. This is the expected result.</li>
+<li>The "?" event is still in the data frame because it contributes to a sum.</li>
+<li>The "Summary: Nov. 16" is no longer in the data frame.</li>
+</ol>
+
+These are the expected results, which implies the transformation worked as expected.
 
 <pre>
-## 15315016 bytes
-## [1] 254633      7
-##    EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
-## 1 TORNADO          0       15    25.0          K       0      .           
-## 2 TORNADO          0        0     2.5          K       0      .           
-## 3 TORNADO          0        2    25.0          K       0      .           
-## 4 TORNADO          0        2     2.5          K       0      .           
-## 5 TORNADO          0        2     2.5          K       0      .           
-## 6 TORNADO          0        6     2.5          K       0      .      
-## .     .            .        .      .           .       .      .
-## .     .            .        .      .           .       .      .
-## .     .            .        .      .           .       .      .
-
-
-## [1] "HAIL found"
-## [1] "? found"
-## [1] "Summary: Nov. 16 not found"
+## [1] "Transformation 2"
+## [1] "The data frame memory requirement is 15315016"
+## [1] "The data frame dimensions are 254633"
+## [2] "The data frame dimensions are 7"     
+## [1] "Number of unique event names 488"
+##     EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+## 1  TORNADO          0       15    25.0          K       0          .
+## 2  TORNADO          0        0     2.5          K       0          .
+## 3  TORNADO          0        2    25.0          K       0          .
+## 4  TORNADO          0        2     2.5          K       0          .
+## 5  TORNADO          0        2     2.5          K       0          .
+## 6  TORNADO          0        6     2.5          K       0          .
+## 7  TORNADO          0        1     2.5          K       0          .
+## 8  TORNADO          0        0     2.5          K       0          .
+## 9  TORNADO          1       14    25.0          K       0          .
+## 10 TORNADO          0        0    25.0          K       0          .
+## [1] "CORRECT: HAIL found"
+## [1] "CORRECT: ? found"
+## [1] "CORRECT: Summary: Nov. 16 not found"
 </pre>
 
 
@@ -315,9 +327,13 @@ NOTE: a side effect of this transformaion is several irrelevant data points are 
 
 **Changes to data frame properties**
 
-* The *sourceDF* before the transformation required 50 MB of memory and had a dimension of 902297 rows by 7.
-* After the transformation, the *sourceDF* date frame requires 15 MB of storage and has a dimension of  254633 rows and 7.
-* The transformation reduced the data frame size by roughly 35 MB and reduced the dimensions by 647664 rows.
+* After Transformation 3, *sourceDF* requires roughly 15 MB, or a decrease of 438 MB.
+* The data frame has dimensions 254633 rows by 7 columns, or a reduction of 647664 columns.
+* There are 488 distinct event names at this point, which is a reduction of 497 event names.
+
+The loss of roughly 650,000 rows suggests the storm data file has a lot of non-contributing data points. Moreover, the loss of 497 events names strongly suggests that many of the non-contributing data points did not match valid event names. This is not unexpected because the transformation dropped names like "Summary: Nov. 16." 
+
+With these changes in both the memory requirements and the decrease in the number of rows, the resulting data frame should produce a faster execution time in subsequent transformations.
 
 <hr style="background : #F7F71C; height : 15px"/>
 
@@ -329,59 +345,51 @@ The goal is to change the string names to simplify comparisons that will have to
 
 **Why?**
 
-This transformation is necessary for two reasons. First, white space at the beginning and ending of a string are included in string comparisons. When a name like "DUST" is compare to " DUST" the string will not match, even though they are expected to match. The second reason is the data collectors did not use consistent case usage. Names like *Black Ice* match the NWS naming convention, but *BLACK ICE* does not. Given the number of misspellings, inconsistent names, and other problems, all of the letters in a name are converted to lower case. Now, *Black Ice* and *BLACK ICE* are both spelled *black ice* and are compared to the NWS name, also all lower case letters.
+This transformation is necessary for two reasons. First, white space at the beginning and ending of a string are included in string comparisons. When a name like "DUST" is compare to " DUST" the string will not match, even though they should. The second reason is the data collectors did not use consistent spelling or case usage. Names like *Black Ice* match the NWS naming convention, but *BLACK ICE* does not. Given the number of misspellings, inconsistent names, and other problems, all of the letters in a name are converted to lower case to improve subsequent execution. After the transformation, *Black Ice* and *BLACK ICE* are both spelled *black ice*.
 
 
 **How?**
 
-The data is copied from sourceDF back to sourceDF after triming the whitespace using *trimws* and converting all strings to lower case letters using *tolower*.
+Each column of the <em>sourceDF</em> back to sourceDF after triming the white space using *trimws* and converting all strings to lower case letters using *tolower*.
 
 **Consequences**
 
 ```{=html}
-<strong>Listing 3a:</strong> The listing shows the output of the data before Transform 3. Notice that all the strings in <em>EVTYPE</em>, <em>PROPDMGEXP</em>, and <em>CROPDMGEXP</em> are all upper case letters. In addition to the head of the data frame, the output includes row 408333. Though it is not appearant, the event associated with this row is ' FLASH FLOOD'.
+<strong>Output Listing 3a:</strong> Before the execution of Transformation 3, the code executes an searches for the string " FLASH FLOOD" in the <em>sourceDF$EVTYPE</em> column. The output shows the string was found. The string is not a valid name because of the leading space. The correct name is "FLASH FLOOD".
 
-<div style="font-size : 14; font-weight: bold;">
 <pre>
-## 15315016 bytes
-## [1] 254633      7
-##              EVTYPE  FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
-##      1      TORNADO           0       15    25.0          K       0           
-##      2      TORNADO           0        0     2.5          K       0           
-##      3      TORNADO           0        2    25.0          K       0           
-##      4      TORNADO           0        2     2.5          K       0           
-##      5      TORNADO           0        2     2.5          K       0           
-##      6      TORNADO           0        6     2.5          K       0           
-##      7      TORNADO           0        1     2.5          K       0           
-##      8      TORNADO           0        0     2.5          K       0           
-##      9      TORNADO           1       14    25.0          K       0           
-##     10      TORNADO           0        0    25.0          K       0           
-      .           .              .        .       .          .       .
-      .           .              .        .       .          .       .
-## 408333  FLASH FLOOD           0        0      50          K       0
-      .           .              .        .       .          .       .
-      .           .              .        .       .          .       .
-      .           .              .        .       .          .       .
+
+## [1] " FLASH FLOOD found"
 
 </pre>
 
-<strong>Listing 3b:</strong> The listing shows the output of the after Transform 3. Also notice that all the strings in <em>EVTYPE</em>, <em>PROPDMGEXP</em>, and <em>CROPDMGEXP</em> have all lower case letters.
-<pre>
-## 15311912 bytes
-## [1] 254633      7
-##    EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
-## 1 tornado          0       15    25.0          k       0           
-## 2 tornado          0        0     2.5          k       0           
-## 3 tornado          0        2    25.0          k       0           
-## 4 tornado          0        2     2.5          k       0           
-## 5 tornado          0        2     2.5          k       0           
-## 6 tornado          0        6     2.5          k       0           
-   .   .              .        .       .          .       .
-   .   .              .        .       .          .       .
-   .   .              .        .       .          .       .
+<strong>Output Listing 3b:</strong> After the execution of Transformation 3, the listing shows the <em>EVTYPE</em>, <em>PROPDMGEXP</em>, and <em>CROPDMGEXP</em> have been converted to strings with all lower case letters.
 
+<pre>
+## [1] "Transformation 3"
+## [1] "The data frame memory requirement is 15311912"
+## [1] "The data frame dimensions are 254633"
+## [2] "The data frame dimensions are 7"     
+## [1] "Number of unique event names 444"
+
+##     EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+## 1  tornado          0       15    25.0          k       0          .
+## 2  tornado          0        0     2.5          k       0          .
+## 3  tornado          0        2    25.0          k       0          .
+## 4  tornado          0        2     2.5          k       0          .
+## 5  tornado          0        2     2.5          k       0          .
+## 6  tornado          0        6     2.5          k       0          .
+## 7  tornado          0        1     2.5          k       0          .
+## 8  tornado          0        0     2.5          k       0          .
+## 9  tornado          1       14    25.0          k       0          .
+## 10 tornado          0        0    25.0          k       0          .
+##  ..   .             .        .      .           .       .          .
+##  ..   .             .        .      .           .       .          .
+##  ..   .             .        .      .           .       .          .
 </pre>
-<strong>Listing 3c:</strong> The listing shows the output of the data after Transform 3. The results show the results of searching for four strings. No string with a space at the beginning was found and no string with all upper case letters was found. The only string that was found is the string with no space and all lower case.
+
+<strong>Output Listing 3c:</strong> In addition to the change in letters, it searched for " FLASH FLOOD", "FLASH FLOOD", " flash flood", and "flash flood". All of the names with the exception of "flash flood" were not found. Since the white spaces were trimmed and all of the characters were changed to lower case letters, this makes sense.
+
 <pre>
 
 ## [1] " FLASH FLOOD not found"
@@ -395,10 +403,13 @@ The data is copied from sourceDF back to sourceDF after triming the whitespace u
 
 **Changes to data frame properties**
 
-* The *sourceDF* before Transformation 3 the frame data required 15315016 Bytes (~15 MB) of memory and had 902297 rows by 7.
-* After Transformation 3 the data, date frame size was 15311912 Bytes with no changes to the dimensions.
-* The transformation reduces the data frame size by roughly 3 kB.
-* There were 918 distinct event names at this point.
+
+* After Transformation 4, *sourceDF* requires still requires roughly 15 MB, but there was a change of about 3 kB.
+* The data frame has dimensions 254633 rows by 7 columns remains unchanged.
+* There are 444 distinct event names at this point, which is a reduction of 44 event names.
+
+The modest change in the memory required to store *sourceDF* is not surprising. The leading and trailing white space was removed so the small decrease in size is expected. Likewise, names like " FLASH FLOOD" and "FLASH FLOOD" were both converted to "flash flood" and thereby reduced the number of events.
+
 
 <hr style="background : #009E11; height : 15px"/>
 
@@ -406,208 +417,184 @@ The data is copied from sourceDF back to sourceDF after triming the whitespace u
 
 **Goal**
 
-The goal is to ensure any names that have no apparent relationship to the NWS names are accounted for.
+The goal is to ensure any contributing events with no apparent relationship to the NWS names are accounted for.
 
 **Why?**
 
-Some of the data collector names have no apparent relationship to the NWS names. For example, the names, **?**, **apache county**, and **high** do not match the any name in the NWS. If they were removed from the data frame, then their impact would be lost, so their EVTYPE names are replaced with **Other**.
+Some of the data collector names have no apparent relationship to the NWS names. For example, the names, **?**, **apache county**, and **high** do not match the any name in the NWS. If they were removed from the data frame, their impact on subsequent calculations would be lost, so every invalid event name was changed to **Other** to ensure they don't create unnecessary *EVTYPE*.
 
 **How?**
 
-Each *EVTYPE* name is compared to the invalid names. If a name matches one of the invalid names, the data frame's event name is replaced with the word "Other".
+Each *EVTYPE* name in *sourceDF* is compared to the invalid names. If a name matches one of the invalid names, the data frame's event name is replaced with the word **Other**.
 
 **Consequences**
 
 ```{=html}
-<strong>Listing 4a:</strong> The listing shows the output of the data before Transform 4. To demonstrate the change of invalid names, the location of the '?' event was identified by a two pass 
+<strong>Output Listing 4a:</strong> 
+
+The listing shows the output of the data before Transform 4, which matches the 3b listing with the exception of row named 246124. This row is the only row that contains the '?' event. Using **which(rownames(sourceDF) == 246124)**, the location of the row was determined to be 52498.
 
 <div style="font-size : 14; font-weight: bold;">
 <pre>
-## 15311912 bytes
-## [1] 254633      7
-##         EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
-##      1 tornado          0       15    25.0          k       0           
-##      2 tornado          0        0     2.5          k       0           
-##      3 tornado          0        2    25.0          k       0           
-##      4 tornado          0        2     2.5          k       0           
-##      5 tornado          0        2     2.5          k       0           
-##      6 tornado          0        6     2.5          k       0           
-##      .    .             .        .      .           .       .
-##      .    .             .        .      .           .       .
-## 246124       ?          0        0       5          k       0           
-##      .    .             .        .      .           .       .
-##      .    .             .        .      .           .       .
+##        EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+## 246124      ?          0        0       5          k       0           
 ## [1] 52498
-
 </pre>
 
-<strong>Listing 4b:</strong> The listing shows the output of the data before Transform 4. 
+<strong>Output Listing 4b:</strong> After Transform 4, the value of  52498. This row's EVTYPE was '?' before the transformation and is 'Other' after.
+
 <pre>
 ## 15311608 bytes
 ## [1] 254633      7
 ##         EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
-##      1 tornado          0       15    25.0          k       0           
-##      2 tornado          0        0     2.5          k       0           
-##      3 tornado          0        2    25.0          k       0           
-##      4 tornado          0        2     2.5          k       0           
-##      5 tornado          0        2     2.5          k       0           
-##      6 tornado          0        6     2.5          k       0           
-##      .    .             .        .      .           .       .
-##      .    .             .        .      .           .       .
-##      .    .             .        .      .           .       .
-## 246124 Other            0        0       5          k       0
-##      .    .             .        .      .           .       .
-##      .    .             .        .      .           .       .
+##      1 tornado          0       15    25.0          k       0          .
+##      2 tornado          0        0     2.5          k       0          .
+##      3 tornado          0        2    25.0          k       0          .
+##      4 tornado          0        2     2.5          k       0          .
+##      5 tornado          0        2     2.5          k       0          .
+##      6 tornado          0        6     2.5          k       0          .
+##      .    .             .        .      .           .       .          .
+##      .    .             .        .      .           .       .          .
+##      .    .             .        .      .           .       .          .
+## 246124 Other            0        0       5          k       0          .
+##      .    .             .        .      .           .       .          .
+##      .    .             .        .      .           .       .          .
 
 </pre>
-
 </div>
 
 
-<strong>Listing XXXX: </strong>.
-
-<pre>
- 15311608 bytes
- [1] 254633      7
-
-         EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
-      1 tornado          0       15    25.0          k       0           
-      2 tornado          0        0     2.5          k       0           
-      .   .              .        .       .          .       .       . 
-      .   .              .        .       .          .       .       . 
-      .   .              .        .       .          .       .       . 
- 188990 Other            6        0     0.0               0.00           
-      .   .              .        .       .          .       .       . 
-      .   .              .        .       .          .       .       . 
-      .   .              .        .       .          .       .       . 
- 435359 Other            0        4     0.0               0.00
-      .   .              .        .       .          .       .       . 
-      .   .              .        .       .          .       .       . 
-      .   .              .        .       .          .       .       . 
-</pre>
-</div>
 ```
 
 
 **Changes to data frame properties**
 
 * The *sourceDF* before renaming the event names was 15311912 Bytes (~15 MB) of memory and had 254633 rows by 7 columns.
-* After renaming the event names, the *sourceDF* date frame size was 15311608 Bytes.
-* The *sourceDF* date frame has dimensions were unchanged.
+* After renaming the event names, the *sourceDF* date frame size was 15311608 Bytes and dimensions were unchanged.
 * The transformation reduces the data frame size by roughly 304 B.
-* The transformation affected 57 names, which accounts the small change in memory requirements.
-* There were 249 distinct event names at this point.
+* There were 439 distinct event names making a reduction of 5 event names.
 
 <hr style="background : #004FEE; height : 15px"/>
 
 ### Transformation 5:  Unify the event names
 
+**Goal**
+
+The goal is to make every EVTYPE name consistent with the NWS names.
+
 **Why?**
 
-The data collectors did not use consistent names for single events. For example, the NWS event "Thunderstorm Wind" was reported by the following
+The data collectors used idiosyncratic names for weather events. For example, the NWS event "Thunderstorm Wind" was reported as the following
 
 ```{=html}
   <div style="font-size : 8px; font-weight: bold;"> <!-- Thunder storm events -->
 ```
-
-THUDERSTORM WINDS, THUNDEERSTORM WINDS, THUNDERESTORM WINDS, THUNDERSTORM, THUNDERSTORM  WINDS, Thunderstorm Wind, THUNDERSTORM WIND, THUNDERSTORM WIND (G40), THUNDERSTORM WIND 50, THUNDERSTORM WIND 52,  THUNDERSTORM WIND 56, THUNDERSTORM WIND 59, THUNDERSTORM WIND 59 MPH, THUNDERSTORM WIND 59 MPH., THUNDERSTORM WIND 60 MPH, THUNDERSTORM WIND 65 MPH, THUNDERSTORM WIND 65MPH, THUNDERSTORM WIND 69, THUNDERSTORM WIND 98 MPH,  THUNDERSTORM  THUNDERSTORM WIND G55, THUNDERSTORM WIND G60,  THUNDERSTORM WIND G61, THUNDERSTORM WIND TREES, THUNDERSTORM 
-WIND. THUNDERSTORM WIND/ TREE, THUNDERSTORM WIND/ TREES, THUNDERSTORM WIND/AWNING, THUNDERSTORM WINDS, THUNDERSTORM WINDS, THUNDERSTORM WINDS 13, THUNDERSTORM WINDS 2, THUNDERSTORM WINDS 50, THUNDERSTORM WINDS 52, THUNDERSTORM WINDS 53, THUNDERSTORM WINDS 60, THUNDERSTORM WINDS 61, THUNDERSTORM WINDS 62, THUNDERSTORM WINDS 63 MPH, THUNDERSTORM WINDS G, THUNDERSTORMWINDS G60, THUNDERSTORM WINDS., THUNDERSTORM WINDS53, THUNDERSTORMS WIND, THUNDERSTORMS WINDS, THUNDERSTORMW, THUNDERSTORMW 50, THUNDERSTORMW WINDS, THUNDERSTORMWINDS, THUNDERSTROM WIND, THUNDERSTROM WINDS, THUNDERTORM WINDS, THUNDERTSORM WIND,  THUNDESTORM WINDS, THUNERSTORM WINDS, TSTM, TSTM WIND, Tstm Wind, TSTM WIND,  TSTM WIND  (G45), TSTM WIND (41), TSTM WIND (G35), TSTM WIND (G40),  TSTM WIND (G45), TSTM WIND (G45), TSTM WIND 40, TSTM WIND 45, TSTM WIND 50, TSTM WIND 51, TSTM WIND 52, TSTM WIND 55, TSTM WIND 65), TSTM WIND DAMAGE, TSTM WIND G45, TSTM WIND G58, TSTM WINDS, TSTM WND, TSTMW
+THUDERSTORM WINDS, THUNDEERSTORM WINDS, THUNDERESTORM WINDS, THUNDERSTORM, THUNDERSTORM  WINDS, Thunderstorm Wind, THUNDERSTORM WIND, THUNDERSTORM WIND (G40), THUNDERSTORM WIND 50, THUNDERSTORM WIND 52,  THUNDERSTORM WIND 56, THUNDERSTORM WIND 59, THUNDERSTORM WIND 59 MPH, THUNDERSTORM WIND 59 MPH., THUNDERSTORM WIND 60 MPH,THUNDERSTORM WIND 65 MPH, THUNDERSTORM WIND 65MPH, THUNDERSTORM WIND 69, THUNDERSTORM WIND 98 MPH, THUNDERSTORM, THUNDERSTORM WIND G55, THUNDERSTORM WIND G60,  THUNDERSTORM WIND G61, THUNDERSTORM WIND TREES, THUNDERSTORM WIND. THUNDERSTORM WIND/ TREE, THUNDERSTORM WIND/ TREES, THUNDERSTORM WIND/AWNING, THUNDERSTORM WINDS, THUNDERSTORM WINDS, THUNDERSTORM WINDS 13, THUNDERSTORM WINDS 2, THUNDERSTORM WINDS 50, THUNDERSTORM WINDS 52, THUNDERSTORM WINDS 53, THUNDERSTORM WINDS 60, THUNDERSTORM WINDS 61, THUNDERSTORM WINDS 62, THUNDERSTORM WINDS 63 MPH, THUNDERSTORM WINDS G, THUNDERSTORMWINDS G60, THUNDERSTORM WINDS., THUNDERSTORM WINDS53, THUNDERSTORMS WIND, THUNDERSTORMS WINDS, THUNDERSTORMW, THUNDERSTORMW 50, THUNDERSTORMW WINDS, THUNDERSTORMWINDS, THUNDERSTROM WIND, THUNDERSTROM WINDS, THUNDERTORM WINDS, THUNDERTSORM WIND,  THUNDESTORM WINDS, THUNERSTORM WINDS, TSTM, TSTM WIND, Tstm Wind, TSTM WIND,  TSTM WIND  (G45), TSTM WIND (41), TSTM WIND (G35), TSTM WIND (G40),  TSTM WIND (G45), TSTM WIND (G45), TSTM WIND 40, TSTM WIND 45, TSTM WIND 50, TSTM WIND 51, TSTM WIND 52, TSTM WIND 55, TSTM WIND 65), TSTM WIND DAMAGE, TSTM WIND G45, TSTM WIND G58, TSTM WINDS, TSTM WND, TSTMW
 ```{=html}
   </div> 
 ```
+If these names are not unified with a consistent naming convention, then the "Thunderstorm Wind" damage contribution will be spread over 78 events. The results will be skewed if this happens and the result will be incorrect. To fix this problem, Transformation 5 will change all of the variations to "Thunderstorm Wind."
 
-If these names are not changed to the single NWS name before the data is grouped, they will create dozens of groups and the analysis will produce invalid results for "Thunderstorm Wind". The analysis must unify the disparate names chosen by the data collectors to the NWS names.
+The NWS names are standardized and used to describe events in the NOAA Storm Events Database. The database is used by government agencies and private institutions for weather forecasting, emergency services, and other weather related purposes. Given the ubiquity of the database and the role the NWS event names play in it, the NWS names seem like a logic choice for standardization.  
 
 **How?**
-The UnifyNames function will check each name against a set of substrings. If the name matches a substring, the EVTYPE will be changed to the NWS type. The result will be stored in *validDF*.
 
-Prior to writing the code, a list of data collector event names was generated. Each name was assigned an NWS name using the National Weather Service Instruction 10-1605. From this list, each name was assigned a substring and the substrings were used to determine the correct NWS name.
-
+The UnifyNames function will check each name against a set of regular expressions. These REs were set up by printing the 439 events found in Transformation 4. After identifying the NWS event name using a spreadsheet, the REs were created to translate the data collector's names to the NWS names. This information was implemented in the UnifyNames function and the result was stored in *validDF*.
 
 **Consequences**
 
 Listing 5 shows partial results of the unifying names Prior to unifing the first event name was "tornado". After unifying the names, the first eavent became "Tornado", which is the correct NWS name.
 
-In addition to the name changes, further analysis showed that the number of distinct event names went from 239 to 46. This is the result of unifying the names.
+In addition to the name changes, further analysis showed that the number of distinct event names went from 239 to 48. This is the result of unifying the names.
 
 ```{=html}
 <strong>Listing 5: </strong>.
 
 <div style="font-size : 14; font-weight: bold;">
 <pre>
- 15283600 bytes
- [1] 254633      7
-    EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
- 1 Tornado          0       15    25.0          k       0           
- 2 Tornado          0        0     2.5          k       0           
- 3 Tornado          0        2    25.0          k       0           
- 4 Tornado          0        2     2.5          k       0           
- 5 Tornado          0        2     2.5          k       0           
- 6 Tornado          0        6     2.5          k       0
-      .             .       .       .           .       .
-      .             .       .       .           .       .
-      .             .       .       .           .       .
+## 15283744 bytes
+## [1] 254633      7
+##    EVTYPE FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+## 1 Tornado          0       15    25.0          k       0           
+## 2 Tornado          0        0     2.5          k       0           
+## 3 Tornado          0        2    25.0          k       0           
+## 4 Tornado          0        2     2.5          k       0           
+## 5 Tornado          0        2     2.5          k       0           
+## 6 Tornado          0        6     2.5          k       0           
+## [1] "unique names 48"
+
 </pre>
 </div>
 ```
 
-* There were 249 distinct event names at this point.
-
 **Changes to data frame properties**
-* The *sourceDF* before unifying names was 15311608 Bytes (~15 MB) of memory and had 254633 rows by 7 columns.
-* After unifying names, the *sourceDF* date frame size was 15283600 Bytes.
-* The *sourceDF* date frame has dimensions were unchanged.
-* The transformation reduces the data frame size by roughly 28 kB.
-* There were 46 distinct event names at this point.
 
+* The *sourceDF* before renaming the event names was 15311912 Bytes (~15 MB) of memory and had 254633 rows by 7 columns.
+* store *sourceDF* as *validDF*
+* After renaming the event names, the *validDF* date frame size was 15283744 Bytes and dimensions were unchanged.
+* The transformation reduces the data frame size by roughly 8168 bytes.
+* There were 439 distinct event names after Transition 4, and there ae 48 names after Transition 5 making a reduction of 381 event names.
+
+The NWS lists 47 unique weather event names and Transformation 5 reduces its list to 48 events. The difference is due to Transition 4 where several invalid names were changed to **Other**. 
 
 <hr style="background : #5C05FE; height : 15px"/>
 
 ### Transformation 6: Set up the analysis data frame
 
+**Goal**
+
+The goal of this Transformation is to add a new field for the total casualties problems and another for economic problems.
+
 **Why?**
 
-The goal of this analysis is to establish two points: the weather events responsible for the worst publich health costs and the weather events responsible for the worse economic damage. To do this, the analysis must have a means of assessing the public health costs and economic damage. 
+To answer the required questions, the analysis must include estimates for casualties and economic consequences due to weather events. However, the source file do not include a column for either estimate. To create the estimates, the Transform uses the data supplied by the storm file to compute *CASUALTIES* and *ECONOMIC* events as follows:
 
-The data provided by NOAA does not have public health or economic loss cost categories, so they must be created. Without explicit guidelines, the options for calculating the costs of the damage is extensive. For simplicity, the analysis uses the following algorithm:
-
-* public health (HEALTH) are FATALITIES + INJURIES
+* casualties (CASUALTIES) are FATALITIES + INJURIES
 * economic costs (ECONOMIC) are PROPDMG * PROPDMGEXP + CROPDMG * CROPDMGEXP
+
 
 **How?**
 
-The *validDF* is mutated to perform the calculations, the *EVTYPE*, **HEALTH**, and **ECONOMIC** events are selected and stored stored in *analysisDF*.
+The *validDF* is copied to *analysisDF*. The copy includes mutating the initial data frame as follows:
+
+1. *PROPDMGEXP* and *CROPDMGEXP* are converted from letter representations k and m to numeric values 1,000 and 1,000,000 respectively.
+2. The values of *PROPDMG* and *CROPDMG* are multiplied by their respective exponents.
+3. The *CASUALTIES* field is set to FATALITIES + INJURIES.
+4. The *ECONOMIC* field is set to (PROPDMG + CROPDMG)/1,000,000. Scaling the *ECONOMIC* value by 1,000,000 makes the output tables and images clearer.
+5. The *FATALITIES*, *INJURIES*, *PROPDMG*, *PROPDMGEXP*, *CROPDMG*, and *CROPDMGEXP* are droped from the *analysisDF* because they are no longer needed.
+
 
 **Consequences**
 
 ```{=html}
-<strong>Listing XXXX: </strong>.
-
+<strong>Listing 6: </strong>.
 <div style="font-size : 14; font-weight: bold;">
 <pre>
- 7133720 bytes
- [1] 254633      3
-    EVTYPE HEALTH ECONOMIC
- 1 Tornado         15 0.0250
- 2 Tornado          0 0.0025
- 3 Tornado          2 0.0250
- 4 Tornado          2 0.0025
- 5 Tornado          2 0.0025
- 6 Tornado          6 0.0025
-      .             .   .
-      .             .   .
-      .             .   .
+## 7133864 bytes
+## [1] 254633      3
+##    EVTYPE CASUALTIES ECONOMIC
+## 1 Tornado     15   0.0250
+## 2 Tornado      0   0.0025
+## 3 Tornado      2   0.0250
+## 4 Tornado      2   0.0025
+## 5 Tornado      2   0.0025
+## 6 Tornado      6   0.0025
+   .    .         .      .
+   .    .         .      .
+   .    .         .      .
+   
+## [1] "unique names 48"
  </pre>
 </div>
 ```
 
 
 **Changes to data frame properties**
-* The *validDF* before unifying names was 15283600 Bytes (~15 MB) of memory and had 254633 rows by 7 columns.
-* After unifying names, the *analysisDF* date frame size was 7133720 Bytes (~7MB).
-* The *analysisDF* date frame has dimensions changed to 254633 rows by 3 columns.
+
+* The *validDF* before unifying names was 15283744 Bytes (~15 MB) of memory and had 254633 rows by 7 columns.
+* After adding the new fields and dropping six of the existing fields, the *analysisDF* date frame size was 7133864 Bytes (~7MB) and dimensions of 254633 rows by 3 columns.
 * The transformation reduces the data frame size by roughly 8 MB.
-* There were 46 distinct event names at this point.
+* There were 48 distinct event names.
 
 
 <hr style="background : #6B4DA4; height : 15px"/>
@@ -615,35 +602,35 @@ The *validDF* is mutated to perform the calculations, the *EVTYPE*, **HEALTH**, 
 
 ### Transformation 7: Group the data by EVTYPE
 
+**Goal**
+
+The goal of Transformation 7 is to group the data based on the NWS weather event names.
+
 **Why?**
 
-The goal of this project is to answer two questions: 
+This project is about answering two questions:
 
 1. **Across the United States, which types of events are most harmful with respect to population health?**
 2. **Across the United States, which types of events have the greatest economic consequences?**
 
-The emphasis of these questions is "which types of events?" In other words, the data organization has to group the data around events, not data points as they currently are. To create the target system, the casualty and economic losses for each data point associated with a given event type must be summed and assigned to the **HEALTH** and **ECONOMIC** columns for that event.
+These questions require answer related to events and no specific data points. For example, the weather event **Avalanche** had 269 data points in the storm data file. To answer the question "...which types of events are most harmful" the analysis has to sum the *CASUALTIES* and *ECONOMIC* columns associated with this event. Counting the values manually came up with 395 casualties and about $3.7 million economic damages. To anwer the question, the analysis repeat the **Avalanche** analysis for every event type.
 
-For example, the *analysisDF* was written to a csv file and the file was opened in a spreadsheet. After sorting the data based on *EVTYPE*, the **HEALTH** and **ECONOMIC** all data points with *EVTYPE* equal to "Avalanche" were summed together. The result of the sums of the 269 "Avalanche" events is a total of 395 HEALTH and about $3.7 million in damages. 
-
-This result is an example of one grouped event type. However, the analysis relies on having the data for all events. This would be too diffcult to do by hand, so the computer needs to take care of it,
 
 **How?**
 
-The *analysisDF* is grouped by *EVTYPE* then piped to summarize_at(c("HEALTH", "ECONOMIC"), sum). The summarize_at() function sums the values of **HEALTH** and **ECONOMIC** respectivly. After the grouping and summing is complete, the data frame is ordered by *EVTYPE*. The result is stored in the *analysisTable* data frame.
+The *analysisDF* is grouped by *EVTYPE* by event type, then piped to summarize_at(c("CASUALTIES", "ECONOMIC"), sum). This function will create the *CASUALTIES* and *ECONOMIIC* sums for each EVTYPE. After the grouping and summing is complete, the data frame is ordered by *EVTYPE*. The result is stored in the *analysisTable* data frame.
 
 **Consequences**
-The results for the 
 
 ```{=html}
-<strong>Listing XXXX: </strong>.
+<strong>Listing 7: </strong>.
 
 <div style="font-size : 14; font-weight: bold;">
 <pre>
  5240 bytes
  [1] 46  3
  # A tibble: 46 × 3
-    EVTYPE                HEALTH    ECONOMIC
+    EVTYPE                CASUALTIES    ECONOMIC
     <chr>                      <dbl>     <dbl>
   1 Astronomical Low Tide          0     0.32 
   2 Avalanche                    395     3.72 
@@ -658,114 +645,111 @@ The results for the
          .                        .      .
          .                        .      .
          .                        .      .
+         
 </pre>
 </div>
 ```
 
 
 **Changes to data frame properties**
-* The *analysisDF* before unifying names was 7133720 Bytes (~7 MB) of memory and had 254633 rows by 3 columns.
-* After grouping the data, the *analysisTable* date frame size was 5240 Bytes.
-* The *analysisTable* date frame has dimensions changed to 46 rows by 3 columns.
-* The transformation reduces the data frame size by roughly 7 MB.
-* There were 46 distinct event names at this point.
 
+* The *analysisDF* before grouping required 7133864 Bytes (~15 MB) of memory and had 254633 rows by 3 columns.
+* After  grouping, the *analysisTable* date frame size required 5240 bytes and dimensions of 48 rows by 3 columns.
+* The transformation reduces the data frame size by roughly 8 MB.
+* There were 48 distinct event names.
 
 <hr style="background : #1B004D; height : 15px"/>
 
 
 ### Transformation 8: Creating the "Damage Tables"
 
+**Goal**
+
+The goal of Transformation 8 is creating two tables from *analysisTable* and order each by *CASUALTIES* or *ECONOMIIC* fields.
+
 **Why?**
 
-The goal of the project is to find the worst events in terms of public health and economics. However, the *analysisTable* cannot be ordered by both categories simultaneously. The only way to accomplish this is to create a copy of the *analysisTable* ans sort one table by **HEALTH** and the other by **ECONOMIC**. These tables provide the necessary information to complete the analysis.
+The goal of the project is to find the worst events in terms of casualties and economics. However, the *analysisTable* can be ordered by *CASUALTIES* or *ECONOMIIC* but not both. By creating two copies of *analysisTable*, the Transformation and order one by *CASUALTIES* and the other by *ECONOMIC*.
 
-To provide additional understanding of what the tables mean, two additional rows are added to the tables. The first computes the percent damage for each damage type and the second is the accumulated percentdamage for each damage type. The tables are ordered by the greatest to least amount of damage, so the accumulated percentage is the amount of damage caused by the first n-events.
+With these tables, the project has enough information to answer the required questions.
 
-Assuming the emergency response planners might want to focus on the worst 90% of weather events, this table will make it an easy task. Listing 8 will demonstrate this process. 
+An additional pair of fields are added to both tables, *PERCENT* and *ACC_PERCENT*, which could assist emergency planners. The *PERCENT* field is the *CASUALTIES*/*ECONOMIC* damage divided by the total *CASUALTIES*/*ECONOMIC* damage and multiplied by 100. This value is percent of damages caused by a given event.
+
+The *ACC_PERCENT* is the sum of the first <em>n</em> events percentages. Since the data frame is ordered from most damaging to least damaging, the accumulated percentage is the amount of damage the worst n events are responsible for inflicting. 
+
+For example, if the user wants to know which events are responsible for at least 90% of the *CASUALTIES* related costs, they can use the *CASUALTIES* ordered table in  the **Results** section. Looking at the **ACC_PERCENT** column, the user will find "Wildfire" at 90.8%. This means the weather events, **Tornado**, **Excessive Heat**, **Thunderstorm Wind**, **Flood**, **Lightning**, **Flash Flood**, **Ice Storm**, **High Wind**, and **Wildfire** account for 90% of the damages.
 
 **How?**
 
-To find the worst damages in term of public health and economic losses, the *analysisTable* must be separated into two data frames: one for **HEALTH**, and the other for **ECONOMIC**. Each table is ordered by their specific damage types from greatest to least. After the worst public health damage table is completed, the **PERCENT_CASUALTY** and the **ACC_PERCENT_CASUALTY** are computed for each event type. The same is done for **ECONOMIC**.
+To find the worst damages in term of casualties and economic losses, the *analysisTable* was copied into two data frames. The first was ordered by *CASUALTIES*, and the other by *ECONOMIC*. The *PERCENT* and *ACC_PERCENT* were calculated the added to each table. Both data frames are stored in a *damageTables* list. This is the final analysis product.
 
 **Consequences**
 
-The new damage tables, shown in Listing 8, are organized by damage type. The first table is organized by **HEALTH** as can be seen by the **HEALTH** column. The **ECONOMIC** column is not ordered making it easier to generate one of the images. This will be clearer when the images are generated. The second table is ordered by **ECONOMIC** and the **HEALTH** column is not ordered.
-
-In both tables, each event is assigned a percentage representing the amount of damage that event caused. The accumulated percentage column shows the amount of damage caused by the first n-events. 
-
-For example, if the user wants to know which events are responsible for 90% of the HEALTH, they can look down the **ACC_PERCENT_CASUALTY** column until they find the first number greater than or equal to 90. In this case, the number is 90.6 in the "High Wind" rows. This means, the "Tornado", "Excessive Heat", "Thunderstorm Wind", "Flood", "Lightning", "Winter Weather", "Flash Flood", "High Wind" account for approximately 90% of **HEALTH**.
-
 
 ```{=html}
-<strong>Listing XXXX: </strong>.
+<strong>Listing 8: </strong>.
 
 <div style="font-size : 14; font-weight: bold;">
 <pre>
-## 6224 bytes
-## [1] 46  5
-## # A tibble: 15 × 5
-##    EVTYPE            HEALTH  ECONOMIC PERCENT ACC_PERCENT
-##    <chr>                  <dbl>   <dbl>   <dbl>       <dbl>
-##  1 Tornado                96997 52057.   62.3          62.3
-##  2 Excessive Heat         12363   525.    7.94         70.2
-##  3 Thunderstorm Wind      10153 10939.    6.52         76.8
-##  4 Flood                   7280 28498.    4.68         81.4
-##  5 Lightning               6049   951.    3.89         85.3
-##  6 Winter Weather          3350  4225.    2.15         87.5
-##  7 Flash Flood             2944 17519.    1.89         89.4
-##  8 High Wind               1848  5388.    1.19         90.6
-##  9 Wildfire                1698  6360.    1.09         91.7
-## 10 Winter Storm            1584  1790.    1.02         92.7
-## 11 Hail                    1512 17334.    0.971        93.6
-## 12 Hurricane/Typhoon       1468 14963.    0.943        94.6
-## 13 Heavy Snow              1160  1071.    0.745        95.3
-## 14 Dense Fog               1156    22.8   0.743        96.1
-## 15 Rip Current             1107     0.2   0.711        96.8
-             .                        .      .      .            .
-             .                        .      .      .            .
-             .                        .      .      .            .
+## 6448 bytes
+## [1] 48  5
+## [[1]]
+## # A tibble: 48 × 5
+##    EVTYPE            CASUALTIES ECONOMIC PERCENT ACC_PERCENT
+##                                
+##  1 Tornado            96997   52057.   62.3         62.3
+##  2 Excessive Heat     12363     525.    7.94        70.2
+##  3 Thunderstorm Wind  10153   10939.    6.52        76.8
+##  4 Flood               7280   28498.    4.68        81.4
+##  5 Lightning           6049     951.    3.89        85.3
+##  6 Flash Flood         2944   17519.    1.89        87.2
+##  7 Ice Storm           2064    3967.    1.33        88.6
+##  8 High Wind           1848    5388.    1.19        89.7
+##  9 Wildfire            1698    6360.    1.09        90.8
+## 10 Winter Storm        1584    1790.    1.02        91.8
+    .       .               .       .       .           .
+    .       .               .       .       .           .
+    .       .               .       .       .           .
+
 </pre>
 <pre>
-## 6224 bytes
-## [1] 46  5
-## # A tibble: 15 × 5
-##    EVTYPE                  HEALTH ECONOMIC PERCENT ACC_PERCENT
-##    <chr>                        <dbl>  <dbl>   <dbl>       <dbl>
-##  1 Tornado                      96997 52057.  27.8          27.8
-##  2 Flood                         7280 28498.  15.2          43.1
-##  3 Flash Flood                   2944 17519.   9.37         52.5
-##  4 Hail                          1512 17334.   9.27         61.7
-##  5 Hurricane/Typhoon             1468 14963.   8.00         69.7
-##  6 Drought                          4 13519.   7.23         77.0
-##  7 Thunderstorm Wind            10153 10939.   5.85         82.8
-##  8 Wildfire                      1698  6360.   3.40         86.2
-##  9 High Wind                     1848  5388.   2.88         89.1
-## 10 Winter Weather                3350  4225.   2.26         91.4
-## 11 Tropical Storm                 449  3259.   1.74         93.1
-## 12 Frost/Freeze                     5  1816.   0.971        94.1
-## 13 Winter Storm                  1584  1790.   0.958        95.0
-## 14 Heavy Rain                     386  1525.   0.815        95.8
-## 15 Extreme Cold/Wind Chill        574  1463.   0.783        96.6
-             .                        .      .      .            .
-             .                        .      .      .            .
-             .                        .      .      .            .
+## 6448 bytes
+## [1] 48  5
+## [[1]]
+## # A tibble: 48 × 5
+##    EVTYPE            HEALTH ECONOMIC PERCENT ACC_PERCENT
+##    <chr>              <dbl>    <dbl>   <dbl>       <dbl>
+##  1 Tornado            96997   52057.   62.3         62.3
+##  2 Excessive Heat     12363     525.    7.94        70.2
+##  3 Thunderstorm Wind  10153   10939.    6.52        76.8
+##  4 Flood               7280   28498.    4.68        81.4
+##  5 Lightning           6049     951.    3.89        85.3
+##  6 Flash Flood         2944   17519.    1.89        87.2
+##  7 Ice Storm           2064    3967.    1.33        88.6
+##  8 High Wind           1848    5388.    1.19        89.7
+##  9 Wildfire            1698    6360.    1.09        90.8
+## 10 Winter Storm        1584    1790.    1.02        91.8
+    .       .               .       .       .           .
+    .       .               .       .       .           .
+    .       .               .       .       .           .
+  
 </pre>
 </div>
 ```
 
 
 **Changes to data frame properties**
-* The *analysisDF* before unifying names was 7133720 Bytes (~7 MB) of memory and had 254633 rows by 3 columns.
-* After grouping the data, the *analysisTable* date frame size was 5240 Bytes.
-* The *analysisTable* date frame has dimensions changed to 46 rows by 3 columns.
-* The transformation reduces the data frame size by roughly 7 MB.
-* There were 46 distinct event names at this point.
 
+* The *analysisTable* before creating the damage tables, the data frame required 5240 Bytes of memory and had 48 rows by 3 columns.
+* After creating the damage tables, the *damageTables* date frame size required 6448 bytes and increased by 5 columns.
+* There were 48 distinct event names.
 
 
 ```{=html}
 </div>   <!-- Base page -->
+
+<div style="color: black;">
+
 ```
 
 ## Processing Code
@@ -773,7 +757,7 @@ For example, if the user wants to know which events are responsible for 90% of t
 ### Required Libraries 
 
 ```{r libraries}
-# Data Presentation Phase ======================================================
+# Required Libraries ======================================================
 # This code block takes the "worstHEALTH" and the "worstLosses" tables from
 # the "resultTables" an converts them to knitr:Kable tables.
 # ==============================================================================
@@ -838,36 +822,51 @@ library(cowplot)
 ### "Constants"
 
 ```{r constants}
-# Strictly speaking, R does no support constants, so the following are all 
-# variables. However, these variables are treated as constants, i.e., there 
-# value should not be changed once set. They are written in all upper case 
-# letters to distinguish then from regular variables.
+# Strictly speaking, R does not support constants, to accomodate something like 
+# constants, the project uses global variables. These variables have names with
+# capital letters only to distinguish them from regular variables. Once a value
+# is assigned to a constant, the value must not be changed.
 
+# The URL and DATAFILE are assigned here to avoid searching for a place to find 
+# them
 URL      =
   "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 DATAFILE = "storm.csv.bz2"
 
-HEALTH_IDX    = 1
-ECONOMIC_IDX        = 2
 
-DAMAGE_IDX     = c(HEALTH_IDX, ECONOMIC_IDX)
-DAMAGE_NAMES   = c("HEALTH", "ECONOMIC")
-DAMAGE_SELECT  = c("c('EVTYPE', 'HEALTH')",
+# General indexing. Rather than using numbers to identify list/data frame 
+# indices, these numbers are assigned to constants with meaningfull names.
+# The health index is 1 and the economic index is 2.
+HEALTH_IDX     = 1
+ECONOMIC_IDX   = 2
+
+# The barplots and tables are generated in a for loop, so various names, like 
+# the title, and the selection statements are set up as arrays.
+
+# Barplots
+BAR_NAMES   = c("Health", "Economic")
+BAR_SELECT  = c("c('EVTYPE', 'CASUALTIES')",
                   "c('EVTYPE', 'ECONOMIC')")
-AXIS_NAMES     = c("c('EVTYPE', 'HEALTH')",
-                  "c('EVTYPE', 'ECONOMIC')")
-DAMAGE_REORDER = c("reorder(EVTYPE, -HEALTH)",
+BAR_REORDER = c("reorder(EVTYPE, -CASUALTIES)",
                    "reorder(EVTYPE, -ECONOMIC)")
+BAR_FIELD   = c("CASUALTIES", "ECONOMIC")
 
-TABLE_FIELDS <-  c("c('EVTYPE', 'HEALTH', 'PERCENT', 'ACC_PERCENT')",
+
+# Kable tables
+TABLE_FIELDS <-  c("c('EVTYPE', 'CASUALTIES', 'PERCENT', 'ACC_PERCENT')",
                   "c('EVTYPE', 'ECONOMIC', 'PERCENT', 'ACC_PERCENT')")
-AXIS_LABELS <- list(
-    c("Event Type", "HEALTH", "Percent of Total", "Accumulated Percent"),
-    c("Event Type", "Losses (in millions)",
-      "Percent of Total", "Accumulated Percent"))
+TABLE_LABELS <- list(
+    c("Event Type", "Casualties", "Percent of Total", "Accumulated Percent"),
+    c("Event Type", "Economic Losses (in millions)", "Percent of Total", 
+      "Accumulated Percent"))
 
+
+# These are used to print or not print the results of each transformation and to
+# to select different processing paths to focus on specific details of a
+# transformation. 
 VERBOSE                   = TRUE    # list results of each transformation
 ALL_DATA                  = FALSE    # include all data points
+
 CONTRIBUTING_EVENTS       = TRUE    # include contributing events only
 CLEAR_EVENTS              = TRUE    # includes all cleared events only
 FIX_EVENTS                = TRUE    # excludes weird names    
@@ -879,59 +878,53 @@ UNIFIED_EVENTS            = TRUE    # include all un-unified events
 
 ```{r Unify Names}
 # UnifyNames ===================================================================
-# 1) rename "validDF" to "sourceDF"
-# 2) based on the an extensive study of the event names in the data file and the
-#    NWS event names and classifications, I developed a mapping from the file
-#    names to the NWS names;
-# 3) the file to NWS mappings were turned in to gsub statements
-# 4) each event name in "sourceDF" is converted from the file name to the NWS name.
-# ------------------------------------------------------------------------------
-# input variables
-#        validDF--renamed to "sourceDF". The "validDF" is the original "sourceDF"
-#                 after trimming white space, excluding rows that do not
-#                 contribute,
-#
-# constants
-# NONE
-#
-# LOCAL VARIABLES
-#        sourceDF--"validDF" is the "sourceDF" after cleaning, removing all non-
-#                  contributing values, and removing all invalid events.
-#
-# returns sourceDF
+# 1) based on an extensive study of mapping the data collector event names to 
+#    the NWS event names;
+# 2) the mappings were turned in to regular expressions and included in a gsub
+#    function
 # ==============================================================================
 
 UnifyNames <- function(sourceDF) {
+  
   sourceDF$EVTYPE <-
+    gsub("^ice storm$", "Ice Storm",
+    gsub("^lake.effect snow$", "Lake-Effect Snow",
+    gsub("^(lakeshore flood|lake flood)$", "Lakeshore Flood",
+    gsub("^tsunami$", "Tsunami",
+    gsub("^tropical depression$", "Tropical Depression",
+    gsub("^tropical storm.*$", "Tropical Storm",
     gsub("^marine hail$", "Marine Hail",
     gsub("^marine high wind$", "Marine High Wind",
     gsub("^marine strong wind$", "Marine Strong Wind",
     gsub("^marine thunderstorm wind$", "Marine Thunderstorm Wind",
     gsub("^marine tstm wind$", "Marine Thunderstorm Wind",
     gsub("^storm force winds$", "Marine Strong Wind",
+    gsub("^astronomical high tide$", "Coastal Flood",
+    sourceDF$EVTYPE)))))))))))))
+
+  
+  sourceDF$EVTYPE <-
+    gsub("^fog and cold temperatures$", "Freezing Fog",
+    gsub("^freezing fog$", "Freezing Fog",
+    gsub("^small hail$", "Hail",
+    gsub("^gradient wind$", "Rip Current",
+    sourceDF$EVTYPE))))
+
+  sourceDF$EVTYPE <-
     gsub("^(high|heavy|rough).+seas.*$", "Marine Strong Wind",
     gsub("^(high|heavy).+swells.*$", "Marine High Wind",
     gsub("^(typhoon|hurricane.*)$", "Hurricane/Typhoon",
-    gsub("^tsunami$", "Tsunami",
-    gsub("^tropical depression$", "Tropical Depression",
-    gsub("^tropical storm.*$", "Tropical Storm",
     gsub("^drowning$", "Rip Current",
-    sourceDF$EVTYPE)))))))))))))
+    sourceDF$EVTYPE))))
 
   sourceDF$EVTYPE <-
     gsub("^.*coastal.*$", "Coastal Flood",
     gsub("^.*erosion.*$", "High Surf",
     gsub("^.*tidal.*$", "Coastal Flood",
-    gsub("^astronomical high tide$", "Coastal Flood",
     gsub("^storm surge.*$", "Storm Tide",
     gsub("^high.+(tides|waves).*$", "Storm Tide",
     gsub("^rogue.+$", "Storm Tide",
-    sourceDF$EVTYPE)))))))
-
-  sourceDF$EVTYPE <-
-    gsub("^lake.*snow$", "Lake-Effect Snow",
-    gsub("^lake.*$", "Lakeshore Flood",
-    sourceDF$EVTYPE))
+    sourceDF$EVTYPE))))))
 
   sourceDF$EVTYPE <-
     gsub("^(dam break|ice floes|ice jam( flood.+|))$", "Flash Flood",
@@ -943,28 +936,24 @@ UnifyNames <- function(sourceDF) {
     sourceDF$EVTYPE))))))
 
   sourceDF$EVTYPE <-
-    gsub("^fog and cold temperatures$", "Freezing Fog",
-    gsub("^freezing fog$", "Freezing Fog",
     gsub("^.*freezing (drizzle|rain|spray).*$", "Winter Weather",
-    sourceDF$EVTYPE)))
+    sourceDF$EVTYPE)
 
   # # must come after marine
   sourceDF$EVTYPE <-
     gsub("^hail.*$", "Hail",
-    gsub("^small hail$", "Hail",
     gsub("^thunderstorm.+hail$", "Hail",
     gsub("^.*tstm.+hail$", "Hail",
     gsub("^(wind|gusty).+hail$", "Hail",
-    sourceDF$EVTYPE)))))
+    sourceDF$EVTYPE))))
 
   sourceDF$EVTYPE <-
     gsub("^(wind|non|gusty).+wind.*$", "High Wind",
     gsub("^(strong|gusty).*$", "Strong Wind",
     gsub("^(rain.+wind|wind.+rain)$", "High Wind",
     gsub("^wind.*$", "High Wind",
-    gsub("^gradient wind$", "Rip Current",
     gsub("^rip current.*$", "Rip Current",
-    sourceDF$EVTYPE))))))
+    sourceDF$EVTYPE)))))
 
   sourceDF$EVTYPE <-
     gsub("^(wind|gusty).+rain$", "Heavy Rain",
@@ -1076,10 +1065,9 @@ UnifyNames <- function(sourceDF) {
     sourceDF$EVTYPE)
 
   sourceDF$EVTYPE <-
-    gsub("^ice storm$", "Ice Storm",
     gsub("^ic(e|y).*$", "Winter Weather",
     gsub("^.*mix.*$", "Winter Weather",
-    sourceDF$EVTYPE)))
+    sourceDF$EVTYPE))
 
 sourceDF$EVTYPE <-
   gsub("^snow.*$", "Winter Weather",
@@ -1140,32 +1128,48 @@ sourceDF$EVTYPE <-
 ### Transformation 0:  No transformations
 
 ```{r}
+# ==============================================================================
 # This code is used to measure the size of a data.frame with the entire contents
-# of the data file.
+# of the data file. The program will terminate at the end of the if statement
+# ==============================================================================
 
+# if VERBOSE and ALL_DATA are TRUE, load the whole data file, print the state
+# information and exit the RMarkdown program.
 if (VERBOSE & ALL_DATA) {
   sourceDF <- read.table(DATAFILE, sep = ",", header = TRUE)
 
-  print(object.size(sourceDF))
-  print(dim(sourceDF))
-  print(head(sourceDF))
-  
+  print("Transformation 0")
+  print(paste0("Number of unique event names         ", 
+               length(unique(sourceDF$EVTYPE))))
+  print(paste0("The data frame memory requirement is ", object.size(sourceDF)))
+  print(paste0("The data frame dimensions are        ", dim(sourceDF)))
+  print(head(sourceDF, n = 10))
+
   knitr::knit_exit()
 }
-
 
 ```
 
 ### Transformation 1: Reading the data file
 
 ```{r transformations}
+# ==============================================================================
+# This transformation reads specific fields from the data file.
+# EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, and CROPDMGEXP.
+# ==============================================================================
+
 sourceDF <- read.table(DATAFILE, stringsAsFactors = FALSE, sep = ",",
                        colClasses = c(rep("NULL",7), NA, rep("NULL",14),
                                       rep(NA, 6), rep("NULL",9)), header = TRUE)
+
+# if VERBOSE is TRUE  print the state of the sourceDF
 if (VERBOSE) {
-  print(object.size(sourceDF))
-  print(dim(sourceDF))
-  print(head(sourceDF))
+  print("Transformation 1")
+  print(paste0("Number of unique event names         ", 
+               length(unique(sourceDF$EVTYPE))))
+  print(paste0("The data frame memory requirement is ", object.size(sourceDF)))
+  print(paste0("The data frame dimensions are        ", dim(sourceDF)))
+  print(head(sourceDF, n = 10))
 }
 
 ```
@@ -1173,54 +1177,52 @@ if (VERBOSE) {
 ### Transformation 2: Removing non-contributing data points
 
 ```{r}
-
-if (CONTRIBUTING_EVENTS) {
-    sourceDF <- sourceDF[sourceDF$FATALITIES != 0 | sourceDF$INJURIES != 0 |
-                         sourceDF$PROPDMG != 0 | sourceDF$CROPDMG != 0, ]
-
-  if (VERBOSE) {
-    print(object.size(sourceDF))
-    print(dim(sourceDF))
-    print(head(sourceDF))
-
-    if ('HAIL' %in% sourceDF$EVTYPE){
-      print("HAIL found")
-    } else {
-      print("HAIL not found")
-    }
-    
-    if ('?' %in% sourceDF$EVTYPE){
-      print("? found")
-    } else {
-      print("? not found")
-    }
-    
-    if ('Summary: Nov. 16' %in% sourceDF$EVTYPE){
-      print("Summary: Nov. 16 found")
-    } else {
-      print("Summary: Nov. 16 not found")
-    }
-  }
-
-} else {
-  write.csv(sourceDF, "./all_evts.csv")
-
-  if (VERBOSE) {
-    print(object.size(sourceDF))
-    print(dim(sourceDF))
-    print(head(sourceDF, n=10))
-    print(sourceDF[82,])
-    print(sourceDF[246124,])
-    print(sourceDF[271399,])
-    print(sourceDF[278098,])
-    # knitr::knit_exit()
-  }
+# ==============================================================================
+# This transformation removes any data point from the data frame whose numeric
+# are all zero. These will not contribute to the results.
+# ==============================================================================
+# if VERBOSE is TRUE print the state of the sourceDF before Transformation 2
+if (VERBOSE) {
+  print("Before Transformation 2")
+  # Hail non-contributing value, multiple instances of "Hail"
+  print(sourceDF[82,])     
+  # '?' invalid name, contributing value
+  print(sourceDF[246124,])   
+  # "Summary: Nov. 16" invalid name, non-contributing value
+  print(sourceDF[271399,]) 
+  
 }
 
+sourceDF <- sourceDF[sourceDF$FATALITIES != 0 | sourceDF$INJURIES != 0 |
+                     sourceDF$PROPDMG != 0 | sourceDF$CROPDMG != 0, ]
+
+# if VERBOSE is TRUE print the state of the sourceDF
 if (VERBOSE) {
-  print(object.size(sourceDF))
-  print(dim(sourceDF))
-  print(head(sourceDF))
+  print("Transformation 2")
+  print(paste0("Number of unique event names         ", 
+               length(unique(sourceDF$EVTYPE))))
+  print(paste0("The data frame memory requirement is ", object.size(sourceDF)))
+  print(paste0("The data frame dimensions are        ", dim(sourceDF)))
+  print(head(sourceDF, n = 10))
+  
+  if ('HAIL' %in% sourceDF$EVTYPE){
+    print("CORRECT: HAIL found")
+  } else {
+    print("WRONG: HAIL not found")
+  }
+  
+  if ('?' %in% sourceDF$EVTYPE){
+    print("CORRECT: ? found")
+  } else {
+    print("WRONG: ? not found")
+  }
+  
+  if ('Summary: Nov. 16' %in% sourceDF$EVTYPE){
+    print("WRONG: Summary: Nov. 16 found")
+  } else {
+    print("CORRECT: Summary: Nov. 16 not found")
+  }
+  
 }
 
 ```
@@ -1228,47 +1230,52 @@ if (VERBOSE) {
 ### Transformation 3: Clear white spaces from strings
 
 ```{r}
-
-if (CLEAR_EVENTS) {
-  sourceDF$EVTYPE     <- trimws(sourceDF$EVTYPE, which = c("both"))
-  sourceDF$PROPDMGEXP <- trimws(sourceDF$PROPDMGEXP, which = c("both"))
-  sourceDF$CROPDMGEXP <- trimws(sourceDF$CROPDMGEXP, which = c("both"))
-  sourceDF$EVTYPE     <- tolower(sourceDF$EVTYPE)
-  sourceDF$PROPDMGEXP <- tolower(sourceDF$PROPDMGEXP)
-  sourceDF$CROPDMGEXP <- tolower(sourceDF$CROPDMGEXP)
-  
-  if (VERBOSE) {
-    print(object.size(sourceDF))
-    print(dim(sourceDF))
-    print(head(sourceDF))
-    if (' FLASH FLOOD' %in% sourceDF$EVTYPE){
-      print(" FLASH FLOOD found")
-    } else {
-      print(" FLASH FLOOD not found")
-    }
-    if ('FLASH FLOOD' %in% sourceDF$EVTYPE){
-      print("FLASH FLOOD found")
-    } else {
-      print("FLASH FLOOD not found")
-    }
-    if (' flash flood' %in% sourceDF$EVTYPE){
-      print(" flash flood found")
-    } else {
-      print(" flash flood not found")
-    }
-    if ('flash flood' %in% sourceDF$EVTYPE){
-      print("flash flood found")
-    } else {
-      print("flash flood not found")
-    }
+# ==============================================================================
+# This transformation trims the white space from all string data then converts
+# the all characters to lower case.
+# ==============================================================================
+if (VERBOSE) {
+  if (' FLASH FLOOD' %in% sourceDF$EVTYPE){
+    print(" FLASH FLOOD found")
+  } else {
+    print(" FLASH FLOOD not found")
   }
-} else {
-  if (VERBOSE) {
-    print(object.size(sourceDF))
-    print(dim(sourceDF))
-    print(head(sourceDF, n=10))
-    print(sourceDF[sourceDF$EVTYPE == " FLASH FLOOD",])
-    # knitr::knit_exit()
+}
+sourceDF$EVTYPE     <- trimws(sourceDF$EVTYPE, which = c("both"))
+sourceDF$PROPDMGEXP <- trimws(sourceDF$PROPDMGEXP, which = c("both"))
+sourceDF$CROPDMGEXP <- trimws(sourceDF$CROPDMGEXP, which = c("both"))
+sourceDF$EVTYPE     <- tolower(sourceDF$EVTYPE)
+sourceDF$PROPDMGEXP <- tolower(sourceDF$PROPDMGEXP)
+sourceDF$CROPDMGEXP <- tolower(sourceDF$CROPDMGEXP)
+
+# if VERBOSE is TRUE print the state of the sourceDF
+if (VERBOSE) {
+  print("Transformation 3")
+  print(paste0("Number of unique event names         ", 
+               length(unique(sourceDF$EVTYPE))))
+  print(paste0("The data frame memory requirement is ", object.size(sourceDF)))
+  print(paste0("The data frame dimensions are        ", dim(sourceDF)))
+  print(head(sourceDF, n = 10))
+  
+  if (' FLASH FLOOD' %in% sourceDF$EVTYPE){
+    print(" FLASH FLOOD found")
+  } else {
+    print(" FLASH FLOOD not found")
+  }
+  if ('FLASH FLOOD' %in% sourceDF$EVTYPE){
+    print("FLASH FLOOD found")
+  } else {
+    print("FLASH FLOOD not found")
+  }
+  if (' flash flood' %in% sourceDF$EVTYPE){
+    print(" flash flood found")
+  } else {
+    print(" flash flood not found")
+  }
+  if ('flash flood' %in% sourceDF$EVTYPE){
+    print("flash flood found")
+  } else {
+    print("flash flood not found")
   }
 }
 
@@ -1277,30 +1284,34 @@ if (CLEAR_EVENTS) {
 ### Transformation 4: Fixing invalid names
 
 ```{r}
+# ==============================================================================
+# This transformation converts event names, with no correspondence to the NWS
+# names, to "Other".
+# ==============================================================================
 
-if (FIX_EVENTS) {
-  sourceDF$EVTYPE <-
-    gsub("\\?", "Other",
-    gsub("^high$", "Other",
-    gsub("^marine accident$", "Other",
-    gsub("^marine mishap$", "Other",
-    gsub("^other$", "Other",
-    gsub("^apache county$", "Other",
-    sourceDF$EVTYPE))))))
-  
-  if (VERBOSE) {
-    print(object.size(sourceDF))
-    print(dim(sourceDF))
-    print(head(sourceDF))
-    print(sourceDF[52498, ])
-  }
-} else {
-  print(object.size(sourceDF))
-  print(dim(sourceDF))
-  print(head(sourceDF))
+if (VERBOSE) {
   print(sourceDF[sourceDF$EVTYPE == "?", ])
   print(which(rownames(sourceDF) == 246124))
-  knitr::knit_exit()
+}
+
+sourceDF$EVTYPE <-
+  gsub("\\?", "Other",
+  gsub("^high$", "Other",
+  gsub("^marine accident$", "Other",
+  gsub("^marine mishap$", "Other",
+  gsub("^other$", "Other",
+  gsub("^apache county$", "Other",
+  sourceDF$EVTYPE))))))
+
+if (VERBOSE) {
+  print("Transformation 4")
+  print(paste0("Number of unique event names         ", 
+               length(unique(sourceDF$EVTYPE))))
+  print(paste0("The data frame memory requirement is ", object.size(sourceDF)))
+  print(paste0("The data frame dimensions are        ", dim(sourceDF)))
+  print(head(sourceDF, n = 10))
+  print(paste0("The output of id 246124 after the transformation", 
+               sourceDF[52498, ]))
 }
 
 ```
@@ -1309,14 +1320,22 @@ if (FIX_EVENTS) {
 ### Transformation 5: Unify the event names
 
 ```{r}
-
+# ==============================================================================
+# This transformation calls the UnifyNames function. The function will check for
+# for matches to data collector names and re-write them is the corresponding 
+# NWS name.
+# ==============================================================================
 validDF    <- UnifyNames(sourceDF)
 
 
+# if VERBOSE is TRUE  print the state of the validDF
 if (VERBOSE) {
-  print(object.size(validDF))
-  print(dim(validDF))
-  print(head(validDF))
+  print("Transformation 5")
+  print(paste0("Number of unique event names         ", 
+               length(unique(sourceDF$EVTYPE))))
+  print(paste0("The data frame memory requirement is ", object.size(validDF)))
+  print(paste0("The data frame dimensions are ", dim(validDF)))
+  print(head(sourceDF, n = 10))
 }
 
 ```
@@ -1330,25 +1349,26 @@ analysisDF <- validDF %>% ungroup(.) %>%
                               ifelse(PROPDMGEXP == 'm', 1000000., 1.)),
           CROPDMGEXP = ifelse(CROPDMGEXP == 'k', 1000.,
                               ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
-          PROPDMG       = PROPDMG * PROPDMGEXP,
-          CROPDMG       = CROPDMG * CROPDMGEXP,
-          HEALTH    = FATALITIES + INJURIES,
-          ECONOMIC     = (PROPDMG + CROPDMG)/1000000.0
+          PROPDMG    = PROPDMG * PROPDMGEXP,
+          CROPDMG    = CROPDMG * CROPDMGEXP,
+          CASUALTIES     = FATALITIES + INJURIES,
+          ECONOMIC   = (PROPDMG + CROPDMG)/1000000.0
           ) %>%
-  select(EVTYPE, HEALTH, ECONOMIC)
+  select(EVTYPE, CASUALTIES, ECONOMIC)
 
-colnames(analysisDF) <- c('EVTYPE', 'HEALTH', 'ECONOMIC')
+colnames(analysisDF) <- c('EVTYPE', 'CASUALTIES', 'ECONOMIC')
 
-
+# if VERBOSE is TRUE print the state of the analysisDF
 if (VERBOSE) {
-  print("This is the complete analysis table before it is divided into ")
-  print("tables for damage types ")
-  print(object.size(analysisDF))
-  print(dim(analysisDF))
-  print(head(analysisDF))
-  # write.csv(analysisDF, "./analysis.csv")
-
+  print("Transformation 6")
+  print(paste0("Number of unique event names         ", 
+               length(unique(sourceDF$EVTYPE))))
+  print(paste0("The data frame memory requirement is ", 
+               object.size(analysisDF)))
+  print(paste0("The data frame dimensions are ", dim(analysisDF)))
+  print(head(sourceDF, n = 10))
 }
+
 
 ```
 
@@ -1357,16 +1377,18 @@ if (VERBOSE) {
 ```{r}
 
 analysisTable <- analysisDF %>% group_by(EVTYPE) %>% 
-  summarise_at(c("HEALTH", "ECONOMIC"), sum) %>% 
+  summarise_at(c("CASUALTIES", "ECONOMIC"), sum) %>% 
   arrange(.$EVTYPE, .by_group = TRUE)
 
+# if VERBOSE is TRUE print the state of the analysisTable
 if (VERBOSE) {
-  print("This is the complete analysis table before it is divided into ")
-  print("tables for damage types ")
-  analysisDF <- data.frame(analysisTable)
-  print(object.size(analysisTable))
-  print(dim(analysisTable))
-  print(head(analysisTable, n=46))
+  print("Transformation 7")
+  tempDF <- data.frame(analysisTable)
+  print(paste0("Number of unique event names ",
+               length(unique(tempDF$EVTYPE))))
+  print(object.size(tempDF))
+  print(dim(tempDF))
+  print(head(sourceDF, n = 10))
 }
 
 ```
@@ -1377,27 +1399,19 @@ if (VERBOSE) {
 
 damageTables = list()
 
-DAMAGE_ORDERING = c("desc(.$HEALTH)", "desc(.$ECONOMIC)")
+DAMAGE_ORDERING = c("desc(.$CASUALTIES)", "desc(.$ECONOMIC)")
 
-for (damage in HEALTH_IDX:ECONOMIC_IDX) {
+for (damageType in HEALTH_IDX:ECONOMIC_IDX) {
   table <- analysisTable %>%
-    arrange(eval(parse(text=DAMAGE_ORDERING[damage])), .by_group = TRUE)
-  totalValue <- sum(table[, damage + 1])
-
-
-  if (VERBOSE) {
-    print(paste0("Damage table ", damage))
-    print(object.size(table))
-    print(dim(table))
-    print(head(table))
-  }
+    arrange(eval(parse(text=DAMAGE_ORDERING[damageType])), .by_group = TRUE)
+  totalValue <- sum(table[, damageType + 1])
 
   accumulator     <- 0
   percentList     <- list()
   accumulatorList <- list()
 
   for (i in 1:length(table$EVTYPE)) {
-    percent <- table[i, damage + 1]*100/totalValue
+    percent <- table[i, damageType + 1]*100/totalValue
     accumulator <- accumulator + percent
     percentList <- append(percentList, percent)
     accumulatorList <- append(accumulatorList, accumulator)
@@ -1405,63 +1419,56 @@ for (damage in HEALTH_IDX:ECONOMIC_IDX) {
    table$PERCENT <- as.numeric(unlist(percentList))
    table$ACC_PERCENT <- as.numeric(unlist(accumulatorList))
 
-  if (damage == HEALTH_IDX) {
+  if (damageType == HEALTH_IDX) {
      worstHEALTH <- table
-  } else if (damage == ECONOMIC_IDX) {
+  } else if (damageType == ECONOMIC_IDX) {
      worstLosses <- table
   }
 
-  if (VERBOSE) {
-    print(paste0("Damage table with percentage ", damage))
-    print(object.size(table))
-    print(dim(table))
-    print(head(table, n=15))
-  }
-
   damageTables <- list.append(damageTables, table)
-
+  
+  # if VERBOSE is TRUE print the state of damageTables
   if (VERBOSE) {
-    print(paste0("Damage table with percentage ", damage))
-    print(object.size(table))
-    print(dim(table))
-    print(damageTables)
+    print("Transformation 8")
+    for (damageType in HEALTH_IDX:ECONOMIC_IDX) {
+      print(paste0("Damage table ", damageType))
+      print(paste0("Number of unique event names ",
+                   length(unique(tempDF$EVTYPE))))
+      print(object.size(damageTables[damageType]))
+      print(dim(damageTables[damageType]))
+      print(head(sourceDF, n = 10))
+    }
   }
 } # end of for loop
 ```
 
+## Output
 
 ```{r}
 barPlot <- function (damageTable, damageType)
 {
-  if (VERBOSE) {
-    print(paste0("Damage table with percentage ", damageType))
-    print(paste0("DAMAGE_SELECT[[damageType] ", DAMAGE_SELECT[[damageType]]))
-    print(object.size(damageTable))
-    print(dim(damageTable))
-    print(damageTable)
-  }
   table <- head(damageTable, n=10) %>%
-    # select(EVTYPE, HEALTH)
-  select(eval(parse(text = DAMAGE_SELECT[[damageType]])))
-  colnames(table) <- eval(parse(text = AXIS_NAMES[[damageType]]))
+  select(eval(parse(text = BAR_SELECT[[damageType]])))
+  colnames(table) <- eval(parse(text = BAR_SELECT[[damageType]]))
   table$EVTYPE <- factor(table$EVTYPE, levels = table$EVTYPE)
+  
   if (VERBOSE) {
-    print(paste0("Damage table with percentage ", damageType))
+    print(paste0("Bar plot data frame ", damageType))
     print(object.size(table))
     print(dim(table))
     print(table)
   }
 
   plt <- ggplot(table,
-                aes(x = eval(parse(text=DAMAGE_REORDER[[damageType]])),
-                    y = eval(parse(text=DAMAGE_NAMES[[damageType]])))) +
-    ggtitle(paste0("Figure ", damageType,". United States Storm Related ",
-                   str_to_title(DAMAGE_NAMES[[damageType]]))) +
-    xlab("Events") +
-    ylab(DAMAGE_NAMES[damageType]) +
+                aes(x = eval(parse(text=BAR_REORDER[[damageType]])),
+                    y = eval(parse(text=BAR_FIELD[[damageType]])))) +
+    ggtitle(paste0("Figure ", damageType,". Storm Related ",
+                   str_to_title(TABLE_LABELS[[damageType]][2]))) +
+    xlab("Event") +
+    ylab(str_to_title(TABLE_LABELS[[damageType]][2])) +
     geom_bar(stat="identity", width=0.7, fill="steelblue") +
     theme(plot.title = element_text(face="plain", color="black", size=12),
-          axis.text.x = element_text(size = 5, face="bold"),
+          axis.text.x = element_text(size = 5, face="bold", angle = -10, hjust = 0, vjust = 0),
           axis.text.y = element_text(size = 5, face="bold"),
           axis.title.x = element_text(size = 8, face="bold"),
           axis.title.y = element_text(size = 8, face="bold"))
@@ -1480,28 +1487,49 @@ scatterPlot <- function (damageTables, damageType)
   
 
   bigEvt <- analysisTable[analysisTable$EVTYPE %in% eventSet,  ]
+  plotTable <- analysisTable[!(analysisTable$EVTYPE %in% eventSet),  ]
+  plotTable$EVTYPE <- "z other"
+  plotTable <- rbind(bigEvt, plotTable)
   
-  plt <- ggplot(analysisTable, aes(x = HEALTH, y = ECONOMIC)) +
-    ggtitle(
-      paste0("Figure 3. United States  HEALTH vs. Economic Losses")) +
-    xlab("Event Type") + ylab("Losses ($ millions)") +
+
+  
+  if (VERBOSE) {
+    print("plotTable data frame ")
+    print(object.size(plotTable))
+    print(dim(plotTable))
+    # print(plotTable, n = 48)
+  }
+
+
+  plt <- ggplot(plotTable, aes(x = CASUALTIES, y = ECONOMIC)) +
+    ggtitle("Figure 3. United States Public Health vs. Economic Losses") +
+    xlab(TABLE_LABELS[[1]][2]) + ylab(TABLE_LABELS[[2]][2]) +
     theme(plot.title = element_text(face="plain", color="black", size=28),
-          axis.title.x = element_text(face="bold", color="black", size=14),
+          axis.title.x = 
+            element_text(face="bold", color="black", size=14),
           axis.title.y = element_text(face="bold", color="black", size=14),
-          axis.text = element_text(size = 10, face="bold")) +
-    geom_point(data =
-                 analysisTable[!(analysisTable$EVTYPE %in% eventSet),  ],
-               aes(x = HEALTH, y = ECONOMIC, size = 3) +
-                 theme(legend.position="none")) +
-    geom_point(data = analysisTable[analysisTable$EVTYPE %in% eventSet,  ],
-           aes(x = HEALTH, y = ECONOMIC, color = EVTYPE, size = 3)) +
-    geom_smooth(method = lm) +
+          axis.text = element_text(size = 10, face="bold"),
+          panel.background = element_rect(fill = "gray60",
+                                          color = "gray90",
+                                          size = 0.1, 
+                                          linetype = "dashed")) +
+    scale_color_manual(
+      values = c("#8B4513", "#D02010", "#8B4500", "darkslategray1", "snow1",
+                 "ivory2", "slateblue4", "paleturquoise1", "lemonchiffon1", 
+                 "#505050", "#030303", "#f03020", "snow1", "black"),
+      labels = c("Drought", "Excessive Heat", "Flash Flood", "Flood", "Hail",
+                 "High Wind", "Hurricane/Typhoon", "Ice Storm", "Lightning",
+                 "Thunderstorm Wind", "Tornado", "Wildfire", "Winter Storm",
+                 "other"),
+      guide = guide_legend(override.aes = list(size = 3) ))   + 
+    geom_point(data = plotTable, aes(x = CASUALTIES, y = ECONOMIC, 
+                                     color = EVTYPE), size=2) +
     geom_text_repel (
       data = bigEvt,
-      aes(x=HEALTH, y=ECONOMIC, label = EVTYPE, color = EVTYPE, fontface = "bold"),
-      min.segment.length = 0.0, nudge_y = 10.0, nudge_x = 100.0,
-      force = 40.0,
-      force_pull = 1.0
+      aes(x=CASUALTIES, y=ECONOMIC, label = EVTYPE, color = EVTYPE, fontface = "bold"),
+      min.segment.length = 0.0, nudge_y = 1000.0, nudge_x = 1500.0,
+      force = 100.0,
+      force_pull = 30.0
     )
   
   save_plot("HEALTH_v_ECONOMIC.png", plt, ncol = 2, nrow = 2)
@@ -1519,10 +1547,10 @@ getTable <- function (damageTable, damageType)
   resTable <- knitr::kable(head(damageTable, n = 50), "html",
     caption = paste0("<center><strong><font size='1'>",
                      "Table ", damageType,". United States ",
-                     AXIS_LABELS[[damageType]][2],
+                     TABLE_LABELS[[damageType]][2],
                      "</font><center></strong>"),
     digits = 3, align = "lrrr",
-    col.names = c(AXIS_LABELS[[damageType]]), row.names = TRUE
+    col.names = c(TABLE_LABELS[[damageType]]), row.names = TRUE
     ) %>%
     kable_styling(bootstrap_options = c("striped", "hover"),
                   full_width = F,
@@ -1533,13 +1561,6 @@ getTable <- function (damageTable, damageType)
     column_spec(column=3, width="2cm") %>%
     column_spec(column=4, width="2cm") %>%
     kable_classic_2()
-
-  if (VERBOSE) {
-    print(paste0("Damage table with percentage ", damageType))
-    print(object.size(damageTable))
-    print(dim(damageTable))
-    print(damageTable)
-  }
 
   return (resTable)
 
@@ -1566,27 +1587,29 @@ lossesTable   <- getTable(damageTables[[ECONOMIC_IDX]], ECONOMIC_IDX)
 
 # Results
 
-```{r}
+This project was designed to answer the following questions: 
+
+1. Across the United States, which types of events are most harmful with respect to population health?
+2. Across the United States, which types of events have the greatest economic consequences?
+
+The results of the analysis are stored in a list of two data frames. One data frame contains the events, number of casualties, economic losses, the percent and accumulated percent for each event types. It is also ordered by casualty from most to least. The second data frame is like the first, except the focus is on economic losses and ordered accordingly.
 
 
-```
+## Tables
 
-The United States has a variety of weather events ranging from the extreme cold and extreme heat, extreme precipitation and lack of precipitation, tornadoes, hurricanes, etc. To understand the impact of these events, the National Oceanographic and Atmospheric Administration (NOAA) collects and analyzes weather data from all over the country. The data are restricted to forty-eight "significant weather phenomena[1]" and associated data. Part of the collected information induces the number of HEALTH (deaths and injuries) and the amount of damage to property including crop damage.
+Table 1 lists the contents of the casualty data frame. Using this table, an emergency planner can answer the question, "...which types of events are most harmful with respect to population health" in several ways. For example, the 10 most harmful events can be found by looking at first 10 rows of the table. They are Tornado, Excessive Heat, Thunderstorm Wind, Flood, Lightning, Flash Flood, Ice Storm, High Wind, Wildfire, and Winter Storm. If the user wants to know which events account for 90% of the casualties, they could look at Accumulated Percent column and find the first value over 90%. It turns out to be Wildfire. THe 95% worst categories end at Heavy Snow and the 99%, in row 23, is Avalanche. 
 
-StormCloud was produced to provide emergency services planners information regarding the damage to human life and the financial losses of specific weather events. Using this information, planners can help mitigate the damage by understanding the damages of these events. To this end, StormCloud presents presents the damages for storm damage as independent sets of data, one describing the human damage, and the other describing the financial damage.
-
-In Table 1a, the list of weather related HEALTH from 1950 to approximately 2012. The numbers range from 0 \~ 97,000 deaths or injuries. From the data in Table 1a, tornadoes are the leading cause of weather related HEALTH in the United States with 96,907 dead or injured followed by "Excessive Heat" with \~12,363 dead or injured. Comparing the relative seriousness of weather events, tornadoes represent 62% of all HEALTH. In fact, 90% of all US weather related HEALTH happen with the eight worst weather events and 99% happen with the worst 21 events.
-
-Table 1b is a list of weather related financial losses. Again, tornadoes are the biggest economic with approximately \$52 billion in losses from 1950 to 2012. This amounts to 27% of all weather related losses, which is significantly less proportion of HEALTH caused by tornadoes. The first nine events from Table 1b account for 90% of weather related financial losses compared to eight for HEALTH. The 99% level for financial losses happens in the first 19 events compared to 21 for HEALTH.
-
-The weather events tables 1a and 1b show the number of HEALTH and the financial losses due to those events gives an overall picture of the damage caused by severe weather, but the dramatic differences between event types and types of damage within an event type are difficult to discern. Figure 1 shows an eight-fold difference in HEALTH between "Excessive Heat" and "Tornado". In contrast, Figure 2 shows a two-fold difference between in economic loss between "Flood" and "Tornado". The second event type differs between HEALTH and economic loss, which raises an interesting question. Since the worst events associated with public health are different then the events associated with economic losses, how should planners adapt their emergency response to based on the resources required by these different emergencies. Figure 3 is a plot of HEALTH versus economic losses. As with all of the data in this study, tornadoes are far worst than any other weather event, but which event is the second worst? This is a judgment call for the planners, but StormCloud the plot in Figure 3, gives planners a tool to help assess how to distribute resources and to request resources from government agencies.
-
-The U.S. Federal Emergency Management Agency (FEMA) places the Valuation of Statistical Life (VSL) at \$12.5 million [2] based on a U.S. Department of Transportation memo [3]. With this information, emergency planners could monetize the value of a human life. In addition to the VSL, FEMA also uses the Abbreviated Injury Scale (AIS) to monetize the damage of injuries based on their seriousness. By monetizing deaths and injuries, the HEALTH versus Economic Loss plot could include a line dividing the amount of given resources required by an emergency response.
-
-## Weather Related Damages
 ```{r, message=TRUE, echo = TRUE}
 casualtyTable
 ```
+
+```{=html}
+<div style="font-size : 8; font-weight: normal; text-indent: 150px;">
+Source ...
+</div>   <!-- Base page -->
+```
+
+Table 2 lists the contents of the economic loss data frame. Using this table, an emergency planner can answer the question, "...which types of events have the greatest economic consequences" in several ways. The 10 most costly events are Tornado, Flood, Flash Flood, Hail, Hurricane/Typhoon, Drought, Thunderstorm Wind, Wildfire, High Wind, and Ice Storm. Ninety percent of the worst economic losses is the same as the ten most costly events. All of the events through Heavy Rain account for 95% of economic losses and the events up to and including Excessive Heat are responsible for 99% of economic losses.
 
 ```{r, message=TRUE, echo = TRUE}
 lossesTable
@@ -1594,41 +1617,56 @@ lossesTable
 
 ## Graphs
 
-## Worst Weather Related Causes of HEALTH
+Figure 1 shows the number of casualties for the ten most harmful weather events. It is the same data found in Table 1 but the plot provides a visual description of that data. A user can see the dramatic difference between the most harmful event, Tornado and the second most harmful event, Excessive Heat. The remaining events taper off slowly.
 
 ```{r, message=TRUE, echo = TRUE}
     knitr::include_graphics("EVTYPE_v_HEALTH-01.png")
 ```
 
-## Worst Weather Related Causes of Economic Losses
+
+
+
+Figure 2 displays of the ten most costly weather events. It is the same data found in Table 2 and it provides a visual description of that data. Like Figure 1, the Tornado event was the most damaging. However the difference between Tornado and the second worst event, Flood is not as dramatic. Like Figure 1, the remaining events taper off but not as slowly.
 
 ```{r, message=TRUE, echo = TRUE}
     knitr::include_graphics("EVTYPE_v_HEALTH-02.png")
 ```
 
-## Comparison of Causalties and Economic Losses
-
 ```{r, message=TRUE, echo = TRUE}
     knitr::include_graphics("HEALTH_v_ECONOMIC.png")
 ```
+
+
+
+
+
+The results for this project is presented in Tables
+
+
+The United States has a variety of weather events ranging from the extreme cold and extreme heat, extreme precipitation and lack of precipitation, tornadoes, hurricanes, etc. To understand the impact of these events, the National Oceanographic and Atmospheric Administration (NOAA) collects and analyzes weather data from all over the country. The data are restricted to forty-eight "significant weather phenomena[1]" and associated data. Part of the collected information induces the number of CASUALTIES (deaths and injuries) and the amount of damage to property including crop damage.
+
+StormCloud was produced to provide emergency services planners information regarding the damage to human life and the financial losses of specific weather events. Using this information, planners can help mitigate the damage by understanding the damages of these events. To this end, StormCloud presents presents the damages for storm damage as independent sets of data, one describing the human damage, and the other describing the financial damage.
+
+In Table 1a, the list of weather related CASUALTIES from 1950 to approximately 2012. The numbers range from 0 \~ 97,000 deaths or injuries. From the data in Table 1a, tornadoes are the leading cause of weather related CASUALTIES in the United States with 96,907 dead or injured followed by "Excessive Heat" with \~12,363 dead or injured. Comparing the relative seriousness of weather events, tornadoes represent 62% of all CASUALTIES. In fact, 90% of all US weather related CASUALTIES happen with the eight worst weather events and 99% happen with the worst 21 events.
+
+Table 1b is a list of weather related financial losses. Again, tornadoes are the biggest economic with approximately \$52 billion in losses from 1950 to 2012. This amounts to 27% of all weather related losses, which is significantly less proportion of CASUALTIES caused by tornadoes. The first nine events from Table 1b account for 90% of weather related financial losses compared to eight for CASUALTIES. The 99% level for financial losses happens in the first 19 events compared to 21 for CASUALTIES.
+
+The weather events tables 1a and 1b show the number of CASUALTIES and the financial losses due to those events gives an overall picture of the damage caused by severe weather, but the dramatic differences between event types and types of damage within an event type are difficult to discern. Figure 1 shows an eight-fold difference in CASUALTIES between "Excessive Heat" and "Tornado". In contrast, Figure 2 shows a two-fold difference between in economic loss between "Flood" and "Tornado". The second event type differs between CASUALTIES and economic loss, which raises an interesting question. Since the worst events associated with casualties are different then the events associated with economic losses, how should planners adapt their emergency response to based on the resources required by these different emergencies. Figure 3 is a plot of CASUALTIES versus economic losses. As with all of the data in this study, tornadoes are far worst than any other weather event, but which event is the second worst? This is a judgment call for the planners, but StormCloud the plot in Figure 3, gives planners a tool to help assess how to distribute resources and to request resources from government agencies.
+
+The U.S. Federal Emergency Management Agency (FEMA) places the Valuation of Statistical Life (VSL) at \$12.5 million [2] based on a U.S. Department of Transportation memo [3]. With this information, emergency planners could monetize the value of a human life. In addition to the VSL, FEMA also uses the Abbreviated Injury Scale (AIS) to monetize the damage of injuries based on their seriousness. By monetizing deaths and injuries, the CASUALTIES versus Economic Loss plot could include a line dividing the amount of given resources required by an emergency response.
+
 
 <hr style="background:#36013F; height:30px"/>
 
 # Bibliography
 
-[a] <https://www.ncdc.noaa.gov/stormevents/>
-[b] NATIONAL WEATHER SERVICE INSTRUCTION 10-1605 downloaded from <https://www.nws.noaa.gov/directives/sym/pd01016005curr.pdf> on July 8, 2023
+[1] <https://www.ncdc.noaa.gov/stormevents/>
 
-[2] <https://www.fema.gov/sites/default/files/documents/fema_standard-economic-values-methodology-report_092022.pdf>
+[2] NATIONAL WEATHER SERVICE INSTRUCTION 10-1605 downloaded from <https://www.nws.noaa.gov/directives/sym/pd01016005curr.pdf> on July 8, 2023
 
-[3] <https://www.transportation.gov/office-policy/transportation-policy/revised-departmental-guidance-on-valuation-of-a-statistical-life-in-economic-analysis> Source of FEMA's VSL data
 
-# Appendicies
+```{=html}
+</div>   <!-- Base page -->
 
-## Appendix I: Improvements
 
-1. Actuarial data Time series data (analysis, we have the data) 
-2. Complete reports regarding injury types and seriousness 
-3. Create an online/tablet form to ensure consistent data collection
-4. Clean up and streamline the code.
- 
+```
