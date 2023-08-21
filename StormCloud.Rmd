@@ -40,9 +40,10 @@ With this data, this document will display tables showing how the events rank in
 
 The **storm data file** is a csv file containing more than 900,000 records with thirty-seven columns defining each of the 900,000+ data points. There are several problems in the database:
 
-1.  misspellings of event type names;
-2.  leading and trailing edge spaces. Names like " FLOOD " and "FLOOD" are different because of the leading and trailing spaces, removing them will change the first name match the second;
-3.  inconsistent use of capitalization. Names like "BLACK ICE" and "black ice" are different because of the use of upper case letters, converting them to a single case representation, changing them to all lower case will make first name match the second (NOTE: all upper case would also work as would other approaches.); 4.idiosyncratic event names, like "?" and "high" have no particular meaning, though they have an impact on the casualty and loss values in the final data set.
+1.  Misspellings of event type names.
+2.  Event type names with whitespace in front of or behind the name. Names like " FLOOD " and "FLOOD" are different because of the leading and trailing spaces, removing them will change the first name match the second;
+3.  Inconsistent use of capitalization. Names like "BLACK ICE" and "black ice" are different because of the use of upper case letters, converting them to a single case representation, changing them to all lower case will make first name match the second (NOTE: all upper case would also work as would other approaches.); 
+4.idiosyncratic event names, like "?" and "high" have no equivalent names in the NWS event type name conventions, though they have an impact on the casualty and loss values in the final data set.
 
 The time span of the data set ranges from 1950 to 2012 (the last date in the set is (11/28/2011), but not all of this data used the same collection criteria.The data collection criteria have changed three time since its inception. The first set of criteria were applicable from 1950 to 1955 and accounted for tornadoes only. The second set of criteria were applicable from 1955 to 1996 and added thunderstorm wind, and hail. The third set was applicable from 1996 onward. These now include the following event types:
 
@@ -56,7 +57,11 @@ Astronomical Low Tide, Avalanche, Blizzard, Coastal Flood, Cold/Wind Chill, Debr
 
 **Processing the Data**
 
-The **storm data file** is a roughly 500 MB csv file with over 900,000 rows and 37 columns. Most of this data is not useful, the code will reduce the data it reads to seven columns it needs and all of the rows. With the initial data load, the code will remove rows that do not contribute to the calculation. This means any row with numerical data point equal to zero, will not contribute to the summation requred to analyze the data. The strings in the data file will be cleaned and converted to all lower case, then transformed to the appropriate NWS Instruction type names.
+The **storm data file** is a roughly 500 MB csv file with over 900,000 rows and 37 columns. The embedded R code will 
+1. Reduce the number of columns it reads to seven, so the read will create a 902297 row by 7 column data frame.
+2. Remove any row with all numerical values equal to zero. These rows will not contribute to the analysis the data, so there is no reason to keep them. 
+3. Clean and convert all string values to lower case. This will simplify comparison functions.
+4. Transform to the appropriate NWS Instruction type names.
 
 The data analysis will produce a list of the most to least harmful events and list of the most economically damaging to the least damaging. Both of these lists will be presented as tables in the document. Also, both tables will be used to produce bar graphs to visualize the data. A third plot will show the relationship between the casualties and economic losses for each event type.
 
@@ -84,16 +89,23 @@ library(usefun)
 ### "Constants"
 
 ```{r constants}
-# "Constants# ==================================================================
+# "Constants" ==================================================================
 # The following variables are used as constants, that is, the must not be 
 # changed after they are assigned a value. For clarity, all "constant" variables
 # are spelled in all upper case letters to distinguish them from other 
 # variables.
+# 
+# This code block will give a brief description of the constants and more 
+# detailed will be provded in the code block using them.
 # ==============================================================================
 
 # The URL and STORM_DATA_FILE are assigned here
 URL      = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 STORM_DATA_FILE = "storm.csv.bz2"
+
+# The number of years in the data frame. This is used to convert values to 
+# value per year.
+PER_ANUM = 2012.0 - 1996.0
 
 # Many constants are set up as arrays of two values. To make the meaning clear,
 # the code uses the indices, rather than 1 or 2 to access the appropriate array
@@ -105,24 +117,42 @@ ECONOMIC_IDX   = 2
 # Kable tables
 TABLE_FIELDS <-  c("c('EVTYPE', 'CASUALTIES', 'PERCENT', 'ACC_PERCENT')",
                   "c('EVTYPE', 'ECONOMIC_LOSSES', 'PERCENT', 'ACC_PERCENT')")
-TABLE_LABELS <- list(
-    c("Event Type", "Casualties", "Percent of Total", "Accumulated Percent"),
-    c("Event Type", "Economic Losses (in millions)", "Percent of Total", 
-      "Accumulated Percent"))
 
+TABLE_LABELS <- list(
+    c("Event Type", "Casualties/year", "Percent of Total", "Accumulated Percent"),
+    c("Event Type", "Economic Losses/year (in millions)", "Percent of Total", 
+      "Accumulated Percent")
+    )
+
+DAMAGE_LABELS <- c("Casualties/year", "Economic Losses/year")
 DAMAGE_ORDERING = c("desc(.$CASUALTIES)", "desc(.$ECONOMIC_LOSSES)")
 
 # Barplots names 
-# BAR_NAMES   = c("Health", "Economic Losses")
 BAR_SELECT  = c("c('EVTYPE', 'CASUALTIES')",
                   "c('EVTYPE', 'ECONOMIC_LOSSES')")
+
 BAR_REORDER = c("reorder(EVTYPE, -CASUALTIES)",
                    "reorder(EVTYPE, -ECONOMIC_LOSSES)")
+
 BAR_FIELD   = c("CASUALTIES", "ECONOMIC_LOSSES")
 
-# Every transformation has some verification output. This output can clutter the 
-# code so rather than always executing the code, CORRECTNESS and ALL_DATA 
-# constants will block the verification or execute it. FALSE TRUE
+# Setting up Verification
+# 
+# Every transformation has some verification output to demonstrate that the code
+# is working correctly; however, including verification output will clutter the 
+# document with details that are not important for the emergency managers. To 
+# resolve the problem, the following constants are used. All of the verification
+# code is written inside an "if" statement. When the constant "CORRECTNESS" is 
+# set to TRUE, the verification code will be executed and when set to FALSE
+# it will not.
+#
+# The "ALL_DATA" is used for a specific function. When both "CORRECTNESS" and
+# "ALL_DATA" are set to TRUE, a block of code will read the whole contents of
+# storm data file and print some basic information about the resulting data 
+# frame. After printing this information, the markdown execution will stop.
+# The only purpose for this block of code is to get a baseline data set for the
+# data frame transformations.
+
 CORRECTNESS               = TRUE
 ALL_DATA                  = FALSE
 
@@ -132,7 +162,7 @@ ALL_DATA                  = FALSE
 
 ```{r Unify Names}
 # UnifyNames ===================================================================
-# This function is called in Transformation 5, so it might not make sense 
+# This function is called in Transformation 5, and it might not make sense 
 # without reading that transformation first.
 # 
 # Some of the data collectors did not adhere to the NWS Instruction naming 
@@ -140,7 +170,7 @@ ALL_DATA                  = FALSE
 # is designed to force all event type names in the data frame to conform to the 
 # NWS conventions using gsub statements.
 # 
-# The code is long and repeatitive.
+# The code is long and repetitive.
 # ==============================================================================
 
 UnifyNames <- function(stormDF) {
@@ -1018,7 +1048,7 @@ The output of the tests show exactly what was expected (see Table 2). All of the
 
 The 'HAIL' event type had over 200,000 non-contributing rows before the transformation and none afterwards. This means all of the non-contributing 'HAIL' rows are gone. On the other hand, there were 26070 contributing rows of 'HAIL' before and after the transformation. This suggests the transformation dropped all non-contributing rows while keeping all of the contributing rows. This is the desired effect.
 
-The '?' event type had no non-contributing rows before and after the transformation, and the contributing rows had one row before and afterwards. Even though '?' is not a valid NWS event type name, the transition did not eliminate it because the number of contributing rows did not change.
+The '?' event type had no non-contributing rows before and after the transformation, and the contributing rows had one row before and afterwards. Even though '?' is not a valid NWS event type name, the transformation did not eliminate it because the number of contributing rows did not change.
 
 The 'Summary: Nov. 16' event type had two contributing rows before and none after the transformation. This means the rows were dropped and since there were no contributing rows before or after the transformation, all rows involving this event type are dropped from the data frame. As a result, the 'Summary: Nov. 16' there are no occurances of this event type in *stormDF*.
 
@@ -1099,12 +1129,12 @@ The goal is to change the string names to simplify comparisons that will have to
 
 This transformation is necessary for two reasons.
 
-1.  white space at the beginning and ending of a string are included in string comparisons. The type names "*DUST*" and " *DUST*" are two different strings because of the extra space in front of the second string.
+1.  whitespace at the beginning and ending of a string are included in string comparisons. The type names "*DUST*" and " *DUST*" are two different strings because of the extra space in front of the second string.
 2.  the data collectors did not use consistent spelling or capitalization. Type names like *Black Ice* match the NWS naming convention, but *BLACK ICE* does not.
 
 **How?**
 
-Each column of the *stormDF* with strings (*EVTYPE*, *PROPDMGEXP*, and *CROPDMGEXP*) are "trimmed" by removing white space in the beginning and ending of the string. After trimming the white space, all of these strings are then converted all to lower case letters.
+Each column of the *stormDF* with strings (*EVTYPE*, *PROPDMGEXP*, and *CROPDMGEXP*) are "trimmed" by removing whitespace in the beginning and ending of the string. After trimming the whitespace, all of these strings are then converted all to lower case letters.
 
 #### Code
 
@@ -1115,7 +1145,7 @@ Each column of the *stormDF* with strings (*EVTYPE*, *PROPDMGEXP*, and *CROPDMGE
 # instructions. The first set counts instances of ' FLASH FLOOD' and 'FLASH 
 # FLOOD'. The string ' FLASH FLOOD' is both upper case and includes a leading 
 # space. The string 'FLASH FLOOD' is also in upper case but it has no leading
-# or trailing edge white spaces. In both cases, the transformation will change
+# or trailing edge whitespaces. In both cases, the transformation will change
 # the strings to 'flash flood'.
 ################################################################################
 
@@ -1147,7 +1177,7 @@ if (CORRECTNESS) {
 
 print_empty_line(html=FALSE)
 ### TRANSFORMATION CODE ########################################################
-### Transformation code will trim the leading and trailing white spaces from 
+### Transformation code will trim the leading and trailing whitespaces from 
 ### every string in stormDF$EVTYPE, stormDF$PROPDMGEXP, and source$CROPDMGEXP. 
 ### It will then change all those strings to lower case.
 ################################################################################
@@ -1235,7 +1265,7 @@ if (CORRECTNESS) {
 </pre>
 
 
-<strong>Output Listing 3c:</strong> In addition to the change in letters, it searched for " FLASH FLOOD", "FLASH FLOOD", " flash flood", and "flash flood". All of the names with the exception of "flash flood" were not found. Since the white spaces were trimmed and all of the characters were changed to lower case letters, this makes sense.
+<strong>Output Listing 3c:</strong> In addition to the change in letters, it searched for " FLASH FLOOD", "FLASH FLOOD", " flash flood", and "flash flood". All of the names with the exception of "flash flood" were not found. Since the whitespaces were trimmed and all of the characters were changed to lower case letters, this makes sense.
 
 <pre>
 ## [1] "Transformation 3 State"
@@ -1991,8 +2021,8 @@ stormDF <- stormDF %>% ungroup(.) %>%
                               ifelse(CROPDMGEXP == 'm', 1000000., 1.) ),
           PROPDMG    = PROPDMG * PROPDMGEXP,
           CROPDMG    = CROPDMG * CROPDMGEXP,
-          CASUALTIES = FATALITIES + INJURIES,
-          ECONOMIC_LOSSES   = (PROPDMG + CROPDMG)/1000000.0
+          CASUALTIES = (FATALITIES + INJURIES)/PER_ANUM,
+          ECONOMIC_LOSSES   = (PROPDMG + CROPDMG)/(PER_ANUM*1000000.)
           ) %>%
   select(EVTYPE, CASUALTIES, ECONOMIC_LOSSES)
 
@@ -2052,7 +2082,7 @@ The transformation state changes show *EVTYPE*, *CASUALTIES*, and *ECONOMIC_LOSS
 ```{=html}
 <br/>
 <div style="width : 80%; font-size : 10; font-weight: normal; text-indent: 150px;">
-# table 10
+<strong>Table 10.</strong> Data Frame State Changes Due to Transformation 6
 <table style="width : 100%;">
 <tr>
 <th style="width : 31%; text-align: center; vertical-align : top; border: 1px solid;">Parameter</th>
@@ -2453,13 +2483,15 @@ is the same as the first except the focus is no *ECONOMIC_LOSSES*.
 
 ### Table Formatting
 
-```{r}
+```{r tables}
 ### KABLE TABLE CODE ###########################################################
 ### The kable tables are formatted tables used to display the results of the 
 ### analysis. It makes extensive use of the "constants" described at the 
-### beginning the "Processing Code" section. As a refresher, the purpose of the 
-### "constants" it to simplify the use of for-loops. 
-###
+### beginning the "Processing Code" section. The purpose of these "constants" is
+### to turn titles, labels, and some instructions that are dependent on the  
+### damage type (CASUALTIES or ECONOMIC LOSSES) into arrays that are referenced
+### by damage type.
+### 
 ### In this case, the TABLE_FIELDS[CASUALTY_IDX] defines the columns required 
 ### by the casualty table and TABLE_LABELS[CASUALTY_IDX] defines the titles used 
 ### by the casualty table.
@@ -2478,8 +2510,8 @@ getTable <- function (damageTable, damageType)
   resTable <- knitr::kable(damageTable, "html",
     caption = paste0("<center><strong><font size='1'>",
                      "Table ", (damageType + 12),". United States ",
-                     TABLE_LABELS[[damageType]][2],
-                     "</font><center></strong>"),
+                     DAMAGE_LABELS[damageType],
+                     " due to Severe Weather Events (1996-2012)</font><center></strong>"),
     digits = 3, align = "lrrr",
     col.names = c(TABLE_LABELS[[damageType]]), row.names = TRUE
     ) %>%
@@ -2501,49 +2533,49 @@ getTable <- function (damageTable, damageType)
 
 ### Bar Plot Formatting
 
-```{r}
+```{r bars}
 ### BAR PLOT DAMAGE CODE #######################################################
 ### The storm damage bar plots use the same information as the kable tables  
-### except it shows only the top 25 event types.  
+### except it shows only the top 25 event types. The x-axis is the event type 
+### and the y-axis in the first plot is the number of casualties and in the  
+### second is the amount of economic losses in $millions.
 ### 
+### As with the kable tables, the bar plots rely on "constants" describe at the  
+### start of this section.  The purpose of these "constants" is
+### to turn titles, labels, and some instructions that are dependent on the  
+### damage type (CASUALTIES or ECONOMIC LOSSES) into arrays that are referenced
+### by damage type.
 ### 
+### The bar plots select the columns it needs using the BAR_SELECT array. 
+### BAR_SELECT[CASUALTY_IDX] selects the EVTYPE and CASUALTIES, and 
+### BAR_SELECT[ECONOMIC_IDX] selects the EVTYPE and ECONOMIC_LOSSES
 ### 
+### Setting the x-axis to EVTYPE reorders the damage table alphabetically. To 
+### ensure the desired ordering, the reorder command will order arrays as
+### follows:
 ### 
+### BAR_REORDER[CASUALTY_IDX] is "reorder(EVTYPE, -CASUALTIES)". This will 
+### reorder the damageTable by CASUALTIES, and it the context of the aes 
+### parameters, EVTYPE will be the x-axis.
+### BAR_REORDER[ECONOMIC_IDX] is "reorder(EVTYPE, -ECONOMIC_LOSSES)". This will 
+### reorder the damageTable by ECONOMIC_LOSSES, and it the context of the aes 
+### parameters, EVTYPE will be the x-axis.
 ### 
+### BAR_FIELD is used to set the y-axis, so
+### BAR_FIELD[CASUALTY_IDX] = "CASUALTIES"
+### BAR_FIELD[ECONOMIC_IDX] = "ECONOMIC_LOSSES"
 ### 
-### 
-### The kable tables are formatted tables used to display the results of the 
-### analysis. It makes extensive use of the "constants" described at the 
-### beginning the "Processing Code" section. As a refresher, the purpose of the 
-### "constants" it to simplify the use of for-loops. 
-### 
-### 
-### 
-### BAR_SELECT  = c("c('EVTYPE', 'CASUALTIES')",
-###                   "c('EVTYPE', 'ECONOMIC_LOSSES')")
-### 
-### BAR_REORDER = c("reorder(EVTYPE, -CASUALTIES)",
-###                    "reorder(EVTYPE, -ECONOMIC_LOSSES)")
-### BAR_FIELD   = c("CASUALTIES", "ECONOMIC_LOSSES")
-### 
-### ### In this case, the TABLE_FIELDS[CASUALTY_IDX] defines the columns required 
-### by the casualty table and TABLE_LABELS[CASUALTY_IDX] defines the titles used 
-### by the casualty table.
+### The TABLE_LABELS arrays contain two sets of labels. The second element of 
+### the used to set the y-axis label.
+### TABLE_LABELS[[CASUALTY_IDX]][2] is "Casualties" 
+### TABLE_LABELS[[ECONOMIC_IDX]][2] is "Economic Losses (in millions)" 
 ###
-### Likewise, the TABLE_FIELDS[ECONOMIC_IDX] defines the columns required 
-### by the economic losses  table and TABLE_LABELS[ECONOMIC_IDX] defines the  
-### titles used by the economic losses table.
-
-### 
-### BAR_NAMES   = c("Health", "Economic Losses")
 ################################################################################
 barPlot <- function (damageTable, damageType)
 {
-  # table <-damageTable %>%
   damageTable <- head(damageTable, n=25) %>%
     select(eval(parse(text = BAR_SELECT[[damageType]])))
-  # colnames(damageTable) <- eval(parse(text = BAR_SELECT[[damageType]]))
-  # damageTable$EVTYPE <- factor(damageTable$EVTYPE, levels = damageTable$EVTYPE)
+
   
   plt <- ggplot(damageTable,
                 aes(x = eval(parse(text=BAR_REORDER[[damageType]])),
@@ -2552,7 +2584,7 @@ barPlot <- function (damageTable, damageType)
                    str_to_title(TABLE_LABELS[[damageType]][2]))) +
     xlab("Event") +
     ylab(str_to_title(TABLE_LABELS[[damageType]][2])) +
-    geom_bar(stat="identity", width=0.7, fill="steelblue") +
+    geom_bar(stat="identity", width=0.7, fill="steelblue1") +
     theme(plot.title = element_text(face="plain", color="black", size=12),
           axis.text.x = element_text(size = 5, face="bold", angle = -80, hjust = 0, vjust = 0),
           axis.text.y = element_text(size = 5, face="bold"),
@@ -2567,14 +2599,15 @@ barPlot <- function (damageTable, damageType)
 
 ```{r}
 ### SCATTER PLOT DAMAGE CODE ###################################################
+### The storm damage scatterplot needs only one of the damage table since, both
+### have the same columns and the order does not matter. Each (CASUALTY, 
+### ECONOMIC_LOSSES) pair represents an EVTYPE on the scatterplot. Most of the 
+### (CASUALTY, ECONOMIC_LOSSES) pairs will be represented as black dots, the 
+### ten worst events of each damage type will be represented by colored dots.
 ### 
-### 
-### 
-### 
-### 
-### 
-### 
-### 
+### As with the kable tables and the bar plots, the scatterplot relies on 
+### "constant" arrays for titles and labels dependent on the damage type   
+### (CASUALTIES or ECONOMIC LOSSES) to the label the plot.  
 ################################################################################
 scatterPlot <- function (stormDamageList)#, damageType)
 {
@@ -2584,12 +2617,13 @@ scatterPlot <- function (stormDamageList)#, damageType)
 
   worstTable <- stormAnalysisDF[stormAnalysisDF$EVTYPE %in% eventSet,  ]
   plotTable  <- stormAnalysisDF[!(stormAnalysisDF$EVTYPE %in% eventSet),  ]
-  plotTable$EVTYPE <- "z Other"
+  plotTable$EVTYPE <- "z"
   plotTable <- rbind(worstTable, plotTable)
 
   plt <- ggplot(plotTable, aes(x = CASUALTIES, y = ECONOMIC_LOSSES)) +
     ggtitle("Figure 3. United States Public Health vs. Economic Losses") +
-    xlab(TABLE_LABELS[[1]][2]) + ylab(TABLE_LABELS[[2]][2]) +
+    xlab(TABLE_LABELS[[CASUALTY_IDX]][2]) + 
+    ylab(TABLE_LABELS[[ECONOMIC_IDX]][2]) +
     theme(plot.title = element_text(face="plain", color="black", size=28),
           axis.title.x =
             element_text(face="bold", color="black", size=14),
@@ -2612,7 +2646,7 @@ scatterPlot <- function (stormDamageList)#, damageType)
       data = worstTable,
       aes(x=CASUALTIES, y=ECONOMIC_LOSSES, label = EVTYPE, color = EVTYPE, 
           fontface = "bold"),
-      min.segment.length = 0.0, nudge_y = 1000.0, nudge_x = 1500.0,
+      min.segment.length = 0.0, nudge_y = 10-.0, nudge_x = 150.0,
       force = 100.0,
       force_pull = 30.0
     )
@@ -2633,7 +2667,7 @@ lossesTable   <- getTable(stormDamageList[[ECONOMIC_IDX]], ECONOMIC_IDX)
 
 ```
 
-<hr style="background: Black; height: 3px"/>
+<hr style="background: Black; height: 30px"/>
 
 # Results
 
@@ -2642,46 +2676,180 @@ This project was designed to answer the following questions:
 1.  Across the United States, which types of events are most harmful with respect to population health?
 2.  Across the United States, which types of events have the greatest economic consequences?
 
-The results of the analysis are stored in a list of two data frames. One data frame contains the events, number of casualties, economic losses, the percent and accumulated percent for each event types. It is also ordered by casualty from most to least. The second data frame is like the first, except the focus is on economic losses and ordered accordingly.
+To some extent, Tables 13 and 14 answer the questions. They list the events ordered by casualties and  economic losses respectively, but they do not suggest which ones are worst. Using the accumulated percent column would allow the emergency manager could declare the top 90% of the ordered events tables to be the worst. This criterion would make worst casualty events be those from "Tornado" to "Heavy Snow". Nevertheless, using an arbitrary limit define what is or is not among the worst weather events may not lead to an accurate conclusion. Instead, visualizing the information may give some clarity in the matter. 
+Figures 1 and 2 show the worst 25 events in order of both damage types. These figures give an emergency manager enough information to see how the damage done by event types change relative to each other. Using this criteria, the manager could select "Tornado" through "Lightening" in Figure 1 as a cutoff because of the drop in casualties between "Lightening" and "Flash Flood". Again, this is arbitrary, but it uses the expertise of the manager rather than an arbitrary cutoff value to determine "the worst."
 
-## Tables
+A third option is presented in Figure 3. This figure shows events by the relationship between it casualties and economic losses. The colored dots are a set of the worst ten casualties and the worst ten economic losses and the black dots represent the remainder of the events. Again these arbitrarily represent what it means to be "the worst," but it provides a manager with different perspective of what "the worst" can mean.
 
-Table 13 lists the contents of the casualty data frame. Using this table, an emergency planner can answer the question, "...which types of events are most harmful with respect to population health" in several ways. For example, the 10 most harmful events can be found by looking at first 10 rows of the table. They are Tornado, Excessive Heat, Thunderstorm Wind, Flood, Lightning, Flash Flood, Ice Storm, High Wind, Wildfire, and Winter Storm. If the user wants to know which events account for 90% of the casualties, they could look at Accumulated Percent column and find the first value over 90%. It turns out to be Wildfire. THe 95% worst categories end at Heavy Snow and the 99%, in row 23, is Avalanche.
+## Tables 
 
-```{r, message=TRUE, echo = TRUE}
+Table 13 lists the contents of the casualty damage table. There are a few ways to use this table:
+
+1. Since the table is ordered by the severity of the event, the worst *n* event types are the first *n* entries in the table. 
+2. The events types accounting for *x*% of the worst casualties is found by scanning the "Accumulated Percent" for the first value greater than *x*.
+
+If the emergency manager wants to know the ten worst event types for causing casualties, the table shows "Tornado", "Excessive Heat", "Flood", "Thunderstorm Wind", "Lightning", "Flash Flood", "Ice Storm", "High Wind", "Wildfire", and "Winter Storm".
+
+If they want to know which events are responsible for causing 90% the casualties:
+"Tornado", "Excessive Heat", "Flood", "Thunderstorm Wind", "Lightning", "Flash Flood", "Ice Storm", "High Wind", "Wildfire", "Winter Storm", "Hurricane/Typhoon", "Winter Weather", "Hail", and Heavy Snow"
+
+
+```{r}
 casualtyTable
 ```
-
 ```{=html}
-<div style="font-size : 8; font-weight: normal; text-indent: 150px;">
-Source ...
-</div>   <!-- Base page -->
+<div style="font-size : 8; font-weight: normal; text-indent: 100px;">
+Source: Storm Events Database [d]
+</div>
+<br/>
 ```
-Table 14 lists the contents of the economic loss data frame. Using this table, an emergency planner can answer the question, "...which types of events have the greatest economic consequences" in several ways. The 10 most costly events are Tornado, Flood, Flash Flood, Hail, Hurricane/Typhoon, Drought, Thunderstorm Wind, Wildfire, High Wind, and Ice Storm. Ninety percent of the worst economic losses is the same as the ten most costly events. All of the events through Heavy Rain account for 95% of economic losses and the events up to and including Excessive Heat are responsible for 99% of economic losses.
 
-```{r, message=TRUE, echo = TRUE}
+Table 14 lists the contents of the economic damage table. As with Table 13, this table can be used for the same proposes:
+
+1. The worst *n* event types are the first *n* entries in the table. 
+2. The worst *x*% of the economic losses is found by scanning the "Accumulated Percent" for the first value greater than *x*. 
+
+If the emergency manager wants to know the ten worst event types for causing economic losses, the table shows "Flood", "Tornado", "Flash Flood", "Hail", "Hurricane/Typhoon", "Drought", "Thunderstorm Wind", "Wildfire", "High Wind", and "Ice Storm".
+
+If they want to know which events are responsible for causing 90% the casualties:
+"Flood", "Tornado", "Flash Flood", "Hail", "Hurricane/Typhoon", "Drought", "Thunderstorm Wind", "Wildfire", "High Wind", "Ice Storm", and "Tropical Storm".
+
+```{r}
 lossesTable
+```
+```{=html}
+<div style="font-size : 8; font-weight: normal; text-indent: 100px;">
+Source: Storm Events Database [d]
+</div>
 ```
 
 ## Graphs
 
-Figure 1 shows the number of casualties for the ten most harmful weather events. It is the same data found in Table 13 but the plot provides a visual description of that data. A user can see the dramatic difference between the most harmful event, Tornado and the second most harmful event, Excessive Heat. The remaining events taper off slowly.
+Using the tables to analyze the worst event types in terms of casualties and economic losses is useful when constrained by a threshold limit e.g, the top 10 or the worst 90%. However, these constraints are artificially imposed and do not allow expert input to determine what constitutes the worst event types.
 
-```{r, message=TRUE, echo = TRUE}
+Figure 1 shows the number of casualties for the twenty-five most harmful weather events. It is the same data found in Table 13 but the plot visualizes the data in a way that gives a different perspective of the impact events types. For example, looking at Figure 1 shows several drops in casualties for each event types. Specifically,  the "Tornado"/"Excessive Heat" drop, the "Excessive Heat"/"Flood" drop, the "Lightening"/"Flash Flood" drop, etc. If one of the drops delineate one group of events from the others, that point could be used as the boundary for the worst event.
+
+For example, if the "Lightening"/"Flash Flood" drop is used as the boundary, then the worst event types are "Tornado", "Excessive Heat", "Flood", "Thunderstorm Wind", "Lightning", and "Flash Flood".
+
+```{r, evtype 1 image}
     knitr::include_graphics("EVTYPE-01.png")
 ```
 
-Figure 2 displays of the ten most costly weather events. It is the same data found in Table 14 and it provides a visual description of that data. Like Figure 1, the Tornado event was the most damaging. However the difference between Tornado and the second worst event, Flood is not as dramatic. Like Figure 1, the remaining events taper off but not as slowly.
+As in Figure 1, Figure 2 shows the worst twenty-five events in terms of economic losses. In this plot, the drops consist of "Tornado"/"Flash Flood", "Thunderstorm Wind"/"Wildfire", and "Tropical Storm"/"Frost/Freeze".
+
+For example, if the "Thunderstorm Wind"/"Wildfire" drop is used as the boundary, then the worst event types are "Flood", "Tornado", "Flash Flood", "Hail", "Hurricane/Typhoon", "Drought", and "Thunderstorm Wind".
 
 ```{r, message=TRUE, echo = TRUE}
     knitr::include_graphics("EVTYPE-02.png")
 ```
 
+An issue with the Figures 1 and 2 is their focus on one event or the other but an emergency manager cannot look at an event type based only on casualties or only on economic losses. To fill this gap, Figure 3 shows each event as a relationship between causualties and losses. Each point on the graph is an event type, most of which are black. The colored dots represent are drawn from the worst ten casualty and economic tables.
+
+The point of this plot is to give an emergency manager information regarding the trade-off between casualties and economic losss to assess the worst events. For example, an emergency manager could draw a box around the points that seem less important and select the event types outside the box as the worst case.
+
+Consider a decision to draw the box at $500,000,000 per year and 250 casualties per year. This box will eliminate all of the black dots and the "Wildfire", "High Wind", "Ice Storm", and "Winter Storm". This would make the worst types   
+
+
 ```{r, message=TRUE, echo = TRUE}
     knitr::include_graphics("CASUALTIES_v_LOSSES.png")
 ```
 
-The results for this project is presented in Tables
+```{=html}
+<br/>
+<div style="width : 80%; font-size : 10; font-weight: normal; text-indent: 150px;">
+
+<strong>Table 15.</strong> Worst Events Based on the Relationship between Casualties and Economic Losses. 
+
+<table style="width : 100%; margin-left: auto; margin-right: auto;">
+<tr>
+<th style="width : 31%; text-align: center; vertical-align : top; border: 1px solid;">Event Type</th>
+<th style="width : 23%; text-align: center; vertical-align : top; border: 1px solid;">Casualty Rank</th>
+<th style="width : 23%; text-align: center; vertical-align : top; border: 1px solid;">Economic Rank</th>
+</tr>
+
+<tr>
+<td style="vertical-align : top; text-align: left; border: 1px solid; padding: 5px; border: 2px solid black;">Drought</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">37</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">6</td>
+</tr>
+
+<tr>
+<td style="vertical-align : top; text-align: left; border: 1px solid; padding: 5px; border: 2px solid black;">Excessive Heat</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">2</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">20</td>
+</tr>
+
+<tr>
+<td style="vertical-align : top; text-align: left; border: 1px solid; padding: 5px; border: 2px solid black;">Flash Flood</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">6</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">3</td>
+</tr>
+
+<tr>
+<td style="vertical-align : top; text-align: left; border: 1px solid; padding: 5px; border: 2px solid black;">Flood</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">3</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">1</td>
+</tr>
+
+<tr>
+<td style="vertical-align : top; text-align: left; border: 1px solid; padding: 5px; border: 2px solid black;">Hail</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">13</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">4</td>
+</tr>
+
+<tr>
+<td style="vertical-align : top; text-align: left; border: 1px solid; padding: 5px; border: 2px solid black;">Hurricane/Typhoon</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">11</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">5</td>
+</tr>
+
+<tr>
+<td style="vertical-align : top; text-align: left; border: 1px solid; padding: 5px; border: 2px solid black;">Lightning</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">5</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">10</td>
+</tr>
+
+<tr>
+<td style="vertical-align : top; text-align: left; border: 1px solid; padding: 5px; border: 2px solid black;">Thunderstorm Wind</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">4</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">7</td>
+</tr>
+
+<tr>
+<td style="vertical-align : top; text-align: left; border: 1px solid; padding: 5px; border: 2px solid black;">Tornado</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">1</td>
+<td style="vertical-align : top; text-align: right; border: 1px solid; padding: 5px; border: 2px solid black;">2</td>
+</tr>
+
+</table>
+
+</div>
+<!-- <strong>Table 1. The ordered tables answer the required questions. One table shows the NWS Instruction event type names ordered by the highest to lowest casualties. The other table shows the NWS Instruction event type names ordered by the most to least costly.</strong> -->
+
+<br/><br/>
+```
+
+
+```{r, message=TRUE, echo = TRUE}
+    knitr::include_graphics("CASUALTIES_v_LOSSES.png")
+```
+
+```{=html}
+<div style="font-size : 8; font-weight: normal; text-indent: 100px;">
+Source: Storm Events Database [d]
+</div>
+<br/>
+
+```
+
+This question can have several answers, but classifing the events as a relationship between casualties and economic losses gives a more holistic view of the problem. Because of this:
+
+1. Across the United States, which types of events are most harmful with respect to population health?
+**The event types that are the most harmful are: Drought, Excessive Heat, Flash Flood, Flood, Hail, Hurricane/Typhoon, Lightning, Thunderstorm Wind, and Tornado**
+
+2.  Across the United States, which types of events have the greatest economic consequences?
+**The event types with the greatest economic damages are: Drought, Excessive Heat, Flash Flood, Flood, Hail, Hurricane/Typhoon, Lightning, Thunderstorm Wind, and Tornado**
+
 
 <hr style="background:#36013F; height:30px"/>
 
@@ -2693,26 +2861,7 @@ The results for this project is presented in Tables
 
 [a] NATIONAL WEATHER SERVICE INSTRUCTION 10-1605 downloaded from <https://www.nws.noaa.gov/directives/sym/pd01016005curr.pdf> on Nov 30, 2022
 
-# Glossary
-
-Before describing the transformations, planners need to familiarize themselves with some of the nomenclature used in the document.
-
-**NWS Names** are the type names found in National Weather Service (NWS) Instruction 10-1605 [2].
-
-**initial data columns** -- *EVTYPE*, *FATALITIES*, *INJURIES*, *PROPDMG*, *PROPDMGEXP*, *CROPDMG*, and *CROPDMGEXP*. These columns, read directly from the file, include all of the information required to perform the analysis.
-
-**numeric columns** *FATALITIES*, *INJURIES*, *PROPDMG*, and *CROPDMG* hold the numeric values required by the analysis.
-
-**exponent columns** *PROPDMGEXP* and *CROPDMGEXP* are character values representing numerical values. The letter 'k' represents 1,000, and the letter 'M' represents 1,000,000.
-
-**independent field** -- *EVTYPE* identifies a specific set of numeric columns each data frame.
-
-**damage types** are *CASUALTIES* and *economic losses*. Casualties represent the harm done by each weather event and ecoonomic losses represent the economic consequences. For this analysis:
-
-1.  *CASUALTIES* = *FATALITIES* + *INJURIES*,
-2.  *ECONOMIC_LOSSES* = (*PROPDMG* \* *PROPDMGEXP*) + (*CROPDMG* \* *CROPDMGEXP*).
-
-**unifying names** is the process ensuring all names used by the data collectors are replaced with the appropriate NWS type names.
+[d] https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2
 
 ```{=html}
 
